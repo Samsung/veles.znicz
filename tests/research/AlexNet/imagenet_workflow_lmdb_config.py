@@ -33,6 +33,7 @@ under the License.
 """
 
 
+import numpy
 import os
 
 from veles.config import root
@@ -63,13 +64,13 @@ root.imagenet.update({
     "loss_function": "softmax",
     "loader_name": "lmdb",
     "loader": {"minibatch_size": 256,
-               "shuffle_limit": 1, "crop": (227, 227), "mirror": "random",
+               "shuffle_limit": numpy.iinfo(numpy.uint32).max,
+               "crop": (227, 227), "mirror": "random",
                "color_space": "RGB", "normalization_type": "external_mean",
                "train_path": os.path.join(data_path, "ilsvrc12_train_lmdb"),
                "validation_path": os.path.join(data_path, "ilsvrc12_val_lmdb"),
                },
-
-    "weights_plotter": {"limit": 64},
+    "weights_plotter": {"limit": 256, "split_channels": False},
     "layers": [{"type": "conv_str",
                 "->": {"n_kernels": 96, "kx": 11, "ky": 11,
                        "padding": (0, 0, 0, 0), "sliding": (4, 4),
@@ -89,7 +90,7 @@ root.imagenet.update({
                 "->": {"n_kernels": 256, "kx": 5, "ky": 5,
                        "padding": (2, 2, 2, 2), "sliding": (1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
-                       "bias_filling": "constant", "bias_stddev": 1},
+                       "bias_filling": "constant", "bias_stddev": 0.1},
                 "<-": {"learning_rate": base_lr,
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
@@ -114,7 +115,7 @@ root.imagenet.update({
                 "->": {"n_kernels": 384, "kx": 3, "ky": 3,
                        "padding": (1, 1, 1, 1), "sliding": (1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
-                       "bias_filling": "constant", "bias_stddev": 1},
+                       "bias_filling": "constant", "bias_stddev": 0.1},
                 "<-": {"learning_rate": base_lr,
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
@@ -125,7 +126,7 @@ root.imagenet.update({
                 "->": {"n_kernels": 256, "kx": 3, "ky": 3,
                        "padding": (1, 1, 1, 1), "sliding": (1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
-                       "bias_filling": "constant", "bias_stddev": 1},
+                       "bias_filling": "constant", "bias_stddev": 0.1},
                 "<-": {"learning_rate": base_lr,
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
@@ -136,7 +137,7 @@ root.imagenet.update({
                {"type": "all2all_relu",
                 "->": {"output_sample_shape": 4096,
                        "weights_filling": "gaussian", "weights_stddev": 0.005,
-                       "bias_filling": "constant", "bias_stddev": 1},
+                       "bias_filling": "constant", "bias_stddev": 0.1},
                 "<-": {"learning_rate": base_lr,
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
@@ -146,7 +147,7 @@ root.imagenet.update({
                {"type": "all2all_relu",
                 "->": {"output_sample_shape": 4096,
                        "weights_filling": "gaussian", "weights_stddev": 0.005,
-                       "bias_filling": "constant", "bias_stddev": 1},
+                       "bias_filling": "constant", "bias_stddev": 0.1},
                 "<-": {"learning_rate": base_lr,
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,

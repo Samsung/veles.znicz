@@ -140,7 +140,7 @@ class NNRollback(Unit):
                 self.info("Increased lr of %s by %.2f, new_lr %.2e",
                           repr(_gd), k, _gd.learning_rate)
                 for weights_name in self.weights_names:
-                    if getattr(_gd, weights_name, None) is not None:
+                    if getattr(_gd, weights_name, None):
                         kv[weights_name] = self.get_weights(
                             _gd, weights_name, kv)
         elif not self._first_run:
@@ -173,7 +173,7 @@ class NNRollback(Unit):
                 self.info("Decreased lr of %s by %.2f, new_lr %.2e",
                           repr(_gd), k, _gd.learning_rate)
                 for weights_name in self.weights_names:
-                    if getattr(_gd, weights_name, None) is not None:
+                    if getattr(_gd, weights_name, None):
                         setattr(_gd, "%s.mem[:]" % weights_name,
                                 self.rollback_weights(
                                     _gd, weights_name, kv, rollback_to))

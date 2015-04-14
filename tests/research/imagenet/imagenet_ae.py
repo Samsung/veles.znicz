@@ -524,7 +524,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
         # Weights plotter
         self.plt_mx = nn_plotting_units.Weights2D(
-            self, name="Conv Weights", limit=96)
+            self, name="Conv Weights", limit=256, split_channels=False)
         self.plt_mx.link_attrs(last_conv, ("input", "weights"))
         self.plt_mx.get_shape_from = [last_conv.kx, last_conv.ky,
                                       last_conv.input]
@@ -534,7 +534,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
         # Input plotter
         self.plt_inp = nn_plotting_units.Weights2D(
-            self, name="Conv Input", limit=20)
+            self, name="Conv Input", limit=64, split_channels=False)
         self.plt_inp.link_attrs(last_conv, "input")
         self.plt_inp.link_from(prev)
         self.plt_inp.gate_skip = ~self.decision.epoch_ended
@@ -542,7 +542,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
         # Output plotter
         self.plt_out = nn_plotting_units.Weights2D(
-            self, name="Output", limit=96)
+            self, name="Output", limit=256, split_channels=False)
         if isinstance(last_ae, pooling.StochasticPoolingDepooling):
             self.plt_out.link_attrs(last_ae, "input")
         else:
@@ -553,7 +553,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
         # Deconv result plotter
         self.plt_deconv = nn_plotting_units.Weights2D(
-            self, name="Deconv result", limit=20)
+            self, name="Deconv result", limit=64, split_channels=False)
         self.plt_deconv.link_attrs(self.forwards[-1], ("input", "output"))
         self.plt_deconv.link_from(prev)
         self.plt_deconv.gate_skip = ~self.decision.epoch_ended
@@ -672,6 +672,34 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 a += prng.get().normal(0, unit.layer["bias_stddev"],
                                        unit.bias.size)
 
+    def create_output(self, unit):
+        unit._batch_size = unit.input.mem.shape[0]
+        unit._sy = unit.input.mem.shape[1]
+        unit._sx = unit.input.mem.shape[2]
+        unit._n_channels = unit.input.mem.size // (unit._batch_size *
+                                                   unit._sx * unit._sy)
+
+        last_x = unit._sx - unit.kx
+        last_y = unit._sy - unit.ky
+        if last_x % unit.sliding[0] == 0:
+            unit._out_sx = last_x // unit.sliding[0] + 1
+        else:
+            unit._out_sx = last_x // unit.sliding[0] + 2
+        if last_y % unit.sliding[1] == 0:
+            unit._out_sy = last_y // unit.sliding[1] + 1
+        else:
+            unit._out_sy = last_y // unit.sliding[1] + 2
+            unit._output_size = (
+                unit._n_channels * unit._out_sx *
+                unit._out_sy * unit._batch_size)
+            unit._output_shape = (
+                unit._batch_size, unit._out_sy, unit._out_sx, unit._n_channels)
+        if (not unit._no_output and
+                (not unit.output or unit.output.size != unit._output_size)):
+            unit.output.reset()
+            unit.output.mem = numpy.zeros(
+                unit._output_shape, dtype=unit.input.mem.dtype)
+
     def adjust_workflow(self):
         self.info("Will extend %d autoencoder layers", self.n_ae)
 
@@ -716,7 +744,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             unit.uniform = uniform
             unit.link_from(self.forwards[-2])
             unit.link_attrs(self.forwards[-2], ("input", "output"))
-            unit.create_output()
+            self.create_output(unit)
             self.fix(unit, "input", "output", "input_offset", "uniform")
             prev = unit
             last_fwd = unit
@@ -752,6 +780,8 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 ae_layers.append(layer)
             self.forwards.append(unit)
             unit.link_from(prev)
+            if isinstance(unit, conv.ConvolutionalBase):
+                conv_ = unit
             unit.link_attrs(prev, ("input", "output"))
             if isinstance(unit, activation.ForwardMul):
                 unit.link_attrs(prev, "output")
@@ -787,6 +817,10 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                     continue
                 De = self.de_map[ae[i].__class__]
                 unit = De(self, **ae_layers[i])
+                if isinstance(unit, deconv.Deconv):
+                    unit.link_conv_attrs(conv_)
+                    self.deconv = unit
+                    unit.unsafe_padding = True
                 de.append(unit)
                 self.forwards.append(unit)
                 unit.link_from(prev)
@@ -819,6 +853,11 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             # Add gradient descent unit
             GD = self.gd_map[self.forwards[-1].__class__]
             unit = GD(self, **ae_layers[0])
+            if isinstance(unit, gd_deconv.GDDeconv):
+                unit.link_attrs(
+                    self.deconv, "weights", "input", "hits", "n_kernels",
+                    "kx", "ky", "sliding", "padding", "unpack_data",
+                    "unpack_size")
             self.gds.append(unit)
             unit.link_attrs(self.evaluator, "err_output")
             unit.link_attrs(self.forwards[-1], "weights", "input")
@@ -985,7 +1024,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
                 # Output plotter
                 self.plt_out = nn_plotting_units.Weights2D(
-                    self, name="Output", limit=96)
+                    self, name="Output", limit=256, split_channels=False)
                 self.plt_out.link_attrs(self.forwards[i_fwd_last], "input")
                 self.plt_out.link_from(prev)
                 self.plt_out.gate_skip = ~self.decision.epoch_ended
@@ -1019,6 +1058,5 @@ def run(load, main):
     load(ImagenetAEWorkflow,
          layers=root.imagenet_ae.layers,
          loader_name=root.imagenet_ae.loader_name,
-         loss_function="softmax",
          loader_config={})
     main()

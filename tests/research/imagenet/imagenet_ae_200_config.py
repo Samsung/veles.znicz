@@ -41,7 +41,7 @@ import os
 from veles.config import root
 
 
-LR = 0.000002
+LR = 0.00002
 WD = 0.0005
 ORTHO = 0.001
 GM = 0.9
@@ -66,9 +66,7 @@ root.common.precision_type = "float"
 root.imagenet_ae.model = "imagenet"
 root.imagenet_ae.update({
     "decision": {"fail_iterations": 50,
-                 "max_epochs": 50,
-                 "use_dynamic_alpha": False,
-                 "do_export_weights": True},
+                 "max_epochs": 50},
     "loader_name": "imagenet_ae_loader",
     "loader": {"year": "2014",
                "series": "DET",
