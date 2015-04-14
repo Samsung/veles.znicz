@@ -105,6 +105,12 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
     def ky_kx(self):
         return self.err_output.mem.shape[1:3]
 
+    @property
+    def unsafe_padding(self):
+        """hits implies unsafe_padding.
+        """
+        return bool(self.hits)
+
     def initialize(self, device, **kwargs):
         super(GDDeconv, self).initialize(device, **kwargs)
 
