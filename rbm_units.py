@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-  _   _ _____ _     _____ _____
- | | | |  ___| |   |  ___/  ___|
- | | | | |__ | |   | |__ \ `--.
- | | | |  __|| |   |  __| `--. \
- \ \_/ / |___| |___| |___/\__/ /
-  \___/\____/\_____|____/\____/
+.. invisible:
+     _   _ _____ _     _____ _____
+    | | | |  ___| |   |  ___/  ___|
+    | | | | |__ | |   | |__ \ `--.
+    | | | |  __|| |   |  __| `--. \
+    \ \_/ / |___| |___| |___/\__/ /
+     \___/\____/\_____|____/\____/
 
 Created on Oct 29, 2014
 
@@ -74,13 +75,13 @@ class Binarization(AcceleratedUnit, EmptyDeviceMethodsMixin):
     number between 0 and 1. Each element B(i,j) of output is equal 1 with
     probability A(i,j) and 0 with 1 - A(i,j).
     Must be assigned before initialize():
-        input
+    * input
 
     Updates after run():
-        output
+    * output
 
     Creates within initialize():
-        output
+    * output
 
     Attributes:
         input: input as batch of samples.
@@ -180,18 +181,19 @@ class IterationCounter(Unit):
 class BatchWeights(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """Make weigths and biases from batch v and h.
     Must be assigned before initialize():
-        v
-        h
-        batch_size
+    * v
+    * h
+    * batch_size
+
     Updates after run():
-        hbias_batch
-        vbias_batch
-        W_batch
+    * hbias_batch
+    * vbias_batch
+    * W_batch
 
     Creates within initialize():
-        hbias_batch
-        vbias_batch
-        W_batch
+    * hbias_batch
+    * vbias_batch
+    * W_batch
 
     Attributes:
         v: input data  batch
@@ -260,21 +262,22 @@ class GradientsCalculator(AcceleratedUnit, EmptyDeviceMethodsMixin):
     Making gradients for weights, hbias and vbias, using hbias0, vbias0
     and vbias1, hbias1, which calculated with help BatchWeights.
     Must be assigned before initialize():
-        hbias0
-        vbias0
-        hbias1
-        vbias1
-        weights1
-        weights0
+    * hbias0
+    * vbias0
+    * hbias1
+    * vbias1
+    * weights1
+    * weights0
 
     Updates after run():
-        hbias_grad
-        vbias_grad
-        weights_grad
+    * hbias_grad
+    * vbias_grad
+    * weights_grad
+
     Creates within initialize():
-        hbias_grad
-        vbias_grad
-        weights_grad
+    * hbias_grad
+    * vbias_grad
+    * weights_grad
 
     Attributes:
         vbias0: calculated with help BatchWeights from v0
