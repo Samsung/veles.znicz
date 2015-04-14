@@ -14,7 +14,7 @@ Created on Jun 26, 2014
 This script to work with Imagenet dataset.
 
 .. argparse::
-   :module: veles.znicz.tests.research.imagenet.preparation_imagenet
+   :module: veles.znicz.tests.research.ImagenetAE.preparation_imagenet
    :func: create_args_parser_sphinx
    :prog: preparation_imagenet
 
@@ -64,12 +64,12 @@ import shutil
 import sys
 import veles.config as config
 import veles.memory as formats
-from veles.normalization import NormalizerImage
 import veles.prng as rnd
 import veles.znicz.conv as conv
 from veles.znicz.external import xmltodict
-from veles.znicz.tests.research.imagenet.processor import Processor
-import veles.znicz.tests.research.imagenet.background_detection as back_det
+from veles.znicz.nn_plotting_units import Weights2D
+from veles.znicz.tests.research.ImagenetAE.processor import Processor
+import veles.znicz.tests.research.ImagenetAE.background_detection as back_det
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
                                   "imagenet/temp")
@@ -417,12 +417,10 @@ class Main(Processor):
                     n_channels = int(size / (forward.kx * forward.ky))
                     mem = weights[_kernel_number].ravel()[:size]
                     kernel = mem.reshape([forward.ky, forward.kx, n_channels])
-                    normalize_image = NormalizerImage()
                     for ch in range(n_channels):
-                        pics.append(
-                            normalize_image.normalize_data(
-                                kernel[:, :, ch:ch
-                                       + 1].reshape(forward.ky, forward.kx)))
+                        image = kernel[:, :, ch:ch + 1].reshape(
+                            forward.ky, forward.kx)
+                        pics.append(Weights2D.normalize_image(image))
                         if len(pics) >= limit:
                             break
                     if len(pics) >= limit:

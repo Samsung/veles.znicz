@@ -14,11 +14,6 @@ Created on Sep 2, 2013
 Will normalize counts of *.jp2 in the supplied folder
 by replicating some of the found files.
 
-.. argparse::
-   :module: veles.znicz.tests.research.imagenet.preparation_imagenet
-   :func: create_args_parser_sphinx
-   :prog: preparation_imagenet
-
 ███████████████████████████████████████████████████████████████████████████████
 
 Licensed to the Apache Software Foundation (ASF) under one
@@ -39,14 +34,6 @@ specific language governing permissions and limitations
 under the License.
 
 ███████████████████████████████████████████████████████████████████████████████
-"""
-"""
-Created on Sep 2, 2013
-
-Will normalize counts of *.jp2 in the supplied folder
-by replicating some of the found files.
-
-Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

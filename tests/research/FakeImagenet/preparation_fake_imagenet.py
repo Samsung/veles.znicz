@@ -43,7 +43,7 @@ import pickle
 import os
 import scipy.misc
 import veles.config as config
-from veles.znicz.tests.research.imagenet.processor import Processor
+from veles.znicz.tests.research.ImagenetAE.processor import Processor
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
                                   "FakeImagenet/Caffe")

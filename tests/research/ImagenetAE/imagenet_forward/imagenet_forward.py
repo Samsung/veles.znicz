@@ -34,14 +34,13 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 import gc
-import numpy
 import os
 import shutil
 import sys
-from zope.interface import implementer
 
+import numpy
+from zope.interface import implementer
 
 from veles.config import root
 from veles.mean_disp_normalizer import MeanDispNormalizer
@@ -51,65 +50,12 @@ from veles.snapshotter import Snapshotter
 from veles.znicz.nn_units import Forward
 from veles.units import Unit, IUnit
 from veles.workflow import Repeater
-from veles.znicz.tests.research.imagenet.forward_loader import \
-    ImagenetForwardLoaderBbox
-from veles.znicz.tests.research.imagenet.forward_json import \
-    ImagenetResultWriter
-from veles.znicz.tests.research.imagenet.forward_bbox import \
-    merge_bboxes_by_dict, postprocess_bboxes_of_the_same_label
-
-
-root.imagenet_forward.update({
-    "loader": {"year": "DET_dataset",
-               "series": "DET",
-               "path": "/data/veles/datasets/imagenet",
-               "path_to_bboxes":
-               "/data/veles/datasets/imagenet/raw_bboxes/"
-               "raw_bboxes_det_test_npics_40152.4.pickle",
-               # "/data/veles/datasets/imagenet/final_jsons
-               # /raw_json/need_final_good/"
-               # "result_final_11762_12622_raw_DET_dataset_DET_test_1.json",
-               "min_index": 0,
-               "max_index": 0,
-               "angle_step_final": numpy.pi / 12,
-               "max_angle_final": numpy.pi / 12,
-               "min_angle_final": (-numpy.pi / 12),
-               "angle_step_merge": 1,
-               "max_angle_merge": 0,
-               "min_angle_merge": 0,
-               # "angle_step_merge": numpy.pi / 12,
-               # "max_angle_merge": numpy.pi / 12,
-               # "min_angle_merge": (-numpy.pi / 12),
-               "minibatch_size": 32,
-               "only_this_file": "000000",
-               "raw_bboxes_min_area": 256,
-               "raw_bboxes_min_size": 8,
-               "raw_bboxes_min_area_ratio": 0.005,
-               "raw_bboxes_min_size_ratio": 0.05},
-    "trained_workflow": "/data/veles/datasets/imagenet/snapshots/DET/2014/"
-                        "imagenet_ae_2014_56.32pt.4.pickle",
-    "imagenet_base": "/data/veles/datasets/imagenet",
-    "result_path": "/data/veles/tmp/imagenet/final/"
-                   "result_final_%d_%d_%s_%s_test_1.json",
-    "mergebboxes": {"raw_path":
-                    "/data/veles/tmp/imagenet/"
-                    "result_raw_final_%d_%d_%s_%s_1.%d.pickle",
-                    "ignore_negative": False,
-                    "max_per_class": 6,
-                    "probability_threshold": 0.45,
-                    "last_chance_probability_threshold": 0.39,
-                    "mode": "",
-                    "labels_compatibility":
-                    '/data/veles/datasets/imagenet/temp/216_pool/'
-                    'label_compatibility.4.pickle',
-                    "use_compatibility": True}
-})
-
-# root.imagenet_forward.result_path = root.imagenet_forward.result_path % (
-#     root.imagenet_forward.loader.min_index,
-#     root.imagenet_forward.loader.max_index,
-#     root.imagenet_forward.loader.year,
-#     root.imagenet_forward.loader.series)
+from veles.znicz.tests.research.ImagenetAE.imagenet_forward.forward_loader\
+    import ImagenetForwardLoaderBbox
+from veles.znicz.tests.research.ImagenetAE.imagenet_forward.forward_json\
+    import ImagenetResultWriter
+from veles.znicz.tests.research.ImagenetAE.imagenet_forward.forward_bbox\
+    import merge_bboxes_by_dict, postprocess_bboxes_of_the_same_label
 
 
 @implementer(IUnit)

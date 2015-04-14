@@ -33,15 +33,16 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 import json
-import numpy
 import sys
 import os
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+
+import numpy
 from scipy.io import loadmat
 
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from veles.znicz.tests.research.imagenet.forward_bbox import BBox
+from veles.znicz.tests.research.ImagenetAE.imagenet_forward.forward_bbox\
+    import BBox
 
 
 class InvalidBBox(Exception):

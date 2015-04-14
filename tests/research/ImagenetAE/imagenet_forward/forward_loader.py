@@ -48,7 +48,7 @@ import veles.error as error
 import veles.memory as formats
 from veles.mutable import Bool
 from veles.pickle2 import pickle
-from veles.znicz.tests.research.imagenet.processor import Processor
+from veles.znicz.tests.research.ImagenetAE.processor import Processor
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, INumpyUnit
 from veles.external.progressbar.progressbar import ProgressBar, Percentage, Bar
 from veles.workflow import NoMoreJobs

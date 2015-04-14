@@ -35,13 +35,14 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 import argparse
 import cv2
 import json
+
 import numpy
 
-from veles.znicz.tests.research.imagenet.forward_bbox import BBox
+from veles.znicz.tests.research.ImagenetAE.imagenet_forward.forward_bbox\
+    import BBox
 
 
 def create_commandline_parser():

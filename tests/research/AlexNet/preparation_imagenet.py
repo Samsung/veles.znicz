@@ -50,7 +50,7 @@ from veles.compat import from_none
 from veles.config import root
 import veles.opencl_types as opencl_types
 from veles.znicz.external import xmltodict
-from veles.znicz.tests.research.imagenet.processor import Processor
+from veles.znicz.tests.research.ImagenetAE.processor import Processor
 
 
 IMAGES_JSON = "images_imagenet_%s_%s_%s.json"

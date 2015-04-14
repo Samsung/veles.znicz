@@ -162,7 +162,8 @@ class Weights2D(plotter.Plotter):
                 pics.append(self.normalize_image(w, self.color_space))
         return pics
 
-    def normalize_image(self, a, colorspace=None):
+    @staticmethod
+    def normalize_image(a, colorspace=None):
         """Normalizes numpy array to interval [0, 255].
         """
         aa = a.astype(numpy.float32)
