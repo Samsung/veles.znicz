@@ -884,6 +884,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 ("minibatch_metrics", "metrics"),
                 ("minibatch_mse", "mse"))
         self.repeater.gate_block = self.decision.complete
+        self.real_loader.gate_block = self.decision.complete
         return self.decision
 
     def link_snapshotter(self, *parents):
