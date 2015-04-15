@@ -135,9 +135,9 @@ class WineReluWorkflow(nn_units.NNWorkflow):
             .link_attrs(self.forwards[-1], "output", "input", "weights",
                         "bias") \
             .link_attrs(self.evaluator, "err_output") \
+            .link_from(self.snapshotter) \
             .link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
-        self.gds[-1].gate_block = self.decision.complete
         for i in range(len(self.forwards) - 2, -1, -1):
             self.gds[i] = gd.GDRELU(self)
             self.gds[i].link_from(self.gds[i + 1])
@@ -153,10 +153,6 @@ class WineReluWorkflow(nn_units.NNWorkflow):
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
-
-        self.repeater.gate_block = self.decision.complete
-
-        self.gds[-1].link_from(self.decision)
 
     def initialize(self, learning_rate, weights_decay, device, **kwargs):
         super(WineReluWorkflow, self).initialize(

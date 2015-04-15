@@ -129,35 +129,32 @@ class WineWorkflow(nn_units.NNWorkflow):
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = ~self.loader.epoch_ended
         self.snapshotter.skip = ~self.decision.improved
+        self.snapshotter.gate_block = self.decision.complete
 
-        self.end_point.link_from(self.snapshotter)
+        self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
 
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(None for i in range(len(self.forwards)))
-        self.gds[-1] = gd.GDSoftmax(self)
-        self.gds[-1].link_from(self.snapshotter)
-        self.gds[-1].link_attrs(self.evaluator, "err_output")
-        self.gds[-1].link_attrs(self.forwards[-1], "output", "input",
-                                "weights", "bias")
-        self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
+        self.gds[-1] = gd.GDSoftmax(self) \
+            .link_from(self.snapshotter) \
+            .link_attrs(self.evaluator, "err_output") \
+            .link_attrs(self.forwards[-1], "output", "input",
+                        "weights", "bias") \
+            .link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
         for i in range(len(self.forwards) - 2, -1, -1):
-            self.gds[i] = gd.GDTanh(self)
-            self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.gds[i + 1],
-                                   ("err_output", "err_input"))
-            self.gds[i].link_attrs(self.forwards[i], "output", "input",
-                                   "weights", "bias")
-            self.gds[i].link_attrs(self.loader,
-                                   ("batch_size", "minibatch_size"))
+            self.gds[i] = gd.GDTanh(self) \
+                .link_from(self.gds[i + 1]) \
+                .link_attrs(self.gds[i + 1], ("err_output", "err_input")) \
+                .link_attrs(self.forwards[i], "output", "input",
+                            "weights", "bias") \
+                .link_attrs(self.loader, ("batch_size", "minibatch_size"))
             self.gds[i].gate_skip = self.decision.gd_skip
         self.gds[0].need_err_input = False
         self.repeater.link_from(self.gds[0])
-
         self.loader.gate_block = self.decision.complete
-        self.gds[-1].gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, device, **kwargs):
         super(WineWorkflow, self).initialize(learning_rate=learning_rate,
