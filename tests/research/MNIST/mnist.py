@@ -98,12 +98,12 @@ class MnistWorkflow(StandardWorkflow):
                                   self.link_error_plotter,
                                   self.link_conf_matrix_plotter,
                                   self.link_err_y_plotter)]
-        self.link_end_point(*end_units)
         self.link_gds(*end_units)
         if root.mnistr.lr_adjuster.do:
             last = self.link_lr_adjuster(self.gds[0])
         else:
             last = self.gds[0]
+        self.link_end_point(last)
         self.repeater.link_from(self.link_mnist_weights_plotter(
             root.mnistr.layers, root.mnistr.weights_plotter.limit,
             "gradient_weights", last))

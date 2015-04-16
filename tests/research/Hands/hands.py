@@ -71,22 +71,16 @@ class HandsWorkflow(StandardWorkflow):
     """
     def create_workflow(self):
         self.link_repeater(self.start_point)
-
         self.link_loader(self.repeater)
-
         self.link_forwards(("input", "minibatch_data"), self.loader)
-
         self.link_evaluator(self.forwards[-1])
-
         self.link_decision(self.evaluator)
-
         end_units = tuple(link(self.decision) for link in (
             self.link_snapshotter, self.link_error_plotter,
             self.link_conf_matrix_plotter))
-
-        self.link_loop(self.link_gds(*end_units))
-
-        self.link_end_point(*end_units)
+        last_gd = self.link_gds(*end_units)
+        self.link_loop(last_gd)
+        self.link_end_point(last_gd)
 
 
 def run(load, main):
