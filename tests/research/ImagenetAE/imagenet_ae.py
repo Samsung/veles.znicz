@@ -593,15 +593,15 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         self.gds[0].need_err_input = True
         prev = self.gds[0]
 
+        pool = None
         for i in range(len(self.forwards) - len(self.gds) - 1, -1, -1):
             GD = self.gd_map[self.forwards[i].__class__]
             if hasattr(self.forwards[i], "layer"):
                 kwargs = dict(self.forwards[i].layer)
-            elif isinstance(self.forwards[i], pooling.StochasticPoolingBase):
-                kwargs = {"kx": self.forwards[i].kx, "ky": self.forwards[i].ky,
-                          "sliding": self.forwards[i].sliding}
-            else:
-                raise error.Bug("Control should not go there")
+            if isinstance(self.forwards[i], pooling.StochasticPoolingBase):
+                pool = self.forwards[i]
+            if isinstance(self.forwards[i], conv.Conv):
+                conv_ = self.forwards[i]
             for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
                          "factor", "include_bias"):
                 vle = getattr(self.forwards[i], attr, None)
@@ -614,6 +614,12 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             unit = GD(self, **kwargs)
             self.gds.insert(0, unit)
             unit.link_from(prev)
+            if isinstance(unit, gd_pooling.GDPooling) and pool is not None:
+                unit.link_attrs(pool, "kx", "ky", "sliding")
+            if isinstance(unit, gd_conv.GradientDescentConv):
+                unit.link_attrs(
+                    conv_, "n_kernels", "kx", "ky", "sliding", "padding",
+                    "unpack_data", "unpack_size")
             unit.link_attrs(prev, ("err_output", "err_input"))
             unit.link_attrs(self.forwards[i], "weights", "input", "output")
             if hasattr(self.forwards[i], "input_offset"):

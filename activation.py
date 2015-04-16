@@ -316,6 +316,10 @@ class ForwardMul(ActivationForward):
         super(ForwardMul, self).ocl_init()
         self.factor = self._factor
 
+    def cuda_init(self):
+        super(ForwardMul, self).cuda_init()
+        self.factor = self._factor
+
     def run(self):
         if self.factor is None:  # autoset factor from first minibatch
             self.input.map_read()
@@ -361,6 +365,10 @@ class BackwardMul(ActivationBackward):
 
     def ocl_init(self):
         super(BackwardMul, self).ocl_init()
+        self.factor = self._factor
+
+    def cuda_init(self):
+        super(BackwardMul, self).cuda_init()
         self.factor = self._factor
 
     def numpy_run(self):
