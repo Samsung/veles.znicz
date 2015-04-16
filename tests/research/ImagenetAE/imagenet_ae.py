@@ -414,7 +414,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         unit = NNSnapshotter(
             self, prefix=root.imagenet_ae.snapshotter.prefix,
             directory=root.imagenet_ae.snapshotter.directory,
-            compress="", time_interval=0)
+            compress="", time_interval=0, interval=1)
         self.snapshotter = unit
         unit.link_from(self.decision)
         unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
@@ -673,11 +673,11 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                                        unit.bias.size)
 
     def create_output(self, unit):
-        unit._batch_size = unit.input.mem.shape[0]
-        unit._sy = unit.input.mem.shape[1]
-        unit._sx = unit.input.mem.shape[2]
-        unit._n_channels = unit.input.mem.size // (unit._batch_size *
-                                                   unit._sx * unit._sy)
+        unit._batch_size = unit.input.shape[0]
+        unit._sy = unit.input.shape[1]
+        unit._sx = unit.input.shape[2]
+        unit._n_channels = unit.input.size // (unit._batch_size *
+                                               unit._sx * unit._sy)
 
         last_x = unit._sx - unit.kx
         last_y = unit._sy - unit.ky
@@ -698,7 +698,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 (not unit.output or unit.output.size != unit._output_size)):
             unit.output.reset()
             unit.output.mem = numpy.zeros(
-                unit._output_shape, dtype=unit.input.mem.dtype)
+                unit.output_shape, dtype=unit.input.dtype)
 
     def adjust_workflow(self):
         self.info("Will extend %d autoencoder layers", self.n_ae)
@@ -896,14 +896,13 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             self.image_saver.link_attrs(self.forwards[-1], "output", "max_idx")
             self.image_saver.link_attrs(
                 self.loader,
-                ("indexes", "minibatch_indices"),
+                ("indices", "minibatch_indices"),
                 ("labels", "minibatch_labels"),
                 "minibatch_class", "minibatch_size")
             self.image_saver.link_attrs(self.meandispnorm, ("input", "output"))
             # Add evaluator unit
             self.evaluator.unlink_all()
             self.del_ref(self.evaluator)
-            self.evaluator = None
             unit = evaluator.EvaluatorSoftmax(self)
             self.evaluator = unit
             unit.link_from(self.image_saver)
@@ -917,7 +916,6 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             max_epochs = self.decision.max_epochs
             self.decision.unlink_all()
             self.del_ref(self.decision)
-            self.decision = None
             unit = decision.DecisionGD(
                 self,
                 fail_iterations=root.imagenet_ae.decision.fail_iterations,
@@ -995,7 +993,8 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 unit.unlink_all()
                 self.del_ref(unit)
                 del self.fixed[unit]
-            self.gds = list(None for _ in gds)
+            for _ in gds:
+                self.gds.append(None)
             for i, _gd in enumerate(gds):
                 self.gds[-(i + 1)] = _gd
             del gds
