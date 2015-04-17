@@ -41,7 +41,7 @@ import os
 from veles.config import root
 
 
-LR = 0.00002
+LR = 0.000002
 WD = 0.0005
 ORTHO = 0.001
 GM = 0.9
@@ -90,7 +90,7 @@ root.imagenet_ae.update({
     "layers":
     [{"type": "ae_begin"},  # 216
      {"type": "conv", "n_kernels": 108,
-      "kx": 5, "ky": 5, "sliding": (2, 2),
+      "kx": 9, "ky": 9, "sliding": (1, 1),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -105,7 +105,7 @@ root.imagenet_ae.update({
      {"type": "activation_mul"},
      {"type": "ae_begin"},  # 72
      {"type": "conv", "n_kernels": 192,
-      "kx": 3, "ky": 3, "sliding": (2, 2),
+      "kx": 6, "ky": 6, "sliding": (1, 1),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -120,7 +120,7 @@ root.imagenet_ae.update({
      {"type": "activation_mul"},
      {"type": "ae_begin"},  # 36
      {"type": "conv", "n_kernels": 224,
-      "kx": 3, "ky": 3, "sliding": (2, 2),
+      "kx": 6, "ky": 6, "sliding": (1, 1),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -135,7 +135,7 @@ root.imagenet_ae.update({
      {"type": "activation_mul"},
      {"type": "ae_begin"},  # 18
      {"type": "conv", "n_kernels": 256,
-      "kx": 3, "ky": 3, "sliding": (2, 2),
+      "kx": 6, "ky": 6, "sliding": (1, 1),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,

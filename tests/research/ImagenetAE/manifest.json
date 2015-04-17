@@ -1,7 +1,7 @@
 {
     "author": "VELES team",
     "configuration": "imagenet_ae_200_config.py",
-    "long_description": "Model created for object recognition. Dataset - Imagenet. Model - convolutional neural network, dynamically constructed, with pretraining of all layers one by one with autoencoder.",
+    "long_description": "Model created for object recognition. Dataset - Imagenet (DET challenge). Model - convolutional neural network, dynamically constructed, with pretraining of all layers one by one with autoencoder.",
     "name": "ImagenetAE",
     "requires": [
         "veles >= 0.5.1",
@@ -9,7 +9,7 @@
     ],
     "short_description": "CNN with pretraining of each layer by Autoencoder created for object recognition on Imagenet dataset",
     "workflow": "imagenet_ae.py",
-    "image": "imagenet_ae.jpg",
+    "image": "imagenet_ae.JPEG",
     "tags": ["imagenet", "softmax", "fully-connected", "convolutional", "autoencoder", "pretraining", "DET"],
-    "files": ["background_detection.py", "imagenet_ae_1000_config.py", "__init__.py", "preparation_imagenet.py", "processor.py", "imagenet_forward", "imagenet_categories"]
+    "files": ["background_detection.py", "imagenet_ae_1000_config.py", "__init__.py", "preparation_imagenet.py", "processor.py"]
 }
