@@ -67,7 +67,7 @@ class LinesWorkflow(StandardWorkflow):
                 "gradient_weights",
                 self.link_table_plotter(gd)))
 
-        self.link_end_point(gd)
+        self.link_end_point(*end_units)
 
 
 def run(load, main):

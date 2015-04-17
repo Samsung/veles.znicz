@@ -105,7 +105,7 @@ class CifarWorkflow(StandardWorkflow):
             last = self.link_lr_adjuster(last)
         self.repeater.link_from(last)
 
-        self.link_end_point(last)
+        self.link_end_point(*end_units)
 
 
 def run(load, main):

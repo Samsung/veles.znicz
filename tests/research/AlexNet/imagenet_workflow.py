@@ -70,7 +70,7 @@ class ImagenetWorkflow(StandardWorkflow):
         last_gd = self.link_gds(*parallel_units)
         self.link_lr_adjuster(last_gd)
         self.link_loop(self.lr_adjuster)
-        self.link_end_point(self.lr_adjuster)
+        self.link_end_point(*parallel_units)
 
 
 def run(load, main):

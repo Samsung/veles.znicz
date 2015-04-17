@@ -65,9 +65,9 @@ class KanjiWorkflow(StandardWorkflow):
                 self.link_min_max_plotter(False, self.decision),
                 self.link_min_max_plotter(True, self.max_plotter[-1]),
                 self.link_mse_plotter(self.decision)))
-        last_gd = self.link_gds(*end_units)
-        self.link_loop(last_gd)
-        self.link_end_point(last_gd)
+
+        self.link_loop(self.link_gds(*end_units))
+        self.link_end_point(*end_units)
 
     def initialize(self, device, weights, bias, **kwargs):
         super(KanjiWorkflow, self).initialize(device=device, **kwargs)

@@ -213,11 +213,10 @@ class ImagenetWorkflow(StandardWorkflow):
                 "weights", self.decision))
 
         # Add gradient descent units
-        last_gd = self.link_gds(*end_units)
-        self.link_loop(last_gd)
+        self.link_loop(self.link_gds(*end_units))
 
         # Add end_point unit
-        self.link_end_point(last_gd)
+        self.link_end_point(*end_units)
 
 
 def run(load, main):
