@@ -204,14 +204,14 @@ class GradientDescent(nn_units.GradientDescentBase):
             raise ValueError("Some of the solvers need moment vectors")
 
     def _gpu_init(self, defines):
-        dtype = self.err_output.mem.dtype
+        dtype = self.err_output.dtype
         self.cl_const = numpy.zeros(9, dtype=dtype)
 
         side = self.weights_shape[0]
         other = self.weights.size // side
         assert side == self.err_output.sample_size
         assert other == self.input.sample_size
-        batch = self.input.mem.shape[0]
+        batch = self.input.shape[0]
         defines.update({
             "H": other,
             "Y": side,
@@ -224,13 +224,13 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         self.sources_["all2all/gradient_descent/weights_update"] = {
             "USE_ORTHO": int(bool(self.factor_ortho)),
-            "USE_MOMENT": int(bool(self.gradient_moment))
+            "USE_MOMENT": int(bool(self.gradient_weights_with_moment))
         }
 
         self.sources_["all2all/gradient_descent/bias_update"] = {
             "BIAS_SIZE": side,
             "OUTPUT_SIZE": batch,
-            "USE_MOMENT": int(bool(self.gradient_moment_bias))
+            "USE_MOMENT": int(bool(self.gradient_bias_with_moment))
         }
 
         self.build_program(defines, "%s_%d_%d_%d" % (

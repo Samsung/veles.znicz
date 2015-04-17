@@ -216,7 +216,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.sources_["conv/gradient_descent/weights_update"] = {
             "BLOCK_SIZE": block_size,
             "USE_ORTHO": int(bool(self.factor_ortho)),
-            "USE_MOMENT": int(bool(self.gradient_moment))
+            "USE_MOMENT": int(bool(self.gradient_weights_with_moment))
         }
         self._global_size_weights = [
             roundup(b_width, block_size),
@@ -224,7 +224,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._local_size_weights = [block_size, block_size]
 
         self.sources_["conv/gradient_descent/bias_update"] = {
-            "USE_MOMENT": int(bool(self.gradient_moment_bias))
+            "USE_MOMENT": int(bool(self.gradient_bias_with_moment))
         }
         self._global_size_bias = [self.n_kernels * self.reduce_size]
         self._local_size_bias = [self.reduce_size]

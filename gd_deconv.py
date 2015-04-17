@@ -238,7 +238,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.sources_["deconv/gradient_descent/weights_update"] = {
             "BLOCK_SIZE": block_size_weights,
             "USE_ORTHO": int(bool(self.factor_ortho)),
-            'USE_MOMENT': int(bool(self.gradient_moment))
+            'USE_MOMENT': int(bool(self.gradient_weights_with_moment))
         }
 
         self._gpu_init({})
