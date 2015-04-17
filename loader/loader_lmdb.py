@@ -12,7 +12,7 @@ from zope.interface import implementer
 
 import lmdb
 from veles.loader import IImageLoader, ImageLoader, CLASS_NAME
-from veles.znicz.loader.caffe_pb2 import Datum
+from veles.znicz.loader.caffe import Datum
 
 
 @implementer(IImageLoader)
