@@ -751,8 +751,7 @@ class StandardWorkflow(StandardWorkflowBase):
                     .link_attrs(first_gd, ("err_output", "err_input"))
             else:
                 unit.link_from(*parents) \
-                    .link_attrs(self.evaluator, "err_output") \
-                    .gate_block = self.decision.complete
+                    .link_attrs(self.evaluator, "err_output")
             first_gd = unit
 
             attrs = []

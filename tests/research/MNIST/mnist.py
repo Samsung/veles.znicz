@@ -88,8 +88,13 @@ class MnistWorkflow(StandardWorkflow):
 
     def create_workflow(self):
         self.link_repeater(self.start_point)
+
+        # Use Avatar:
         self.link_loader(self.start_point)
         self.link_avatar()
+        # or just Loader:
+        # self.link_loader(self.repeater)
+
         self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
@@ -98,8 +103,8 @@ class MnistWorkflow(StandardWorkflow):
                                   self.link_error_plotter,
                                   self.link_conf_matrix_plotter,
                                   self.link_err_y_plotter)]
-        self.link_end_point(*end_units)
         self.link_gds(*end_units)
+        self.link_end_point(self.gds[0])
         if root.mnistr.lr_adjuster.do:
             last = self.link_lr_adjuster(self.gds[0])
         else:
