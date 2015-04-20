@@ -42,8 +42,10 @@ import six
 from zope.interface import implementer
 from veles.avatar import Avatar
 from veles.distributable import IDistributable, TriviallyDistributable
+from veles.pickle2 import best_protocol
 from veles.plumbing import FireStarter
 from veles.units import Unit, IUnit
+from veles.znicz.diff_stats import DiffStats
 
 if six.PY3:
     from collections import UserDict
@@ -927,7 +929,7 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         Creates instance of :class:`veles.znicz.image_saver.ImageSaver` .
         Links :class:`veles.znicz.image_saver.ImageSaver` unit with \*parents.
-        Links attributes of :class:`veles.znicz.image_saver.ImageSaver` from
+        Links attributes of :class:`veles.znicz.image_saver.ImageSaver` with
         attributes of :class:`veles.znicz.nn_units.ForwardBase`
         descendant, :class:`veles.loader.base.Loader` descendant,
         :class:`veles.znicz.decision.DecisionBase` descendant and
@@ -983,12 +985,12 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_meandispnorm(self, *parents):
         """
-        Creates instance of
+        Creates an instance of
         :class:`veles.mean_disp_normalizer.MeanDispNormalizer` unit.
         Links :class:`veles.mean_disp_normalizer.MeanDispNormalizer`
         unit with \*parents.
         Links attributes of
-        :class:`veles.mean_disp_normalizer.MeanDispNormalizer` from
+        :class:`veles.mean_disp_normalizer.MeanDispNormalizer` with
         attributes of :class:`veles.loader.base.Loader` descendant.
         Returns instance of
         :class:`veles.mean_disp_normalizer.MeanDispNormalizer`.
@@ -1002,6 +1004,28 @@ class StandardWorkflow(StandardWorkflowBase):
                         "mean", "rdisp") \
             .link_from(*parents)
         return self.meandispnorm
+
+    def link_gd_diff_stats(self, *parents, file_name=None):
+        """
+        Creates an instance of
+        :class:`veles.znicz.diff_stats.DiffStatsr` unit.
+        Links :class:`veles.znicz.diff_stats.DiffStats` unit with \*parents.
+        Links attributes of
+        :class:`veles.znicz.diff_stats.DiffStats` with attributes of
+        gradient descent units.
+
+        :param parents: units to link this one from.
+        :param file_name: file name with the results.
+        :return: instance of
+        :class:`veles.znicz.diff_stats.DiffStats`.
+        """
+        if file_name is None:
+            file_name = "diff_stats.%d.pickle" % best_protocol
+        self.gd_diff_stats = DiffStats(
+            self, arrays={u: ("gradient_weights",) for u in self.gds},
+            file_name=file_name).link_from(*parents)
+        self.gd_diff_stats.gate_skip = self.decision.gd_skip
+        return self.gd_diff_stats
 
     def link_ipython(self, *parents):
         """
@@ -1269,7 +1293,7 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         Creates instance of :class:`veles.plotting_units.TableMaxMin` unit.
         Links :class:`veles.plotting_units.TableMaxMin` unit with \*parents.
-        Links attributes of :class:`veles.plotting_units.TableMaxMin` from
+        Links attributes of :class:`veles.plotting_units.TableMaxMin` with
         attributes of :class:`veles.znicz.decision.DecisionBase` descendant,
         :class:`veles.znicz.nn_units.GradientDescentBase` descendant units ,
         :class:`veles.znicz.nn_units.ForwardBase` descendant.
@@ -1380,7 +1404,7 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         Creates instance of :class:`veles.plotting_units.ImagePlotter` unit.
         Links :class:`veles.plotting_units.ImagePlotter` unit with \*parents.
-        Links attributes of :class:`veles.plotting_units.ImagePlotter` from
+        Links attributes of :class:`veles.plotting_units.ImagePlotter` with
         attributes of :class:`veles.znicz.decision.DecisionBase` descendant,
         :class:`veles.znicz.nn_units.ForwardBase` descendant.
         Returns instance of :class:`veles.plotting_units.ImagePlotter` unit.

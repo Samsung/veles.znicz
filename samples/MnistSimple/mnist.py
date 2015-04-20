@@ -81,14 +81,14 @@ class MnistWorkflow(nn_units.NNWorkflow):
 
         # Add fwds units
         del self.forwards[:]
-        for i in range(0, len(layers)):
+        for i, layer in enumerate(layers):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(
-                    self, output_sample_shape=[layers[i]],
+                    self, output_sample_shape=[layer],
                     weights_stddev=root.mnist.all2all.weights_stddev)
             else:
                 aa = all2all.All2AllSoftmax(
-                    self, output_sample_shape=[layers[i]],
+                    self, output_sample_shape=[layer],
                     weights_stddev=root.mnist.all2all.weights_stddev)
             self.forwards.append(aa)
             if i:
@@ -160,6 +160,20 @@ class MnistWorkflow(nn_units.NNWorkflow):
                 .link_attrs(self.loader, ("batch_size", "minibatch_size"))
             self.gds[i].gate_skip = self.decision.gd_skip
         self.gds[0].need_err_input = False
+
+        """
+        Record gradient statistics.
+
+        from veles.znicz.diff_stats import DiffStats
+        self.diff_stats = DiffStats(
+            self, arrays={u: ("gradient_weights",) for u in self.gds},
+            file_name="stats.pickle")
+        self.diff_stats.link_from(self.gds[0])
+        self.diff_stats.gate_skip = self.decision.gd_skip
+
+        self.repeater.link_from(self.diff_stats)
+        """
+
         self.repeater.link_from(self.gds[0])
         self.repeater.gate_block = self.decision.complete
 
