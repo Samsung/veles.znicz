@@ -368,8 +368,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         return layers
 
     def _update_loader_kwargs_from_mcdnnic(self, kwargs, description):
-        input = description.split("-")[0]
-        minibatch_size, y_size, x_size = input.split("x")
+        inp = description.split("-")[0]
+        minibatch_size, y_size, x_size = inp.split("x")
         kwargs["minibatch_size"] = int(minibatch_size)
         kwargs["scale"] = (int(y_size), int(x_size))
         return kwargs
@@ -393,7 +393,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             parents: units, from whom will be link first forward unit
         """
         del self.forwards[:]
-        for i, layer in enumerate(self.layers):
+        for _i, layer in enumerate(self.layers):
             tpe, kwargs, _ = self._get_layer_type_kwargs(layer)
             try:
                 unit = self.layer_map[tpe].forward(self, **kwargs)
