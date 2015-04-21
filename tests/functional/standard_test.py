@@ -65,10 +65,10 @@ class StandardTest(AcceleratedTest):
         return DummyLauncher()
 
     def seed(self):
-        prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
+        prng.get().seed(numpy.fromfile("%s/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.int32, count=1024))
-        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+        prng.get(2).seed(numpy.fromfile("%s/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
                                         dtype=numpy.int32, count=1024))
 

@@ -56,7 +56,7 @@ class TestWine(StandardTest):
             "weights_decay": 0.0,
             "layers": [8, 3],
             "data_paths": os.path.join(root.common.veles_dir,
-                                       "veles/znicz/samples/wine/wine.data")})
+                                       "znicz/samples/wine/wine.data")})
 
     @timeout(300)
     @multi_device(True)

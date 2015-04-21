@@ -48,7 +48,7 @@ import veles.znicz.tests.research.VideoAE.video_ae as video_ae
 class TestVideoAE(StandardTest):
     @classmethod
     def setUpClass(cls):
-        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+        prng.get(2).seed(numpy.fromfile("%s/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
                                         dtype=numpy.uint32, count=1024))
         root.video_ae.update({

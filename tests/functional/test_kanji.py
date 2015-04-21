@@ -48,7 +48,7 @@ from veles.znicz.tests.functional import StandardTest
 class TestKanji(StandardTest):
     @classmethod
     def setUpClass(cls):
-        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+        prng.get(2).seed(numpy.fromfile("%s/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
                                         dtype=numpy.uint32, count=1024))
         train_path = os.path.join(root.common.test_dataset_root,
