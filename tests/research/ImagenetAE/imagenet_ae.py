@@ -74,7 +74,7 @@ from veles.units import IUnit, Unit
 from veles.distributable import IDistributable
 import veles.prng as prng
 from veles.prng.uniform import Uniform
-from veles.tests import DummyWorkflow
+from veles.dummy import DummyWorkflow
 
 
 @implementer(IUnit, IDistributable)
