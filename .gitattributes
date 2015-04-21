@@ -5,3 +5,4 @@ __init__.py filter=package
 tests export-ignore
 libZnicz export-ignore
 package.sh export-ignore
+site_config.py export-ignore
