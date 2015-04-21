@@ -1016,8 +1016,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
         :param parents: units to link this one from.
         :param file_name: file name with the results.
-        :return: instance of
-        :class:`veles.znicz.diff_stats.DiffStats`.
+        :return: instance of :class:`veles.znicz.diff_stats.DiffStats`.
         """
         file_name = kwargs.get("file_name",
                                "diff_stats.%d.pickle" % best_protocol)
