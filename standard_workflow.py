@@ -1005,7 +1005,7 @@ class StandardWorkflow(StandardWorkflowBase):
             .link_from(*parents)
         return self.meandispnorm
 
-    def link_gd_diff_stats(self, *parents, file_name=None):
+    def link_gd_diff_stats(self, *parents, **kwargs):
         """
         Creates an instance of
         :class:`veles.znicz.diff_stats.DiffStatsr` unit.
@@ -1019,8 +1019,8 @@ class StandardWorkflow(StandardWorkflowBase):
         :return: instance of
         :class:`veles.znicz.diff_stats.DiffStats`.
         """
-        if file_name is None:
-            file_name = "diff_stats.%d.pickle" % best_protocol
+        file_name = kwargs.get("file_name",
+                               "diff_stats.%d.pickle" % best_protocol)
         self.gd_diff_stats = DiffStats(
             self, arrays={u: ("gradient_weights",) for u in self.gds},
             file_name=file_name).link_from(*parents)
