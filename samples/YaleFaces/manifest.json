@@ -4,8 +4,8 @@
     "long_description": "Model was created for face recognition. Database - Yale Faces. Self-constructing Model. It means that Model can change for any Model (Convolutional, Fully connected, different parameters) in configuration file. Current model - fully-connected Neural Network with SoftMax loss function. Also you can find preprocessing workflow for yale faces dataset",
     "name": "YaleFaces",
     "requires": [
-        "veles >= 0.5.1",
-        "veles.znicz >= 0.4.1",
+        "veles >= 0.8.2",
+        "veles.znicz >= 0.7.1",
         "wget >= 2.2"
     ],
     "short_description": "Model was created for face recognition.",

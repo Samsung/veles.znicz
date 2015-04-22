@@ -4,8 +4,8 @@
     "long_description": "Kohonen Spam detection on Lee Man Ha dataset.",
     "name": "SpamKohonen",
     "requires": [
-        "veles >= 0.5.1",
-        "veles.znicz >= 0.4.1"
+        "veles >= 0.8.2",
+        "veles.znicz >= 0.7.1"
     ],
     "short_description": "Kohonen Spam detection on Lee Man Ha dataset.",
     "workflow": "spam_kohonen.py",

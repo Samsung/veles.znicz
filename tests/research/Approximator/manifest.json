@@ -4,8 +4,8 @@
     "long_description": "Model created for functions approximation. Dataset - matlab files with x and y points. Model - fully-connected Neural Network with MSE loss function.",
     "name": "Approximator",
     "requires": [
-        "veles >= 0.5.1",
-        "veles.znicz >= 0.4.1"
+        "veles >= 0.8.2",
+        "veles.znicz >= 0.7.1"
     ],
     "short_description": "Model created for functions approximation.",
     "workflow": "approximator.py",

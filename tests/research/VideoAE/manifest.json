@@ -4,8 +4,8 @@
     "long_description": "Model created for compress video. Model - autoencoder.",
     "name": "VideoAE",
     "requires": [
-        "veles >= 0.5.1",
-        "veles.znicz >= 0.4.1"
+        "veles >= 0.8.2",
+        "veles.znicz >= 0.7.1"
     ],
     "short_description": "Model created for compress video with autoencoder",
     "workflow": "video_ae.py",
