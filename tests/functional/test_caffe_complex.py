@@ -89,14 +89,14 @@ class ComplexTest(CaffeTestBase):
 
     def _compress_snapshots(self):
         out_archive = tarfile.open(name=os.path.join(
-            self.data_dir_path, "cifar_export.tar.bz2"), mode='w:bz2')
+            self.data_dir_path, "cifar_export.tar.xz"), mode='w:xz')
         out_archive.add(name=os.path.join(
             self.data_dir_path, "cifar_export"), arcname="cifar_export")
         out_archive.close()
 
     def _extract_snapshots(self):
         in_archive = tarfile.open(name=os.path.join(
-            self.data_dir_path, "cifar_export.tar.bz2"), mode="r:bz2")
+            self.data_dir_path, "cifar_export.tar.xz"), mode="r:xz")
         in_archive.extractall(self.data_dir_path)
 
     def _prepare_snapshots(self):
