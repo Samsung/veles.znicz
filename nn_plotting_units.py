@@ -328,7 +328,7 @@ class MSEHistogram(plotter.Plotter):
         fig.canvas.draw()
         return fig
 
-    def run(self):
+    def fill(self):
         mx = self.mse.mem.max()
         mi = self.mse.mem.min()
         self.mse_max = mx
@@ -344,8 +344,6 @@ class MSEHistogram(plotter.Plotter):
 
         self.val_max = self.val_mse.max()
         self.val_min = self.val_mse.min()
-
-        super(MSEHistogram, self).run()
 
 
 class KohonenGridBase(plotter.Plotter):

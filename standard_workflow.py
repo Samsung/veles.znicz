@@ -46,6 +46,7 @@ from veles.pickle2 import best_protocol
 from veles.plumbing import FireStarter
 from veles.units import Unit, IUnit
 from veles.znicz.diff_stats import DiffStats
+from veles.znicz.nnpublisher import NNPublisher
 
 if six.PY3:
     from collections import UserDict
@@ -80,12 +81,6 @@ from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.gd_pooling import GDPooling
 from veles.znicz.all2all import All2AllSoftmax
 from veles.znicz.downloader import Downloader
-
-WorkflowConfig = namedtuple(
-    "WorkflowConfig", ("decision", "loader", "snapshotter", "image_saver",
-                       "evaluator", "data_saver", "result_loader",
-                       "similar_weights_plotter", "lr_adjuster", "downloader",
-                       "weights_plotter"))
 
 
 class TypeDict(UserDict):
@@ -218,6 +213,10 @@ class GradientUnitFactory(object):
     })
 
 
+BaseWorkflowConfig = namedtuple(
+    "WorkflowConfig", ("loader",))
+
+
 class StandardWorkflowBase(nn_units.NNWorkflow):
     """
     A base class for standard workflows with forward and backward propagation.
@@ -241,6 +240,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         similar_weights_plotter_config: similar_weights_plotter configuration\
         parameters
     """
+    WorkflowConfig = BaseWorkflowConfig
     KWATTRS = {"%s_config" % f for f in WorkflowConfig._fields}
     mcdnnic_topology_regexp = re.compile(
         "(\d+)x(\d+)x(\d+)(-(?:(\d+C\d+)|(MP\d+)|(\d+N)))*")
@@ -267,9 +267,9 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         if "loader_config" not in kwargs:
             raise ValueError(
                 "Loader's configuration must be specified (\"loader_config\")")
-        self.config = WorkflowConfig(
+        self.config = self.WorkflowConfig(
             **{f: self.config2kwargs(kwargs.pop("%s_config" % f, {}))
-               for f in WorkflowConfig._fields})
+               for f in self.WorkflowConfig._fields})
 
     @property
     def mcdnnic_topology(self):
@@ -566,6 +566,13 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             new_unit.link_attrs(parents[0], init_attrs)
 
 
+StandardWorkflowConfig = namedtuple(
+    "WorkflowConfig", ("decision", "loader", "snapshotter", "image_saver",
+                       "evaluator", "data_saver", "result_loader",
+                       "similar_weights_plotter", "lr_adjuster", "downloader",
+                       "weights_plotter", "publisher"))
+
+
 class StandardWorkflow(StandardWorkflowBase):
     """
     Workflow for trivially connections between Unit.
@@ -578,14 +585,18 @@ class StandardWorkflow(StandardWorkflowBase):
         result_loader_name:
         result_unit_factory:
     """
+    WorkflowConfig = StandardWorkflowConfig
+    CONFIGURABLE_UNIT_NAMES = "result_loader", "decision", "evaluator"
+    KWATTRS = {"%s_config" % f for f in WorkflowConfig._fields}.union(
+        {"%s_name" % n for n in CONFIGURABLE_UNIT_NAMES})
 
     def __init__(self, workflow, **kwargs):
         super(StandardWorkflow, self).__init__(workflow, **kwargs)
-        self.result_loader_name = kwargs.get("result_loader_name")
         self.result_unit_factory = kwargs.get("result_unit_factory")
         self.loss_function = kwargs.get("loss_function", None)
-        self.decision_name = kwargs.pop("decision_name", None)
-        self.evaluator_name = kwargs.pop("evaluator_name", None)
+        for unit_name in self.CONFIGURABLE_UNIT_NAMES:
+            setattr(self, "%s_name" % unit_name,
+                    kwargs.pop("%s_name" % unit_name, None))
 
         self.create_workflow()
 
@@ -1039,6 +1050,13 @@ class StandardWorkflow(StandardWorkflowBase):
         self.ipython = Shell(self).link_from(*parents) \
             .gate_skip = ~self.decision.epoch_ended
         return self.ipython
+
+    def link_publisher(self, *parents):
+        self.publisher = NNPublisher(self, **self.config.publisher) \
+            .link_from(*parents) \
+            .link_attrs(self.decision, ("errors_pt", "epoch_n_err_pt"))
+        self.publisher.loader_unit = self.real_loader
+        return self.publisher
 
     def link_error_plotter(self, *parents):
         """
