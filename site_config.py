@@ -37,4 +37,4 @@ import os
 
 
 def update(root):
-    root.common.engine.source_dirs.append(os.path.dirname(__file__))
+    root.common.engine.source_dirs[-1] = os.path.dirname(__file__)

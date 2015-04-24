@@ -213,8 +213,7 @@ class GradientUnitFactory(object):
     })
 
 
-BaseWorkflowConfig = namedtuple(
-    "WorkflowConfig", ("loader",))
+BaseWorkflowConfig = namedtuple("BaseWorkflowConfig", ("loader",))
 
 
 class StandardWorkflowBase(nn_units.NNWorkflow):
@@ -224,21 +223,9 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
     Arguments:
         layers: list of dictionary with layers of Model
-        loss_function: name of Loss function. Choices are "softmax" or "mse"
-        loader_name: name of Loader. If loader_name is None, User should\
-        redefine link_loader() function and create own Loader
-        decision_name: name of Decision. If loss_function was defined and\
-        decision_name was not, decision_name creates automaticly
-        evaluator_name: name of Evaluator. If loss_function was defined and\
-        evaluator_name was not, evaluator_name creates automaticly
+        loader_name: name of the Loader. If loader_name is None, User should \
+        redefine link_loader() function and link Loader manually.
         loader_config: loader configuration parameters
-        decision_config: decision configuration parameters
-        snapshotter_config: snapshotter configuration parameters
-        image_save_configr: image_saver configuration parameters
-        data_saver_config: data_saver configuration parameters
-        result_loader_config: result_loader configuration parameters
-        similar_weights_plotter_config: similar_weights_plotter configuration\
-        parameters
     """
     WorkflowConfig = BaseWorkflowConfig
     KWATTRS = {"%s_config" % f for f in WorkflowConfig._fields}
@@ -567,10 +554,10 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
 
 StandardWorkflowConfig = namedtuple(
-    "WorkflowConfig", ("decision", "loader", "snapshotter", "image_saver",
-                       "evaluator", "data_saver", "result_loader",
-                       "similar_weights_plotter", "lr_adjuster", "downloader",
-                       "weights_plotter", "publisher"))
+    "StandardWorkflowConfig",
+    ("decision", "snapshotter", "image_saver", "evaluator", "data_saver",
+     "result_loader", "weights_plotter", "similar_weights_plotter",
+     "lr_adjuster", "downloader", "publisher") + BaseWorkflowConfig._fields)
 
 
 class StandardWorkflow(StandardWorkflowBase):
@@ -582,8 +569,21 @@ class StandardWorkflow(StandardWorkflowBase):
     configuration file.
 
     Arguments:
-        result_loader_name:
-        result_unit_factory:
+        loss_function: name of Loss function. Choices are "softmax" or "mse"
+        decision_name: name of Decision. If loss_function was defined and \
+        decision_name was not, decision_name creates automaticly
+        evaluator_name: name of Evaluator. If loss_function was defined and \
+        evaluator_name was not, evaluator_name creates automaticly
+        decision_config: decision configuration parameters
+        snapshotter_config: snapshotter configuration parameters
+        image_save_configr: image_saver configuration parameters
+        data_saver_config: data_saver configuration parameters
+        result_loader_config: result_loader configuration parameters
+        similar_weights_plotter_config: similar_weights_plotter configuration\
+        parameters
+        result_loader_name: The forward workflow's loader name. Not neccessary\
+        if forward workflow is not going to be extracted.
+        result_unit_factory: The results' publishing unit factory.
     """
     WorkflowConfig = StandardWorkflowConfig
     CONFIGURABLE_UNIT_NAMES = "result_loader", "decision", "evaluator"
@@ -675,7 +675,6 @@ class StandardWorkflow(StandardWorkflowBase):
                                   name="Forwards@%s" % self.name,
                                   loader_name=loader_name,
                                   loader_config=loader_config,
-                                  loss_function=self.loss_function,
                                   layers=self.layers)
         wf.config.loader["loader"] = self.loader
         if cyclic:
