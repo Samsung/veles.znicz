@@ -40,6 +40,11 @@ import numpy
 import os
 from veles.config import root
 
+root.yalefaces.publisher.backends = {"confluence": {
+    "server": "http://confluence.rnd.samsung.ru",
+    "username": "al-jenkins", "password": "jenkins",
+    "space": "VEL", "parent": "Veles",
+    "path_to_save": os.path.join(root.common.cache_dir, "model_info")}}
 
 root.yalefaces.update({
     "downloader": {
@@ -47,6 +52,7 @@ root.yalefaces.update({
         "http://vision.ucsd.edu/extyaleb/CroppedYaleBZip/CroppedYale.zip",
         "directory": root.common.test_dataset_root,
         "files": ["CroppedYale"]},
+    "name_workflow": "FullyConnected_YaleFaces",
     "decision": {"fail_iterations": 50, "max_epochs": 1000},
     "loss_function": "softmax",
     "loader_name": "full_batch_auto_label_file_image",

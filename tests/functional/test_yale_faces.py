@@ -48,12 +48,15 @@ from veles.znicz.tests.functional import StandardTest
 class TestYaleFaces(StandardTest):
     @classmethod
     def setUpClass(cls):
+        root.yalefaces.publisher.backends = {}
+
         root.yalefaces.update({
             "downloader": {"url":
                            ("http://vision.ucsd.edu/extyaleb/CroppedYaleBZip/"
                             + "CroppedYale.zip"),
                            "directory": root.common.test_dataset_root,
                            "files": ["CroppedYale"]},
+            "name_workflow": "FullyConnected_YaleFaces",
             "decision": {"fail_iterations": 50, "max_epochs": 3},
             "loss_function": "softmax",
             "snapshotter": {"prefix": "yalefaces_test", "interval": 4,
@@ -103,7 +106,11 @@ class TestYaleFaces(StandardTest):
             decision_config=root.yalefaces.decision,
             snapshotter_config=root.yalefaces.snapshotter,
             layers=root.yalefaces.layers,
+            publisher_config=root.yalefaces.publisher,
+            name=root.yalefaces.name_workflow,
             loss_function=root.yalefaces.loss_function)
+        workflow.publisher.workflow_graphs = {
+            "png": bytes([2, 3, 1]), "svg": bytes([2, 3, 1])}
         self.init_wf(workflow, snapshot)
         workflow.run()
         return workflow

@@ -47,22 +47,19 @@ class YaleFacesWorkflow(StandardWorkflow):
     """
     def create_workflow(self):
         self.link_downloader(self.start_point)
-
         self.link_repeater(self.downloader)
-
         self.link_loader(self.repeater)
-
         self.link_forwards(("input", "minibatch_data"), self.loader)
-
         self.link_evaluator(self.forwards[-1])
-
         self.link_decision(self.evaluator)
+        end_units = [link(self.decision)
+                     for link in (self.link_snapshotter,
+                                  self.link_error_plotter,
+                                  self.link_err_y_plotter)]
 
-        self.link_snapshotter(self.decision)
-
-        self.link_loop(self.link_gds(self.snapshotter))
-
-        self.link_end_point(self.snapshotter)
+        self.link_loop(self.link_gds(*end_units))
+        self.link_publisher(self.gds[0])
+        self.link_end_point(self.publisher)
 
 
 def run(load, main):
@@ -73,5 +70,7 @@ def run(load, main):
          layers=root.yalefaces.layers,
          loss_function=root.yalefaces.loss_function,
          loader_name=root.yalefaces.loader_name,
+         name=root.yalefaces.name_workflow,
+         publisher_config=root.yalefaces.publisher,
          downloader_config=root.yalefaces.downloader)
     main()

@@ -1055,6 +1055,7 @@ class StandardWorkflow(StandardWorkflowBase):
             .link_from(*parents) \
             .link_attrs(self.decision, ("errors_pt", "epoch_n_err_pt"))
         self.publisher.loader_unit = self.real_loader
+        self.publisher.gate_skip = ~self.decision.complete
         return self.publisher
 
     def link_error_plotter(self, *parents):
