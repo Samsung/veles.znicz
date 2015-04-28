@@ -1117,7 +1117,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 .link_attrs(self.decision, ("input", "confusion_matrixes")) \
                 .link_from(*prev)
             mp.input_field = i
-            mp.link_attrs(self.loader, ("labels", "labels_mapping"))
+            mp.link_attrs(self.loader, "reversed_labels_mapping")
             mp.gate_skip = ~self.decision.epoch_ended
             self.conf_matrix_plotters.append(mp)
             prev = mp,

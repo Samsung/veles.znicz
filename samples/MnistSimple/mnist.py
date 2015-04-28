@@ -212,7 +212,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
                                        ("input", "confusion_matrixes"))
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_attrs(
-                self.loader, ("labels", "labels_mapping"))
+                self.loader, "reversed_labels_mapping")
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = \
                 ~self.decision.epoch_ended | self.decision.complete
