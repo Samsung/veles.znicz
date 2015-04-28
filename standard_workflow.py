@@ -72,7 +72,7 @@ from veles.znicz.decision import DecisionsRegistry
 import veles.znicz.diversity as diversity
 from veles.znicz.evaluator import EvaluatorsRegistry
 import veles.znicz.image_saver as image_saver
-from veles.loader.base import UserLoaderRegistry, LoaderMSEMixin
+from veles.loader.base import UserLoaderRegistry, LoaderMSEMixin, CLASS_NAME
 from veles.loader.image import ImageLoader
 from veles.loader.saver import MinibatchesSaver
 import veles.znicz.lr_adjust as lr_adjust
@@ -1081,7 +1081,8 @@ class StandardWorkflow(StandardWorkflowBase):
         styles = ["r-", "b-", "k-"]
         for i in 1, 2:
             plotter = plotting_units.AccumulatingPlotter(
-                self, name="Number of errors", plot_style=styles[i]) \
+                self, name="Number of errors", plot_style=styles[i],
+                label=CLASS_NAME[i]) \
                 .link_attrs(self.decision, ("input", "epoch_n_err_pt")) \
                 .link_from(*prev)
             plotter.input_field = i
@@ -1113,7 +1114,7 @@ class StandardWorkflow(StandardWorkflowBase):
         prev = parents
         for i in range(1, len(self.decision.confusion_matrixes)):
             mp = plotting_units.MatrixPlotter(
-                self, name=(("Test", "Validation", "Train")[i] + " matrix")) \
+                self, name=(CLASS_NAME[i] + " matrix")) \
                 .link_attrs(self.decision, ("input", "confusion_matrixes")) \
                 .link_from(*prev)
             mp.input_field = i
@@ -1147,7 +1148,8 @@ class StandardWorkflow(StandardWorkflowBase):
         for i in 1, 2:
             plotter = plotting_units.AccumulatingPlotter(
                 self, name="Last layer max gradient sum",
-                plot_style=styles[i]).link_attrs(
+                plot_style=styles[i],
+                label=("Test", "Validation", "Train")[i]).link_attrs(
                 self.decision, ("input", "max_err_y_sums")).link_from(*prev)
             plotter.input_field = i
             plotter.gate_skip = ~self.decision.epoch_ended
