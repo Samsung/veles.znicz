@@ -313,6 +313,7 @@ class DecisionGD(DecisionBase):
         self.gd_skip = Bool(False)
         self.epoch_n_err = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err_pt = [100.0, 100.0, 100.0]
+        self.best_n_err_pt = [100.0, 100.0, 100.0]
         self.minibatch_n_err = None  # formats.Vector()
 
         # minimum validation error and its epoch number
@@ -364,6 +365,10 @@ class DecisionGD(DecisionBase):
                     100.0 * self.epoch_n_err[minibatch_class] /
                     (self.class_lengths[minibatch_class] if not self.is_slave
                      else self.minibatch_size))
+                if self.epoch_n_err_pt[minibatch_class] < \
+                        self.best_n_err_pt[minibatch_class]:
+                    self.best_n_err_pt[minibatch_class] = \
+                        self.epoch_n_err_pt[minibatch_class]
 
         # Store maximum of backpropagated gradient
         if (self.minibatch_max_err_y_sum is not None and

@@ -1053,7 +1053,7 @@ class StandardWorkflow(StandardWorkflowBase):
     def link_publisher(self, *parents):
         self.publisher = NNPublisher(self, **self.config.publisher) \
             .link_from(*parents) \
-            .link_attrs(self.decision, ("errors_pt", "epoch_n_err_pt"))
+            .link_attrs(self.decision, ("errors_pt", "best_n_err_pt"))
         self.publisher.loader_unit = self.real_loader
         self.publisher.gate_skip = ~self.decision.complete
         return self.publisher
