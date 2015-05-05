@@ -37,7 +37,7 @@ under the License.
 
 
 from veles.config import root
-from veles.genetics import Tune
+from veles.genetics import Range
 
 
 root.mnistr.update({
@@ -47,31 +47,31 @@ root.mnistr.update({
     "loss_function": "softmax",
     "loader_name": "mnist_loader",
     "snapshotter": {"prefix": "mnist", "time_interval": 0, "compression": ""},
-    "loader": {"minibatch_size": Tune(60, 1, 1000), "force_numpy": False,
+    "loader": {"minibatch_size": Range(60, 1, 1000), "force_numpy": False,
                "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "all2all_tanh",
-                "->": {"output_sample_shape": Tune(100, 10, 500),
+                "->": {"output_sample_shape": Range(100, 10, 500),
                        "weights_filling": "uniform",
-                       "weights_stddev": Tune(0.05, 0.0001, 0.1),
+                       "weights_stddev": Range(0.05, 0.0001, 0.1),
                        "bias_filling": "uniform",
-                       "bias_stddev": Tune(0.05, 0.0001, 0.1)},
-                "<-": {"learning_rate": Tune(0.03, 0.0001, 0.9),
-                       "weights_decay": Tune(0.0, 0.0, 0.9),
-                       "learning_rate_bias": Tune(0.03, 0.0001, 0.9),
-                       "weights_decay_bias": Tune(0.0, 0.0, 0.9),
-                       "gradient_moment": Tune(0.0, 0.0, 0.95),
-                       "gradient_moment_bias": Tune(0.0, 0.0, 0.95),
-                       "factor_ortho": Tune(0.001, 0.0, 0.1)}},
+                       "bias_stddev": Range(0.05, 0.0001, 0.1)},
+                "<-": {"learning_rate": Range(0.03, 0.0001, 0.9),
+                       "weights_decay": Range(0.0, 0.0, 0.9),
+                       "learning_rate_bias": Range(0.03, 0.0001, 0.9),
+                       "weights_decay_bias": Range(0.0, 0.0, 0.9),
+                       "gradient_moment": Range(0.0, 0.0, 0.95),
+                       "gradient_moment_bias": Range(0.0, 0.0, 0.95),
+                       "factor_ortho": Range(0.001, 0.0, 0.1)}},
                {"type": "softmax",
                 "->": {"output_sample_shape": 10,
                        "weights_filling": "uniform",
-                       "weights_stddev": Tune(0.05, 0.0001, 0.1),
+                       "weights_stddev": Range(0.05, 0.0001, 0.1),
                        "bias_filling": "uniform",
-                       "bias_stddev": Tune(0.05, 0.0001, 0.1)},
-                "<-": {"learning_rate": Tune(0.03, 0.0001, 0.9),
-                       "learning_rate_bias": Tune(0.03, 0.0001, 0.9),
-                       "weights_decay": Tune(0.0, 0.0, 0.95),
-                       "weights_decay_bias": Tune(0.0, 0.0, 0.95),
-                       "gradient_moment": Tune(0.0, 0.0, 0.95),
-                       "gradient_moment_bias": Tune(0.0, 0.0, 0.95)}}]})
+                       "bias_stddev": Range(0.05, 0.0001, 0.1)},
+                "<-": {"learning_rate": Range(0.03, 0.0001, 0.9),
+                       "learning_rate_bias": Range(0.03, 0.0001, 0.9),
+                       "weights_decay": Range(0.0, 0.0, 0.95),
+                       "weights_decay_bias": Range(0.0, 0.0, 0.95),
+                       "gradient_moment": Range(0.0, 0.0, 0.95),
+                       "gradient_moment_bias": Range(0.0, 0.0, 0.95)}}]})
