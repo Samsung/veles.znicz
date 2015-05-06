@@ -44,7 +44,8 @@ from zope.interface import implementer
 
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.error as error
-from veles.memory import reshape, roundup, Vector
+from veles.memory import reshape, Vector
+import veles.ocl_blas as ocl_blas
 import veles.znicz.nn_units as nn_units
 
 
@@ -222,9 +223,9 @@ class All2All(nn_units.NNLayerBase):
         else:
             assert self.output.shape == self.output_shape
 
-    def cuda_init(self):
+    def _gpu_init(self, blas_class):
         dtype = self.input.dtype
-        self.gemm_ = cublas.CUBLAS.gemm(dtype)
+        self.gemm_ = blas_class.gemm(dtype)
         self.np_one = numpy.ones(1, dtype)
         self.np_zero = numpy.zeros(1, dtype)
         self._transA = (cublas.CUBLAS_OP_N if self.weights_transposed
@@ -247,51 +248,23 @@ class All2All(nn_units.NNLayerBase):
         if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
             self.assign_kernel("apply_bias_with_activation")
             self.set_args(self.output, self.bias)
+
+    def cuda_init(self):
+        self._gpu_init(cublas.CUBLAS)
+        if self._kernel_ is not None:
             block_size = self.device.suggest_block_size(self._kernel_)
             self._global_size_bias = (
                 int(numpy.ceil(self.output.size / block_size)), 1, 1)
             self._local_size_bias = (block_size, 1, 1)
 
     def ocl_init(self):
-        a_width = self.output.shape[0]
-        b_width = self.neurons_number
-        ab_common = self.weights.size // self.neurons_number
+        ocl_blas.OCLBLAS.attach_to_device(self.device)
+        self._gpu_init(ocl_blas.OCLBLAS)
+        if self._kernel_ is not None:
+            self._global_size_bias = (self.output.size,)
+            self._local_size_bias = None
 
-        block_size = self.device.device_info.get_block_size(
-            kernel="matrix_multiplication", dtype=self.input.dtype)
-
-        defines = {
-            "BLOCK_SIZE": block_size,
-            self.activation_mode: 1,
-            "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
-            "INCLUDE_BIAS": int(self.include_bias),
-            "H": ab_common,
-            "Y": b_width,
-            "BATCH": a_width}
-
-        self.build_program(defines, "%s_%d_%d_%d" %
-                           (self.__class__.__name__,
-                            self.input.shape[0],
-                            self.input.sample_size,
-                            self.neurons_number),
-                           dtype=self.input.mem.dtype)
-
-        self.assign_kernel("feed_layer")
-        if self.include_bias:
-            self.set_args(self.input, self.weights, self.bias, self.output)
-        else:
-            self.set_args(self.input, self.weights, self.output)
-
-        self._global_size = [roundup(b_width, block_size),
-                             roundup(a_width, block_size)]
-        self._local_size = [block_size, block_size]
-
-    def ocl_run(self):
-        if self.intel_opencl_workaround:
-            return self.numpy_run()
-        return super(All2All, self).ocl_run()
-
-    def cuda_run(self):
+    def _gpu_run(self):
         self.unmap_vectors(self.output, self.input, self.weights, self.bias)
 
         self.gemm_(
@@ -302,6 +275,14 @@ class All2All(nn_units.NNLayerBase):
 
         if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
             self.execute_kernel(self._global_size_bias, self._local_size_bias)
+
+    def ocl_run(self):
+        if self.intel_opencl_workaround:
+            return self.numpy_run()
+        return self._gpu_run()
+
+    def cuda_run(self):
+        return self._gpu_run()
 
     def numpy_run(self):
         """Forward propagation from batch on CPU only.
