@@ -10,7 +10,7 @@
 
 Created on Dec 4, 2014
 
-Loader Mnist file.
+Loads MNIST dataset files.
 
 ███████████████████████████████████████████████████████████████████████████████
 

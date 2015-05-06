@@ -371,7 +371,7 @@ class All2AllSigmoid(All2All):
     def initialize(self, device, **kwargs):
         self.activation_mode = "ACTIVATION_SIGMOID"
         super(All2AllSigmoid, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = 10
+        self.output.supposed_max_value = 10
 
     def numpy_run(self):
         """Forward propagation from batch on CPU only.
