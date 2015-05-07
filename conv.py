@@ -48,8 +48,9 @@ from zope.interface import implementer
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 from veles.compat import from_none
 import veles.error as error
-from veles.memory import reshape_transposed, roundup, Vector
+from veles.memory import reshape_transposed, Vector
 from veles.units import Unit
+import veles.ocl_blas as ocl_blas
 import veles.znicz.nn_units as nn_units
 
 
@@ -181,10 +182,21 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         assert self._kernel_app_per_image * self.n_kernels == \
             self.output.sample_size
 
-        self.init_vectors(self.input, self.output, self.weights, self.bias)
+        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
+                        self._kernel_size)
+        if not self.unpack_data:
+            self.unpack_data.reset(numpy.zeros(unpack_shape,
+                                               dtype=self.input.dtype))
+        else:
+            assert self.unpack_data.shape == unpack_shape
 
-    def _gpu_init(self, defines):
-        defines.update({
+        self.init_vectors(self.input, self.output, self.weights, self.bias,
+                          self.unpack_data)
+
+    def _gpu_init(self, blas_class):
+        dtype = self.input.dtype
+
+        defines = {
             self.activation_mode: 1,
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "INCLUDE_BIAS": int(self.include_bias),
@@ -203,70 +215,62 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             "SLIDE_Y": self.sliding[1],
             "OUTPUT_SIZE": self.output.size,
             "BIAS_SIZE": self.n_kernels
-        })
+        }
 
         self.build_program(
             defines, "%s_%d_%dx%dx%d_%dx%d_%d" % (
                 self.__class__.__name__, self._batch_size,
                 self._sx, self._sy, self._n_channels,
-                self.kx, self.ky, self.n_kernels),
-            dtype=self.input.dtype)
+                self.kx, self.ky, self.n_kernels), dtype=dtype)
 
-    def ocl_init(self):
-        a_width = self.output.mem.size // self.n_kernels
-        b_width = self.n_kernels
-        block_size = self.device.device_info.get_block_size(
-            kernel="conv", dtype=self.input.dtype)
-
-        self._gpu_init({"BLOCK_SIZE": block_size})
-
-        self.assign_kernel("feed_layer")
-        if self.include_bias:
-            self.set_args(self.input, self.weights, self.bias, self.output)
-        else:
-            self.set_args(self.input, self.weights, self.output)
-
-        self._global_size = [
-            roundup(b_width, block_size),
-            roundup(a_width, block_size)]
-        self._local_size = [block_size, block_size]
-
-    def cuda_init(self):
-        dtype = self.input.dtype
-        self.gemm_ = cublas.CUBLAS.gemm(dtype)
+        self.gemm_ = blas_class.gemm(dtype)
         self.np_one = numpy.ones(1, dtype=dtype)
         self.np_zero = numpy.zeros(1, dtype=dtype)
-        self._const_i = numpy.zeros(1, dtype=numpy.int64)
-
-        self._gpu_init({})
 
         self.assign_kernel("Unpack1D")
+        self.set_arg(1, self.unpack_data)
 
-        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
-                        self._kernel_size)
-        if not self.unpack_data:
-            self.unpack_data.reset(numpy.zeros(unpack_shape, dtype=dtype))
-        else:
-            assert self.unpack_data.shape == unpack_shape
+        if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
+            self._krn_bias_ = self.get_kernel("apply_bias_with_activation")
+            self._krn_bias_.set_args(self.output.devmem, self.bias.devmem)
+
+    def ocl_init(self):
+        ocl_blas.OCLBLAS.attach_to_device(self.device)
+        self._gpu_init(ocl_blas.OCLBLAS)
+        self._process_subblock = self._ocl_process_subblock
+        self._input_subbuffers_ = {0: self.input.devmem}
+        self._output_subbuffers_ = {0: self.output.devmem}
+
+        self._global_size_unpack = lambda size: (size,)
+        self._local_size_unpack = None
+
+        if self._krn_bias_ is not None:
+            self._global_size_bias = (self.output.size,)
+            self._local_size_bias = None
+
+    def cuda_init(self):
+        self._gpu_init(cublas.CUBLAS)
+        self._process_subblock = self._cuda_process_subblock
+        self._const_i = numpy.zeros(1, dtype=numpy.int64)
 
         block_size = self.device.suggest_block_size(self._kernel_)
         self._global_size_unpack = (
             lambda size: (int(numpy.ceil(size / block_size)), 1, 1))
         self._local_size_unpack = (block_size, 1, 1)
 
-        self.unpack_data.initialize(self.device)
-
-        self.set_arg(1, self.unpack_data)
-
-        if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
-            self._krn_bias_ = self.get_kernel("apply_bias_with_activation")
-            self._krn_bias_.set_args(self.output.devmem, self.bias.devmem)
+        if self._krn_bias_ is not None:
             block_size = self.device.suggest_block_size(self._krn_bias_)
             self._global_size_bias = (
                 int(numpy.ceil(self.output.size / block_size)), 1, 1)
             self._local_size_bias = (block_size, 1, 1)
 
+    def ocl_run(self):
+        self.gpu_run()
+
     def cuda_run(self):
+        self.gpu_run()
+
+    def gpu_run(self):
         self.unmap_vectors(self.input, self.weights, self.bias, self.output,
                            self.unpack_data)
         for i in range(0, self._batch_size, self.unpack_size):
@@ -276,7 +280,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             self.execute_kernel(self._global_size_bias, self._local_size_bias,
                                 self._krn_bias_)
 
-    def _process_subblock(self, start_image, image_count):
+    def _cuda_process_subblock(self, start_image, image_count):
         self._kernel_.set_arg(0, int(self.input.devmem) +
                               start_image * self.input.sample_size *
                               self.input.itemsize)
@@ -294,6 +298,32 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             self.weights_shape[0], unpack_side, self._kernel_size,
             self.np_one, self.weights.devmem, self.unpack_data.devmem,
             self.np_zero, int(self.output.devmem) + output_offs)
+
+    def _ocl_process_subblock(self, start_image, image_count):
+        input_offs = start_image * self.input.sample_size * self.input.itemsize
+        subbuf = self._input_subbuffers_.get(input_offs)
+        if subbuf is None:
+            subbuf = self.input.devmem.create_sub_buffer(
+                input_offs, self.input.nbytes - input_offs)
+            self._input_subbuffers_[input_offs] = subbuf
+        self._kernel_.set_arg(0, subbuf)
+        unpack_side = self._kernel_app_per_image * image_count
+        limit = unpack_side * self._kernel_size
+        self.execute_kernel(self._global_size_unpack(limit),
+                            self._local_size_unpack)
+        output_offs = (start_image * self.output.sample_size *
+                       self.output.itemsize)
+        subbuf = self._output_subbuffers_.get(output_offs)
+        if subbuf is None:
+            subbuf = self.output.devmem.create_sub_buffer(
+                output_offs, self.output.nbytes - output_offs)
+            self._output_subbuffers_[output_offs] = subbuf
+        self.gemm_(
+            self.device.blas, cublas.CUBLAS_OP_N if self.weights_transposed
+            else cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
+            self.weights_shape[0], unpack_side, self._kernel_size,
+            self.np_one, self.weights.devmem, self.unpack_data.devmem,
+            self.np_zero, subbuf)
 
     def numpy_run(self):
         """Forward propagation from batch on CPU only.

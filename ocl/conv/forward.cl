@@ -1,61 +1,51 @@
 #include "defines.cl"
 #include "highlight.cl"
 
-#ifndef INCLUDE_BIAS
-#error "INCLUDE_BIAS should be defined"
-#endif
+/**
+ * Should be defined:
+ *   SX: input image width
+ *   SY: input image height
+ *   N_CHANNELS: number of input channels
+ *   KX: kernel width
+ *   KY: kernel height
+ *   SLIDE_X: kernel sliding by x-axis
+ *   SLIDE_Y: kernel sliding by y-axis
+ *   PAD_TOP: padding size at the top of each image
+ *   PAD_BOTTOM: padding size at the bottom of each image
+ *   PAD_LEFT: padding size at the left of each image
+ *   PAD_RIGHT: padding size at the right of each image
+ */
 
-#ifndef WEIGHTS_TRANSPOSED
-#error "WEIGHTS_TRANSPOSED should be defined"
-#endif
+#define KX_APP (1 + ((SX - KX + PAD_LEFT + PAD_RIGHT) / SLIDE_X))
+#define KY_APP (1 + ((SY - KY + PAD_TOP + PAD_BOTTOM) / SLIDE_Y))
+#define KERNEL_SIZE (KX * KY * N_CHANNELS)
+#define IMG_SIZE (SX * SY * N_CHANNELS)
 
-#include "conv_common.cl"
 
-/// @brief Feeds 2D multichannel convolutional layer with activation function:
-///        linear activation: x;
-///        scaled tanh activation: 1.7159 * tanh(0.6666 * x),
-///        because: f(1) = 1, f(-1) = -1 and f"(x) maximum at x = 1.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
-/// @param input batch of input multichannel interleaved images.
-/// @param weights weights (matrix of size (KX * KY * N_CHANNELS, N_KERNELS)).
-/// @param output batch of output multichannel interleaved images.
-/// @param bias bias (vector of length N_KERNELS).
-/// @details y = f(input * weights + bias), where input is the combined matrix.
-///          Will do convolution via matrix multiplication
-///          ('cause we have to convolve the "batch" with "multiple" kernels at once).
-///          The process we are doing here equal to the convolution with reflected weights matrix,
-///          and it is so in favor of the nature of the process of applying neurons (i.e. kernels) to each point of the input image.
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void feed_layer(__global const dtype    /* IN */    *input,
-                __global const dtype    /* IN */    *weights,
-                #if INCLUDE_BIAS > 0
-                __global dtype          /* IN */    *bias,
-                #endif
-                __global dtype         /* OUT */    *output) {
+/**
+ * Grid:
+ *  1D with total size >= (KX_APP * KY_APP * number_of_images_to_unpack) * (KX * KY * N_CHANNELS)
+ */
+__kernel void Unpack1D(__global const dtype *data, __global dtype *unpack_data) {
+  int idx = get_global_id(0);  // we are processing small number of images at a time, so size_t is not required
 
-  #define A_WIDTH (BATCH * KERNELS_PER_SAMPLE)
-  #define B_WIDTH N_KERNELS
-  #define AB_COMMON (KX * KY * N_CHANNELS)
+  int ty = idx / KERNEL_SIZE;
+  int tx = idx % KERNEL_SIZE;
 
-  #define A input
-  #define B weights
+  int img_idx = ty / KX_APP / KY_APP;
+  int kernel_j = SLIDE_X *  (ty % KX_APP);
+  int kernel_i = SLIDE_Y * ((ty / KX_APP) % KY_APP);
 
-  #if WEIGHTS_TRANSPOSED > 0
-  #define B_COL
-  #endif
+  int ch_idx = tx % N_CHANNELS;
+  int x = kernel_j + (tx / N_CHANNELS) % KX;
+  int y = kernel_i + tx / N_CHANNELS / KX;
 
-  #define in_offs a_offs
-  #define A_REAL_OFFS IN_REAL_OFFS
-  #define A_REAL_OFFS_VALID IN_REAL_OFFS_VALID
-
-  #define STORE_OUTPUT "conv/forward.store_output.cl"
-  #include "matrix_multiplication.cl"
-
-  #undef in_offs
-  #undef A_WIDTH
-  #undef B_WIDTH
-  #undef AB_COMMON
-
-  #undef A
-  #undef B
+  unpack_data[idx] = (x >= PAD_LEFT && x < SX + PAD_LEFT && y >= PAD_TOP && y < SY + PAD_TOP) ?
+      data[IMG_SIZE * img_idx + ((y - PAD_TOP) * SX + x - PAD_LEFT) * N_CHANNELS + ch_idx] : 0;
 }
+
+
+// apply_bias_with_activation
+#ifndef ACCUMULATE_GRADIENT
+#include "all2all/forward.cl"
+#endif
