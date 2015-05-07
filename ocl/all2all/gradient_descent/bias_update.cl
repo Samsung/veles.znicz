@@ -14,15 +14,16 @@
 ///          REDUCE_SIZE - size of the block for matrix reduce,
 ///          BIAS_SIZE - bias size (Y),
 ///          OUTPUT_SIZE - number of output elements in the minibatch (BATCH).
-__kernel void bias_update(__global const dtype    *err_output,
-                          __global dtype          *bias,
-                          __global dtype          *gradient,
-                          __global dtype          *accumulated_gradient,
-                          __global dtype          *gradient_with_moment,
-                          const dtype             lr,
-                          const dtype             factor_l12,
-                          const dtype             l1_vs_l2,
-                          const dtype             moment) {
+__kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
+void bias_update(__global const dtype    *err_output,
+                 __global dtype          *bias,
+                 __global dtype          *gradient,
+                 __global dtype          *accumulated_gradient,
+                 __global dtype          *gradient_with_moment,
+                 const dtype             lr,
+                 const dtype             factor_l12,
+                 const dtype             l1_vs_l2,
+                 const dtype             moment) {
 
   #define A err_output
   #define A_WIDTH BIAS_SIZE
