@@ -12,22 +12,21 @@
 /// @param moment Moment for gradient.
 /// @details Should be defined externally:
 ///          REDUCE_SIZE - size of the block for matrix reduce,
-///          BATCH - minibatch size,
-///          Y - output size.
-__kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
-void bias_update(__global const dtype    /* IN */    *err_output,
-                 __global dtype     /* IN, OUT */    *bias,
-                 __global dtype         /* OUT */    *gradient,
-                 __global dtype     /* IN, OUT */    *accumulated_gradient,
-                 __global dtype     /* IN, OUT */    *gradient_with_moment,
-                 const dtype             /* IN */    lr,
-                 const dtype             /* IN */    factor_l12,
-                 const dtype             /* IN */    l1_vs_l2,
-                 const dtype             /* IN */    moment) {
- 
+///          BIAS_SIZE - bias size (Y),
+///          OUTPUT_SIZE - number of output elements in the minibatch (BATCH).
+__kernel void bias_update(__global const dtype    *err_output,
+                          __global dtype          *bias,
+                          __global dtype          *gradient,
+                          __global dtype          *accumulated_gradient,
+                          __global dtype          *gradient_with_moment,
+                          const dtype             lr,
+                          const dtype             factor_l12,
+                          const dtype             l1_vs_l2,
+                          const dtype             moment) {
+
   #define A err_output
-  #define A_WIDTH Y
-  #define A_HEIGHT BATCH
+  #define A_WIDTH BIAS_SIZE
+  #define A_HEIGHT OUTPUT_SIZE
   #define A_COL
 
   #include "matrix_reduce.cl"

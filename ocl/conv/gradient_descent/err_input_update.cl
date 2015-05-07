@@ -1,50 +1,66 @@
-#include "gradient_descent_common.cl"
-#include "conv_common.cl"
+#include "defines.cl"
+#include "highlight.cl"
 
-
-#ifdef USE_ATOMICS
-/* @brief Kernels for convolutional layer gradient descent.
- * @details Should be defined externally:
- *          defines from conv_common.cl,
- *          REDUCE_SIZE - buffer size for reduce operation.
+/**
+ * Should be defined:
+ *   SX: input image width
+ *   SY: input image height
+ *   N_CHANNELS: number of input channels
+ *   KX: kernel width
+ *   KY: kernel height
+ *   SLIDE_X: kernel sliding by x-axis
+ *   SLIDE_Y: kernel sliding by y-axis
+ *   PAD_TOP: padding size at the top of each image
+ *   PAD_BOTTOM: padding size at the bottom of each image
+ *   PAD_LEFT: padding size at the left of each image
+ *   PAD_RIGHT: padding size at the right of each image
  */
 
-/// @brief Computes backprogated error for previous layer.
-/// @param err_y backpropagated error of the output layer.
-/// @param weights weights.
-/// @param err_h resulted backpropagated error for previous layer.
-/// @details err_h = err_y * weights.
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void err_input_update(__global const dtype    /* IN */    *err_output,
-                      __global const dtype    /* IN */    *weights,
-                      __global dtype         /* OUT */    *err_input) {
+#define KX_APP (1 + ((SX - KX + PAD_LEFT + PAD_RIGHT) / SLIDE_X))
+#define KY_APP (1 + ((SY - KY + PAD_TOP + PAD_BOTTOM) / SLIDE_Y))
+#define KERNEL_SIZE (KX * KY * N_CHANNELS)
+#define IMG_SIZE (SX * SY * N_CHANNELS)
 
-  #define A_WIDTH (BATCH * KERNELS_PER_SAMPLE)
-  #define B_WIDTH ELEMENTS_PER_KERNEL
-  #define AB_COMMON N_KERNELS
-
-  #define A err_output
-  #define B weights
-
-  #if WEIGHTS_TRANSPOSED <= 0
-  #define B_COL
-  #endif
-
-  #define STORE_OUTPUT "conv/gradient_descent/err_input_update.store_output.cl"
-  #include "matrix_multiplication.cl"
-  
-  #if WEIGHTS_TRANSPOSED <= 0
-  #undef B_COL
-  #endif
-  
-  #undef A_WIDTH
-  #undef B_WIDTH
-  #undef AB_COMMON
-
-  #undef A
-  #undef B
-}
+// DECONV_MODE 0 - no deconvolution
+// DECONV_MODE 1 - deconvolution without hits
+// DECONV_MODE 2 - deconvolution with hits
+#ifndef DECONV_MODE
+#define DECONV_MODE 0
 #endif
+
+__kernel void DirectPack(__global const dtype *unpack_data, __global dtype *data
+#if DECONV_MODE == 2
+                         , __global int *hits
+#endif
+                ) {
+  int idx = get_global_id(0);  // we are processing not so many images at a time, so size_t is not required
+
+  int ty = idx / KERNEL_SIZE;
+  int tx = idx % KERNEL_SIZE;
+
+  int img_idx = ty / KX_APP / KY_APP;
+  int kernel_j = SLIDE_X *  (ty % KX_APP);
+  int kernel_i = SLIDE_Y * ((ty / KX_APP) % KY_APP);
+
+  int ch_idx = tx % N_CHANNELS;
+  int x = kernel_j + (tx / N_CHANNELS) % KX;
+  int y = kernel_i + tx / N_CHANNELS / KX;
+
+  if (x >= PAD_LEFT && x < SX + PAD_LEFT &&
+      y >= PAD_TOP && y < SY + PAD_TOP) {
+    int data_idx = IMG_SIZE * img_idx +
+                   ((y - PAD_TOP) * SX + x - PAD_LEFT) * N_CHANNELS +
+                   ch_idx;
+    dtype sum = unpack_data[idx];
+#if DECONV_MODE == 1
+    sum /= (KX / SLIDE_X) * (KY / SLIDE_Y);
+#endif
+    ATOM_ADD(&data[data_idx], sum);
+#if DECONV_MODE == 2
+    atomic_inc(&hits[data_idx]);
+#endif
+  }
+}
 
 
 KERNEL_CLEAR(err_input_clear, dtype)
