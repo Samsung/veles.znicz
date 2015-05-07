@@ -51,9 +51,9 @@ from zope.interface import implementer
 import veles.error as error
 from veles.memory import reshape_transposed
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
+import veles.ocl_blas as ocl_blas
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
-from veles import ocl_blas
 
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)

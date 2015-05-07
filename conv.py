@@ -242,6 +242,8 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
             self._krn_bias_ = self.get_kernel("apply_bias_with_activation")
             self._krn_bias_.set_args(self.output.devmem, self.bias.devmem)
+        else:
+            self._krn_bias_ = None
 
     def ocl_init(self):
         ocl_blas.OCLBLAS.attach_to_device(self.device)

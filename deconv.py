@@ -44,7 +44,8 @@ from zope.interface import implementer
 from veles.config import root
 from veles.compat import from_none
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
-from veles.memory import roundup, Vector
+from veles.memory import Vector
+import veles.ocl_blas as ocl_blas
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
 from veles.distributable import TriviallyDistributable
@@ -123,6 +124,8 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
     def initialize(self, device, **kwargs):
         super(Deconv, self).initialize(device, **kwargs)
 
+        self._dtype = self.input.dtype
+
         self.weights_shape = (tuple(reversed(self.weights.shape))
                               if self.weights_transposed
                               else self.weights.shape)
@@ -164,23 +167,11 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
 
         if not self.output:
             self.output.reset(numpy.zeros(output_shape,
-                                          dtype=self.input.dtype))
+                                          dtype=self._dtype))
         else:
             assert self.output.shape == output_shape
 
-        self.init_vectors(self.input, self.weights, self.output, self.hits)
-
-        self._dtype = self.input.dtype
-
-    def _create_hits(self, output_shape):
-        if not self.hits:
-            self.hits.reset(
-                numpy.zeros(output_shape, dtype=numpy.int32))
-        else:
-            assert self.hits.size == int(numpy.prod(output_shape))
-
-    def _gpu_init(self, defines):
-        self._output_shape = list(self.output_shape_source.shape)
+        self._output_shape = output_shape
 
         self._sy, self._sx, self._n_channels = self._output_shape[1:]
         self._kernel_size = self.kx * self.ky * self._n_channels
@@ -189,7 +180,25 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self._kernel_app_total = (self._kernel_app_per_image *
                                   self.input.shape[0])
 
-        defines.update({
+        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
+                        self._kernel_size)
+        if not self.unpack_data:
+            self.unpack_data.reset(numpy.zeros(unpack_shape, self._dtype))
+        else:
+            assert self.unpack_data.shape == unpack_shape
+
+        self.init_vectors(self.input, self.weights, self.output, self.hits,
+                          self.unpack_data)
+
+    def _create_hits(self, output_shape):
+        if not self.hits:
+            self.hits.reset(
+                numpy.zeros(output_shape, dtype=numpy.int32))
+        else:
+            assert self.hits.size == int(numpy.prod(output_shape))
+
+    def _gpu_init(self, blas_class):
+        defines = {
             "USE_ATOMICS": 1,
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "BATCH": self._output_shape[0],
@@ -208,7 +217,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             "USE_HITS": int(bool(self.hits)),
             "DECONV_MODE": int(bool(self.hits)) + 1,
             "OUTPUT_SIZE": self.output.size
-        })
+        }
 
         self.build_program(
             defines, "%s/%s_%d_%dx%dx%d_%dx%d_%d" % (
@@ -218,83 +227,89 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
                 self._output_shape[3],
                 self.kx, self.ky, self.n_kernels), dtype=self._dtype)
 
-    def ocl_init(self):
-        block_size = self.device.device_info.get_block_size(
-            kernel="deconv", dtype=self._dtype)
-        self._gpu_init({"BLOCK_SIZE": block_size})
+        self.krn_pack_ = self.get_kernel("DirectPack")
+        self.krn_pack_.set_arg(0, self.unpack_data.devmem)
 
-        self.assign_kernel("feed_layer")
-        self.set_args(self.input, self.weights, self.output)
+        if self.hits:
+            self.krn_pack_.set_arg(2 if self._const_i is None else 3,
+                                   self.hits.devmem)
+
+            self.krn_apply_hits_ = self.get_kernel("apply_hits")
+            self.krn_apply_hits_.set_args(self.output.devmem, self.hits.devmem)
+
+        self.gemm_ = blas_class.gemm(self._dtype)
+        self.np_one = numpy.ones(1, dtype=self._dtype)
+        self.np_zero = numpy.zeros(1, dtype=self._dtype)
+
+    def ocl_init(self):
+        ocl_blas.OCLBLAS.attach_to_device(self.device)
+        self._const_i = None
+        self._gpu_init(ocl_blas.OCLBLAS)
+
+        self._global_size_pack = lambda size: (size,)
+        self._local_size_pack = None
+
+        if self.hits:
+            self.krn_clear_hits_ = self.get_kernel("clear_hits")
+            self.krn_clear_hits_.set_arg(0, self.hits.devmem)
+
+            self._global_size_hits = (self.output.size,)
+            self._local_size_hits = None
 
         self.krn_clear_output_ = self.get_kernel("clear_output")
         self.krn_clear_output_.set_arg(0, self.output.devmem)
 
-        a_width = self._kernel_app_total
-        b_width = self.weights_shape[1]
-        self._global_size = [
-            roundup(b_width, block_size),
-            roundup(a_width, block_size)]
-        self._local_size = [block_size, block_size]
+        self._clear_output = lambda: (
+            self.execute_kernel((self.output.size,), None,
+                                self.krn_clear_output_))
+        self._clear_hits = lambda: (
+            self.execute_kernel((self.hits.size,), None, self.krn_clear_hits_))
 
-        if self.hits:
-            self.krn_apply_hits_ = self.get_kernel("apply_hits")
-            self.krn_apply_hits_.set_args(self.output.devmem, self.hits.devmem)
+        self._input_subbuffers_ = {0: self.input.devmem}
+        self._output_subbuffers_ = {0: self.output.devmem}
 
-            self.krn_clear_hits_ = self.get_kernel("clear_hits")
-            self.krn_clear_hits_.set_arg(0, self.hits.devmem)
-
-            self.set_arg(3, self.hits)
+        self._get_input_subbuffer = (
+            lambda offs: ConvolutionalBase.ocl_get_subbuffer(
+                self._input_subbuffers_, self.input, offs))
+        self._get_output_subbuffer = (
+            lambda offs: ConvolutionalBase.ocl_get_subbuffer(
+                self._output_subbuffers_, self.output, offs))
 
     def cuda_init(self):
-        self._gpu_init({})
+        self._const_i = numpy.zeros(1, dtype=numpy.int64)
+        self._gpu_init(cublas.CUBLAS)
 
-        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
-                        self._kernel_size)
-        if not self.unpack_data:
-            self.unpack_data.reset(numpy.zeros(unpack_shape, self._dtype))
-        else:
-            assert self.unpack_data.shape == unpack_shape
-        self.unpack_data.initialize(self.device)
-
-        self.krn_pack_ = self.get_kernel("DirectPack")
         block_size = self.device.suggest_block_size(self.krn_pack_)
         self._global_size_pack = (
             lambda size: (int(numpy.ceil(size / block_size)), 1, 1))
         self._local_size_pack = (block_size, 1, 1)
-        self.krn_pack_.set_arg(0, self.unpack_data.devmem)
+
         if self.hits:
-            self.krn_pack_.set_arg(3, self.hits.devmem)
-
-            self.krn_apply_hits_ = self.get_kernel("apply_hits")
-            self.krn_apply_hits_.set_args(self.output.devmem, self.hits.devmem)
-
             block_size = self.device.suggest_block_size(self.krn_apply_hits_)
             self._global_size_hits = (
                 int(numpy.ceil(self.output.size / block_size)), 1, 1)
             self._local_size_hits = (block_size, 1, 1)
 
-        self.gemm_ = cublas.CUBLAS.gemm(self._dtype)
-        self.np_one = numpy.ones(1, dtype=self._dtype)
-        self.np_zero = numpy.zeros(1, dtype=self._dtype)
-        self._const_i = numpy.zeros(1, dtype=numpy.int64)
+        self._clear_output = lambda: self.output.devmem.memset32_async()
+        self._clear_hits = lambda: self.hits.devmem.memset32_async()
+
+        self._get_input_subbuffer = (
+            lambda offs: int(self.input.devmem) + offs)
+        self._get_output_subbuffer = (
+            lambda offs: int(self.output.devmem) + offs)
 
     def ocl_run(self):
-        self.unmap_vectors(self.output, self.input, self.weights)
-        self.execute_kernel((self.output.size,), None, self.krn_clear_output_)
-        if self.hits:
-            self.hits.unmap()
-            self.execute_kernel((self.hits.size,), None, self.krn_clear_hits_)
-            self.execute_kernel(self._global_size, self._local_size)
-            self.execute_kernel((self.hits.size,), None, self.krn_apply_hits_)
-        else:
-            self.execute_kernel(self._global_size, self._local_size)
+        self.gpu_run()
 
     def cuda_run(self):
+        self.gpu_run()
+
+    def gpu_run(self):
         self.unmap_vectors(self.output, self.input, self.weights)
-        self.output.devmem.memset32_async()
+        self._clear_output()
         if self.hits:
             self.hits.unmap()
-            self.hits.devmem.memset32_async()
+            self._clear_hits()
         batch_size = self.output.shape[0]
         for i in range(0, batch_size, self.unpack_size):
             self._process_subblock(i, min(batch_size - i, self.unpack_size))
@@ -312,15 +327,16 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             else cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_N,
             self._kernel_size, unpack_side, self.weights_shape[0],
             self.np_one, self.weights.devmem,
-            int(self.input.devmem) + output_offs,
+            self._get_input_subbuffer(output_offs),
             self.np_zero, self.unpack_data.devmem)
 
-        self.krn_pack_.set_arg(1, int(self.output.devmem) +
-                               start_image * self.output.sample_size *
-                               self.output.itemsize)
+        self.krn_pack_.set_arg(
+            1, self._get_output_subbuffer(
+                start_image * self.output.sample_size * self.output.itemsize))
         limit = unpack_side * self._kernel_size
-        self._const_i[0] = limit
-        self.krn_pack_.set_arg(2, self._const_i[0:1])
+        if self._const_i is not None:
+            self._const_i[0] = limit
+            self.krn_pack_.set_arg(2, self._const_i[0:1])
         self.execute_kernel(self._global_size_pack(limit),
                             self._local_size_pack, self.krn_pack_)
 

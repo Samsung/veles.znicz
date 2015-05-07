@@ -42,8 +42,8 @@ import numpy
 from zope.interface import implementer
 from veles.compat import from_none
 
-from veles.memory import roundup
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
+import veles.ocl_blas as ocl_blas
 import veles.znicz.nn_units as nn_units
 from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.deconv import Deconv
@@ -157,13 +157,28 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         self._dtype = self.err_output.dtype
 
-    def _gpu_init(self, defines):
         self._batch_size = self.err_output.shape[0]
-        sy, sx = self.ky_kx
         self._kernel_app_per_image = self.input.sample_size // self.n_kernels
         self._kernel_app_total = (self._kernel_app_per_image *
                                   self.input.shape[0])
         self._kernel_size = self.kx * self.ky * self.channels_number
+
+        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
+                        self._kernel_size)
+        if not self.unpack_data:
+            self.unpack_data.reset(numpy.zeros(unpack_shape, self._dtype))
+        else:
+            assert self.unpack_data.shape == unpack_shape
+        self.unpack_data.initialize(self.device)
+
+    def _gpu_init(self, blas_class):
+        self.sources_["conv/forward"] = {}
+        self.sources_["deconv/gradient_descent/weights_update"] = {
+            "USE_ORTHO": int(bool(self.factor_ortho)),
+            'USE_MOMENT': int(bool(self.gradient_moment))
+        }
+
+        sy, sx = self.ky_kx
 
         self.cl_const = numpy.zeros(5, dtype=self._dtype)
 
@@ -173,7 +188,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         assert side == self.n_kernels
         assert other == self.kx * self.ky * self.channels_number
 
-        defines.update({
+        defines = {
             'INCLUDE_BIAS': 0,
             'H': other,
             'Y': side,
@@ -198,7 +213,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             'USE_HITS': int(bool(self.hits)),
             'DECONV_MODE': int(bool(self.hits)) + 1,
             'OUTPUT_SIZE': self.err_output.size
-        })
+        }
 
         self.build_program(
             defines, "%s_%d_%d_%d" % (
@@ -227,58 +242,47 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                                                 self.col_sums.devmem)
             self.krn_weights_.set_arg(11, self.col_sums.devmem)
 
+        self.gemm_ = blas_class.gemm(self._dtype)
+        self.np_one = numpy.ones(1, dtype=self._dtype)
+        self.np_zero = numpy.zeros(1, dtype=self._dtype)
+
+        self.assign_kernel("Unpack1D")
+        self.set_arg(1, self.unpack_data)
+
     def ocl_init(self):
-        block_size_err_input = self.device.device_info.get_block_size(
-            kernel="conv", dtype=self._dtype)
-        self.sources_["conv/forward"] = {
-            "BLOCK_SIZE": block_size_err_input,
-        }
-        block_size_weights = self.device.device_info.get_block_size(
-            kernel="conv", dtype=self._dtype)
-        self.sources_["deconv/gradient_descent/weights_update"] = {
-            "BLOCK_SIZE": block_size_weights,
-            "USE_ORTHO": int(bool(self.factor_ortho)),
-            'USE_MOMENT': int(bool(self.gradient_weights_with_moment))
-        }
+        ocl_blas.OCLBLAS.attach_to_device(self.device)
+        self._gpu_init(ocl_blas.OCLBLAS)
+        self._const_i = None
 
-        self._gpu_init({})
-
-        self._global_size_ortho = [self._other * self.reduce_size]
-        self._local_size_ortho = [self.reduce_size]
+        self._global_size_ortho = (self._other * self.reduce_size,)
+        self._local_size_ortho = (self.reduce_size,)
 
         self._global_size_err_output = (self.err_output.size,)
         self._local_size_err_output = None
 
-        a_width = self._kernel_app_total
-        b_width = self.n_kernels
-        self._global_size_err_input = [
-            roundup(b_width, block_size_err_input),
-            roundup(a_width, block_size_err_input)]
-        self._local_size_err_input = [block_size_err_input,
-                                      block_size_err_input]
+        self._global_size_unpack = lambda size: (size,)
+        self._local_size_unpack = None
 
-        a_width = (self._kernel_size if self.weights_transposed
-                   else self.n_kernels)
-        b_width = (self.n_kernels if self.weights_transposed
-                   else self._kernel_size)
-        self._global_size_weights = [
-            roundup(b_width, block_size_weights),
-            roundup(a_width, block_size_weights)]
-        self._local_size_weights = [block_size_weights, block_size_weights]
+        self._global_size_weights = (self.weights.size,)
+        self._local_size_weights = None
 
-        if self.need_err_input:
-            self.krn_err_input_ = self.get_kernel("feed_layer")
-            self.krn_err_input_.set_args(self.err_output.devmem,
-                                         self.weights.devmem,
-                                         self.err_input.devmem)
+        self._err_input_subbuffers_ = {0: self.err_input.devmem}
+        self._err_output_subbuffers_ = {0: self.err_output.devmem}
+        self._input_subbuffers_ = {0: self.input.devmem}
+
+        self._get_err_output_subbuffer = (
+            lambda offs: ConvolutionalBase.ocl_get_subbuffer(
+                self._err_output_subbuffers_, self.err_output, offs))
+        self._get_err_input_subbuffer = (
+            lambda offs: ConvolutionalBase.ocl_get_subbuffer(
+                self._err_input_subbuffers_, self.err_input, offs))
+        self._get_input_subbuffer = (
+            lambda offs: ConvolutionalBase.ocl_get_subbuffer(
+                self._input_subbuffers_, self.input, offs))
 
     def cuda_init(self):
-        self.sources_["conv/forward"] = {}
-        self.sources_["deconv/gradient_descent/weights_update"] = {
-            "USE_ORTHO": int(bool(self.factor_ortho)),
-            'USE_MOMENT': int(bool(self.gradient_moment))
-        }
-        self._gpu_init({})
+        self._gpu_init(cublas.CUBLAS)
+        self._const_i = numpy.zeros(1, dtype=numpy.int64)
 
         self._global_size_ortho = (self._other, 1, 1)
         self._local_size_ortho = (self.reduce_size, 1, 1)
@@ -288,33 +292,22 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             int(numpy.ceil(self.err_output.size / block_size)), 1, 1)
         self._local_size_err_output = (block_size, 1, 1)
 
-        self.gemm_ = cublas.CUBLAS.gemm(self._dtype)
-        self.np_one = numpy.ones(1, dtype=self._dtype)
-        self.np_zero = numpy.zeros(1, dtype=self._dtype)
-        self._const_i = numpy.zeros(1, dtype=numpy.int64)
-
-        self.assign_kernel("Unpack1D")
-
-        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
-                        self._kernel_size)
-        if not self.unpack_data:
-            self.unpack_data.reset(numpy.zeros(unpack_shape, self._dtype))
-        else:
-            assert self.unpack_data.shape == unpack_shape
-
         block_size = self.device.suggest_block_size(self._kernel_)
         self._global_size_unpack = (
             lambda size: (int(numpy.ceil(size / block_size)), 1, 1))
         self._local_size_unpack = (block_size, 1, 1)
 
-        self.unpack_data.initialize(self.device)
-
-        self.set_arg(1, self.unpack_data)
-
         block_size = self.device.suggest_block_size(self.krn_weights_)
         self._global_size_weights = (
             int(numpy.ceil(self.weights.size / block_size)), 1, 1)
         self._local_size_weights = (block_size, 1, 1)
+
+        self._get_err_output_subbuffer = (
+            lambda offs: int(self.err_output.devmem) + offs)
+        self._get_err_input_subbuffer = (
+            lambda offs: int(self.err_input.devmem) + offs)
+        self._get_input_subbuffer = (
+            lambda offs: int(self.input.devmem) + offs)
 
     def gpu_err_output_update(self):
         self.err_output.unmap()
@@ -322,21 +315,13 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             self._global_size_err_output, self._local_size_err_output,
             self.krn_err_output_)
 
-    def ocl_err_input_update(self):
-        if not self.need_err_input:
-            return
-        self.unmap_vectors(self.err_input, self.err_output, self.weights)
-
-        self.execute_kernel(
-            self._global_size_err_input, self._local_size_err_input,
-            self.krn_err_input_)
-
     def ocl_run(self):
-        self.gpu_err_output_update()
-        self.ocl_err_input_update()
-        self.gpu_weights_update()
+        self.gpu_run()
 
     def cuda_run(self):
+        self.gpu_run()
+
+    def gpu_run(self):
         # Divide err_output by hits count
         self.gpu_err_output_update()
 
@@ -351,13 +336,15 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.gpu_weights_update()
 
     def _process_subblock(self, start_image, image_count):
-        self._kernel_.set_arg(0, int(self.err_output.devmem) +
-                              start_image * self.err_output.sample_size *
-                              self.err_output.itemsize)
+        self._kernel_.set_arg(
+            0, self._get_err_output_subbuffer(
+                start_image * self.err_output.sample_size *
+                self.err_output.itemsize))
         unpack_side = self._kernel_app_per_image * image_count
         limit = unpack_side * self._kernel_size
-        self._const_i[0] = limit
-        self._kernel_.set_arg(2, self._const_i)
+        if self._const_i is not None:
+            self._const_i[0] = limit
+            self._kernel_.set_arg(2, self._const_i)
         self.execute_kernel(self._global_size_unpack(limit),
                             self._local_size_unpack)
         output_offs = (start_image * self.input.sample_size *
@@ -370,14 +357,14 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 else cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
                 self.weights_shape[0], unpack_side, self._kernel_size,
                 self.np_one, self.weights.devmem, self.unpack_data.devmem,
-                self.np_zero, int(self.err_input.devmem) + output_offs)
+                self.np_zero, self._get_err_input_subbuffer(output_offs))
 
         # Accumulate gradient
         if self.weights_transposed:
             self.gemm_(
                 self.device.blas, cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_T,
                 self.n_kernels, self._kernel_size, unpack_side,
-                self.np_one, int(self.input.devmem) + output_offs,
+                self.np_one, self._get_input_subbuffer(output_offs),
                 self.unpack_data.devmem,
                 self.np_one if start_image else self.np_zero,
                 self.gradient_weights.devmem)
@@ -386,7 +373,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.device.blas, cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_T,
                 self._kernel_size, self.n_kernels, unpack_side,
                 self.np_one, self.unpack_data.devmem,
-                int(self.input.devmem) + output_offs,
+                self._get_input_subbuffer(output_offs),
                 self.np_one if start_image else self.np_zero,
                 self.gradient_weights.devmem)
 
