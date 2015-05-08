@@ -26,8 +26,9 @@
  * Grid:
  *  1D with total size >= (KX_APP * KY_APP * number_of_images_to_unpack) * (KX * KY * N_CHANNELS)
  */
-__kernel void Unpack1D(__global const dtype *data, __global dtype *unpack_data) {
-  int idx = get_global_id(0);  // we are processing small number of images at a time, so size_t is not required
+__kernel void Unpack1D(__global const dtype *data, __global dtype *unpack_data, const ulong data_offs) {
+  data += (size_t)data_offs;
+  int idx = get_global_id(0);  // we are processing not so many images at a time, so size_t is not required
 
   int ty = idx / KERNEL_SIZE;
   int tx = idx % KERNEL_SIZE;

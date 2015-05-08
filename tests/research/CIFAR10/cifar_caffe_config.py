@@ -51,8 +51,8 @@ train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
 validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
-root.common.precision_type = "float"
-root.common.precision_level = 1
+# root.common.precision_type = "float"
+# root.common.precision_level = 1
 
 root.cifar.lr_adjuster.lr_parameters = {
     "lrs_with_lengths": [(1, 60000), (0.1, 5000), (0.01, 100000000)]}

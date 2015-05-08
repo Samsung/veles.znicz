@@ -211,5 +211,6 @@ class TestCifarCaffe(StandardTest):
 
         self.info("All Ok")
 
+
 if __name__ == "__main__":
     StandardTest.main()

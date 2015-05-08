@@ -67,15 +67,6 @@ class ConvolutionalBase(Unit):
         self.link_attrs(other, *self.CONV_ATTRS)
         return self
 
-    @staticmethod
-    def ocl_get_subbuffer(cache, vec, offs):
-        subbuf = cache.get(offs)
-        if subbuf is not None:
-            return subbuf
-        subbuf = vec.devmem.create_sub_buffer(offs, vec.nbytes - offs)
-        cache[offs] = subbuf
-        return subbuf
-
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class Conv(ConvolutionalBase, nn_units.NNLayerBase):
@@ -235,6 +226,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         self.gemm_ = blas_class.gemm(dtype)
         self.np_one = numpy.ones(1, dtype=dtype)
         self.np_zero = numpy.zeros(1, dtype=dtype)
+        self._const_i = numpy.zeros(1, dtype=numpy.int64)
 
         self.assign_kernel("Unpack1D")
         self.set_arg(1, self.unpack_data)
@@ -248,9 +240,6 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
     def ocl_init(self):
         ocl_blas.OCLBLAS.attach_to_device(self.device)
         self._gpu_init(ocl_blas.OCLBLAS)
-        self._const_i = None
-        self._input_subbuffers_ = {0: self.input.devmem}
-        self._output_subbuffers_ = {0: self.output.devmem}
 
         self._global_size_unpack = lambda size: (size,)
         self._local_size_unpack = None
@@ -259,16 +248,12 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             self._global_size_bias = (self.output.size,)
             self._local_size_bias = None
 
-        self._get_input_subbuffer = (
-            lambda offs: ConvolutionalBase.ocl_get_subbuffer(
-                self._input_subbuffers_, self.input, offs))
-        self._get_output_subbuffer = (
-            lambda offs: ConvolutionalBase.ocl_get_subbuffer(
-                self._output_subbuffers_, self.output, offs))
+        self._process_subblock = self._ocl_process_subblock
+
+        self.set_arg(0, self.input)
 
     def cuda_init(self):
         self._gpu_init(cublas.CUBLAS)
-        self._const_i = numpy.zeros(1, dtype=numpy.int64)
 
         block_size = self.device.suggest_block_size(self._kernel_)
         self._global_size_unpack = (
@@ -281,10 +266,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                 int(numpy.ceil(self.output.size / block_size)), 1, 1)
             self._local_size_bias = (block_size, 1, 1)
 
-        self._get_input_subbuffer = (
-            lambda offs: int(self.input.devmem) + offs)
-        self._get_output_subbuffer = (
-            lambda offs: int(self.output.devmem) + offs)
+        self._process_subblock = self._cuda_process_subblock
 
     def ocl_run(self):
         self.gpu_run()
@@ -302,10 +284,10 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             self.execute_kernel(self._global_size_bias, self._local_size_bias,
                                 self._krn_bias_)
 
-    def _process_subblock(self, start_image, image_count):
+    def _cuda_process_subblock(self, start_image, image_count):
         self._kernel_.set_arg(
-            0, self._get_input_subbuffer(
-                start_image * self.input.sample_size * self.input.itemsize))
+            0, int(self.input.devmem) +
+            start_image * self.input.sample_size * self.input.itemsize)
         unpack_side = self._kernel_app_per_image * image_count
         limit = unpack_side * self._kernel_size
         if self._const_i is not None:
@@ -320,7 +302,22 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             else cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
             self.weights_shape[0], unpack_side, self._kernel_size,
             self.np_one, self.weights.devmem, self.unpack_data.devmem,
-            self.np_zero, self._get_output_subbuffer(output_offs))
+            self.np_zero, int(self.output.devmem) + output_offs)
+
+    def _ocl_process_subblock(self, start_image, image_count):
+        self._const_i[0] = start_image * self.input.sample_size
+        self._kernel_.set_arg(2, self._const_i)
+        unpack_side = self._kernel_app_per_image * image_count
+        limit = unpack_side * self._kernel_size
+        self.execute_kernel(self._global_size_unpack(limit),
+                            self._local_size_unpack)
+        output_offs = start_image * self.output.sample_size
+        self.gemm_(
+            self.device.blas, cublas.CUBLAS_OP_N if self.weights_transposed
+            else cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
+            self.weights_shape[0], unpack_side, self._kernel_size,
+            self.np_one, self.weights.devmem, self.unpack_data.devmem,
+            self.np_zero, self.output.devmem, offsetC=output_offs)
 
     def numpy_run(self):
         """Forward propagation from batch on CPU only.

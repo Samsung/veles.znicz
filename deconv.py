@@ -231,8 +231,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self.krn_pack_.set_arg(0, self.unpack_data.devmem)
 
         if self.hits:
-            self.krn_pack_.set_arg(2 if self._const_i is None else 3,
-                                   self.hits.devmem)
+            self.krn_pack_.set_arg(3, self.hits.devmem)
 
             self.krn_apply_hits_ = self.get_kernel("apply_hits")
             self.krn_apply_hits_.set_args(self.output.devmem, self.hits.devmem)
@@ -240,10 +239,10 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self.gemm_ = blas_class.gemm(self._dtype)
         self.np_one = numpy.ones(1, dtype=self._dtype)
         self.np_zero = numpy.zeros(1, dtype=self._dtype)
+        self._const_i = numpy.zeros(1, dtype=numpy.int64)
 
     def ocl_init(self):
         ocl_blas.OCLBLAS.attach_to_device(self.device)
-        self._const_i = None
         self._gpu_init(ocl_blas.OCLBLAS)
 
         self._global_size_pack = lambda size: (size,)
@@ -265,18 +264,11 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self._clear_hits = lambda: (
             self.execute_kernel((self.hits.size,), None, self.krn_clear_hits_))
 
-        self._input_subbuffers_ = {0: self.input.devmem}
-        self._output_subbuffers_ = {0: self.output.devmem}
+        self._process_subblock = self._ocl_process_subblock
 
-        self._get_input_subbuffer = (
-            lambda offs: ConvolutionalBase.ocl_get_subbuffer(
-                self._input_subbuffers_, self.input, offs))
-        self._get_output_subbuffer = (
-            lambda offs: ConvolutionalBase.ocl_get_subbuffer(
-                self._output_subbuffers_, self.output, offs))
+        self.krn_pack_.set_arg(1, self.output.devmem)
 
     def cuda_init(self):
-        self._const_i = numpy.zeros(1, dtype=numpy.int64)
         self._gpu_init(cublas.CUBLAS)
 
         block_size = self.device.suggest_block_size(self.krn_pack_)
@@ -293,10 +285,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self._clear_output = lambda: self.output.devmem.memset32_async()
         self._clear_hits = lambda: self.hits.devmem.memset32_async()
 
-        self._get_input_subbuffer = (
-            lambda offs: int(self.input.devmem) + offs)
-        self._get_output_subbuffer = (
-            lambda offs: int(self.output.devmem) + offs)
+        self._process_subblock = self._cuda_process_subblock
 
     def ocl_run(self):
         self.gpu_run()
@@ -317,7 +306,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             self.execute_kernel(self._global_size_hits, self._local_size_hits,
                                 self.krn_apply_hits_)
 
-    def _process_subblock(self, start_image, image_count):
+    def _cuda_process_subblock(self, start_image, image_count):
         output_offs = (start_image * self.input.sample_size *
                        self.input.itemsize)
         unpack_side = self._kernel_app_per_image * image_count
@@ -327,16 +316,33 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             else cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_N,
             self._kernel_size, unpack_side, self.weights_shape[0],
             self.np_one, self.weights.devmem,
-            self._get_input_subbuffer(output_offs),
+            int(self.input.devmem) + output_offs,
             self.np_zero, self.unpack_data.devmem)
 
         self.krn_pack_.set_arg(
-            1, self._get_output_subbuffer(
-                start_image * self.output.sample_size * self.output.itemsize))
+            1, int(self.output.devmem) +
+            start_image * self.output.sample_size * self.output.itemsize)
         limit = unpack_side * self._kernel_size
-        if self._const_i is not None:
-            self._const_i[0] = limit
-            self.krn_pack_.set_arg(2, self._const_i[0:1])
+        self._const_i[0] = limit
+        self.krn_pack_.set_arg(2, self._const_i)
+        self.execute_kernel(self._global_size_pack(limit),
+                            self._local_size_pack, self.krn_pack_)
+
+    def _ocl_process_subblock(self, start_image, image_count):
+        output_offs = start_image * self.input.sample_size
+        unpack_side = self._kernel_app_per_image * image_count
+
+        self.gemm_(
+            self.device.blas, cublas.CUBLAS_OP_T if self.weights_transposed
+            else cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_N,
+            self._kernel_size, unpack_side, self.weights_shape[0],
+            self.np_one, self.weights.devmem,
+            self.input.devmem,
+            self.np_zero, self.unpack_data.devmem, offsetB=output_offs)
+
+        self._const_i[0] = start_image * self.output.sample_size
+        self.krn_pack_.set_arg(2, self._const_i)
+        limit = unpack_side * self._kernel_size
         self.execute_kernel(self._global_size_pack(limit),
                             self._local_size_pack, self.krn_pack_)
 

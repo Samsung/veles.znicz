@@ -28,11 +28,12 @@
 #define DECONV_MODE 0
 #endif
 
-__kernel void DirectPack(__global const dtype *unpack_data, __global dtype *data
+__kernel void DirectPack(__global const dtype *unpack_data, __global dtype *data, const ulong data_offs
 #if DECONV_MODE == 2
                          , __global int *hits
 #endif
                 ) {
+  data += (size_t)data_offs;
   int idx = get_global_id(0);  // we are processing not so many images at a time, so size_t is not required
 
   int ty = idx / KERNEL_SIZE;
