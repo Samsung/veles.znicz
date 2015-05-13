@@ -71,7 +71,7 @@ from veles.znicz.nn_plotting_units import Weights2D
 from veles.znicz.tests.research.ImagenetAE.processor import Processor
 import veles.znicz.tests.research.ImagenetAE.background_detection as back_det
 
-IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
+IMAGENET_BASE_PATH = os.path.join(config.root.common.datasets_root,
                                   "imagenet/temp")
 
 # IMAGENET_BASE_PATH = "/data/veles/datasets/imagenet/2014"
@@ -1981,7 +1981,7 @@ class Main(Processor):
         label_txt = ""
         digits_word = []
         font = ImageFont.truetype(
-            os.path.join(config.root.common.test_dataset_root,
+            os.path.join(config.root.common.datasets_root,
                          "arial.ttf"), fontsize)
         cached_data_fnme = path
         categories_path = ("/data/veles/datasets/imagenet/2014/"

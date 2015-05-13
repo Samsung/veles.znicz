@@ -48,10 +48,10 @@ from veles.znicz.tests.functional import StandardTest
 class TestLines(StandardTest):
     @classmethod
     def setUpClass(cls):
-        train = os.path.join(root.common.test_dataset_root,
+        train = os.path.join(root.common.datasets_root,
                              "Lines/lines_min/learn")
 
-        valid = os.path.join(root.common.test_dataset_root,
+        valid = os.path.join(root.common.datasets_root,
                              "Lines/lines_min/test")
 
         root.lines.mcdnnic_parameters = {

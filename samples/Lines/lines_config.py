@@ -42,14 +42,14 @@ import os
 from veles.config import root
 
 """
-train = os.path.join(root.common.test_dataset_root,
+train = os.path.join(root.common.datasets_root,
                      "Lines/LINES_10_500_NOISY_min_valid/learning")
-valid = os.path.join(root.common.test_dataset_root,
+valid = os.path.join(root.common.datasets_root,
                      "Lines/LINES_10_500_NOISY_min_valid/test")
 """
-train = os.path.join(root.common.test_dataset_root,
+train = os.path.join(root.common.datasets_root,
                      "Lines/lines_min/learn")
-valid = os.path.join(root.common.test_dataset_root,
+valid = os.path.join(root.common.datasets_root,
                      "Lines/lines_min/test")
 
 root.lines.mcdnnic_parameters = {

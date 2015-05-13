@@ -56,9 +56,9 @@ import veles.loader as loader
 from veles.znicz.nn_units import NNSnapshotter
 
 
-target_dir = [os.path.join(root.common.test_dataset_root,
+target_dir = [os.path.join(root.common.datasets_root,
                            "approximator/all_org_apertures.mat")]
-train_dir = [os.path.join(root.common.test_dataset_root,
+train_dir = [os.path.join(root.common.datasets_root,
                           "approximator/all_dec_apertures.mat")]
 
 root.approximator.update({

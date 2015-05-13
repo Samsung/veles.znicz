@@ -54,7 +54,7 @@ class TestYaleFaces(StandardTest):
             "downloader": {"url":
                            ("http://vision.ucsd.edu/extyaleb/CroppedYaleBZip/"
                             + "CroppedYale.zip"),
-                           "directory": root.common.test_dataset_root,
+                           "directory": root.common.datasets_root,
                            "files": ["CroppedYale"]},
             "name_workflow": "FullyConnected_YaleFaces",
             "decision": {"fail_iterations": 50, "max_epochs": 3},
@@ -73,7 +73,7 @@ class TestYaleFaces(StandardTest):
                        "background_color": (0,),
                        "normalization_type": "mean_disp",
                        "train_paths":
-                           [os.path.join(root.common.test_dataset_root,
+                           [os.path.join(root.common.datasets_root,
                                          "CroppedYale")]},
             "layers": [{"type": "all2all_tanh",
                         "->": {"output_sample_shape": 100},

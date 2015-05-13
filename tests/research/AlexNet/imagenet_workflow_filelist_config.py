@@ -45,11 +45,11 @@ root.common.precision_level = 0
 root.common.engine.backend = "cuda"
 
 train_path = os.path.join(
-    root.common.test_dataset_root, "AlexNet/imagenet",
+    root.common.datasets_root, "AlexNet/imagenet",
     "%s" % "images_imagenet_imagenet_img_train.json")
 
 valid_path = os.path.join(
-    root.common.test_dataset_root, "AlexNet/imagenet",
+    root.common.datasets_root, "AlexNet/imagenet",
     "%s" % "images_imagenet_imagenet_img_val.json")
 
 root.imagenet.lr_adjuster.lr_parameters = {
@@ -68,7 +68,7 @@ root.imagenet.loader.update({
     "path_to_val_text_file": [valid_path]})
 
 root.imagenet.loader.normalization_parameters = {
-    "mean_source": os.path.join(root.common.test_dataset_root,
+    "mean_source": os.path.join(root.common.datasets_root,
                                 "AlexNet/mean_image_227.JPEG")}
 
 root.imagenet.update({

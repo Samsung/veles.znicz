@@ -66,8 +66,7 @@ class Downloader(Unit, TriviallyDistributable):
         super(Downloader, self).__init__(workflow, **kwargs)
         self.url = kwargs["url"]
         self.files = kwargs.get("files", [])
-        self.directory = kwargs.get(
-            "directory", root.common.test_dataset_root)
+        self.directory = kwargs.get("directory", root.common.datasets_root)
 
     @property
     def directory(self):

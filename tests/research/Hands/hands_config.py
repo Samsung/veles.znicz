@@ -41,8 +41,8 @@ from veles.config import root
 
 
 # optional parameters
-train_dir = [os.path.join(root.common.test_dataset_root, "hands/Training")]
-validation_dir = [os.path.join(root.common.test_dataset_root, "hands/Testing")]
+train_dir = [os.path.join(root.common.datasets_root, "hands/Training")]
+validation_dir = [os.path.join(root.common.datasets_root, "hands/Testing")]
 
 
 root.hands.update({

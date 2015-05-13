@@ -45,7 +45,7 @@ import scipy.misc
 import veles.config as config
 from veles.znicz.tests.research.ImagenetAE.processor import Processor
 
-IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
+IMAGENET_BASE_PATH = os.path.join(config.root.common.datasets_root,
                                   "FakeImagenet/Caffe")
 
 

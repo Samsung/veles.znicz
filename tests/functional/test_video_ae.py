@@ -56,7 +56,7 @@ class TestVideoAE(StandardTest):
             "decision": {"fail_iterations": 100},
             "loader": {
                 "minibatch_size": 50, "force_numpy": False,
-                "train_paths": (os.path.join(root.common.test_dataset_root,
+                "train_paths": (os.path.join(root.common.datasets_root,
                                 "video_ae/img"),),
                 "color_space": "GRAY",
                 "background_color": (0x80,),

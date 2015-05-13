@@ -41,8 +41,8 @@ import os
 from veles.config import root
 
 
-train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
-validation_dir = os.path.join(root.common.test_dataset_root,
+train_dir = os.path.join(root.common.datasets_root, "cifar/10")
+validation_dir = os.path.join(root.common.datasets_root,
                               "cifar/10/test_batch")
 
 root.cifar.update({

@@ -47,7 +47,7 @@ from .loader_wine import WineLoader
 from veles.znicz.nn_units import NNSnapshotter
 
 
-root.common.disable_plotting = True
+root.common.disable.plotting = True
 
 root.wine_relu.update({
     "decision": {"fail_iterations": 250, "max_epochs": 100000},

@@ -41,7 +41,7 @@ from veles.config import root
 base_lr = 0.01
 wd = 0.0005
 
-data_path = os.path.join(root.common.test_dataset_root, "AlexNet/LMDB")
+data_path = os.path.join(root.common.datasets_root, "AlexNet/LMDB")
 
 root.common.engine.backend = "cuda"
 root.common.precision_type = "float"
@@ -164,5 +164,5 @@ root.imagenet.update({
                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9}}]})
 
 root.imagenet.loader.normalization_parameters = {
-    "mean_source": os.path.join(root.common.test_dataset_root,
+    "mean_source": os.path.join(root.common.datasets_root,
                                 "AlexNet/mean_image_227.JPEG")}

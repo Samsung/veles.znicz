@@ -51,10 +51,10 @@ class TestKanji(StandardTest):
         prng.get(2).seed(numpy.fromfile("%s/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
                                         dtype=numpy.uint32, count=1024))
-        train_path = os.path.join(root.common.test_dataset_root,
+        train_path = os.path.join(root.common.datasets_root,
                                   "new_kanji/train")
 
-        target_path = os.path.join(root.common.test_dataset_root,
+        target_path = os.path.join(root.common.datasets_root,
                                    "new_kanji/target")
 
         root.kanji.update({

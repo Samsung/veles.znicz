@@ -61,7 +61,7 @@ VALIDATION = "val"
 root.prep_imagenet.root_name = "imagenet"
 root.prep_imagenet.series = "img"
 root.prep_imagenet.root_path = os.path.join(
-    root.common.test_dataset_root, "AlexNet", root.prep_imagenet.root_name)
+    root.common.datasets_root, "AlexNet", root.prep_imagenet.root_name)
 
 root.prep_imagenet.update({
     "file_with_indices":

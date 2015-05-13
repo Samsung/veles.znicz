@@ -50,7 +50,7 @@ root.yalefaces.update({
     "downloader": {
         "url":
         "http://vision.ucsd.edu/extyaleb/CroppedYaleBZip/CroppedYale.zip",
-        "directory": root.common.test_dataset_root,
+        "directory": root.common.datasets_root,
         "files": ["CroppedYale"]},
     "name_workflow": "FullyConnected_YaleFaces",
     "decision": {"fail_iterations": 50, "max_epochs": 1000},
@@ -68,7 +68,7 @@ root.yalefaces.update({
                "background_color": (0,),
                "normalization_type": "mean_disp",
                "train_paths":
-               [os.path.join(root.common.test_dataset_root, "CroppedYale")]},
+               [os.path.join(root.common.datasets_root, "CroppedYale")]},
     "layers": [{"type": "all2all_tanh",
                 "->": {"output_sample_shape": 100},
                 "<-": {"learning_rate": 0.01, "weights_decay": 0.00005}},

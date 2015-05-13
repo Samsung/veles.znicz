@@ -83,7 +83,7 @@ root.imagenet_ae.update({
                                   "tmp_imagenet/train")]},
     "snapshotter": {"prefix": "imagenet_ae",
                     "directory":
-                    os.path.join(root.common.test_dataset_root,
+                    os.path.join(root.common.datasets_root,
                                  "imagenet/snapshots/DET/new")},
     "from_snapshot_add_layer": True,
     "fine_tuning_noise": 1.0e-6,

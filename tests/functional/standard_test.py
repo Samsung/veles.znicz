@@ -58,7 +58,7 @@ class StandardTest(AcceleratedTest):
             "precision_level": 1,
             "precision_type": "double"})
 
-        assert root.common.disable_plotting
+        assert root.common.disable.plotting
         self.seed()
 
     def getParent(self):

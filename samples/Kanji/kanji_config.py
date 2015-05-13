@@ -43,9 +43,9 @@ from veles.config import root
 
 # optional parameters
 
-train_path = os.path.join(root.common.test_dataset_root, "new_kanji/train")
+train_path = os.path.join(root.common.datasets_root, "new_kanji/train")
 
-target_path = os.path.join(root.common.test_dataset_root, "new_kanji/target")
+target_path = os.path.join(root.common.datasets_root, "new_kanji/target")
 
 
 root.kanji.update({

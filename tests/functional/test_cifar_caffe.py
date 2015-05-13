@@ -47,9 +47,9 @@ import veles.znicz.tests.research.CIFAR10.cifar as cifar
 class TestCifarCaffe(StandardTest):
     @classmethod
     def setUpClass(cls):
-        train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
+        train_dir = os.path.join(root.common.datasets_root, "cifar/10")
         validation_dir = os.path.join(
-            root.common.test_dataset_root, "cifar/10/test_batch")
+            root.common.datasets_root, "cifar/10/test_batch")
 
         root.cifar.lr_adjuster.lr_parameters = {
             "lrs_with_lengths": [(1, 60000), (0.1, 5000), (0.01, 100000000)]}

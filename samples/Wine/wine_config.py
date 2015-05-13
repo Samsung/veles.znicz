@@ -39,7 +39,7 @@ under the License.
 from veles.config import root
 
 
-root.common.update = {"disable_plotting": True}
+root.common.update = {"disable.plotting": True}
 
 root.wine.update({
     "decision": {"fail_iterations": 200,

@@ -47,7 +47,7 @@ root.common.engine.backend = "cuda"
 root.imagenet.root_name = "imagenet"
 root.imagenet.series = "img"
 root.imagenet.root_path = os.path.join(
-    root.common.test_dataset_root, "AlexNet", "%s" % root.imagenet.root_name)
+    root.common.datasets_root, "AlexNet", "%s" % root.imagenet.root_name)
 
 root.imagenet.lr_adjuster.lr_parameters = {
     "lrs_with_lengths":

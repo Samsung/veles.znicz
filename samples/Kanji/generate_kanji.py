@@ -214,7 +214,7 @@ if __name__ == '__main__':
     numpy.random.seed(numpy.fromfile("veles/znicz/tests/research/seed",
                                      dtype=numpy.int32, count=1024))
 
-    db = sqlite3.connect(os.path.join(root.common.test_dataset_root,
+    db = sqlite3.connect(os.path.join(root.common.datasets_root,
                                       "kanji/kanji.db"))
 
     try:
@@ -235,7 +235,7 @@ if __name__ == '__main__':
     if n_kanji < 1:
         sys.exit(0)
 
-    fonts = glob.glob(os.path.join(root.common.test_dataset_root,
+    fonts = glob.glob(os.path.join(root.common.datasets_root,
                                    "kanji/fonts/*"))
     fonts.sort()
 
@@ -245,8 +245,8 @@ if __name__ == '__main__':
 
     rs = db.execute(query)
 
-    dirnme = os.path.join(root.common.test_dataset_root, "new_kanji/train")
-    target_dirnme = os.path.join(root.common.test_dataset_root,
+    dirnme = os.path.join(root.common.datasets_root, "new_kanji/train")
+    target_dirnme = os.path.join(root.common.datasets_root,
                                  "new_kanji/target")
 
     logging.info("Be sure that %s and %s are empty" % (dirnme, target_dirnme))

@@ -46,9 +46,9 @@ import veles.znicz.tests.research.Approximator.approximator as approximator
 class TestApproximator(StandardTest):
     @classmethod
     def setUpClass(cls):
-        target_dir = [os.path.join(root.common.test_dataset_root,
+        target_dir = [os.path.join(root.common.datasets_root,
                                    "approximator/all_org_apertures.mat")]
-        train_dir = [os.path.join(root.common.test_dataset_root,
+        train_dir = [os.path.join(root.common.datasets_root,
                                   "approximator/all_dec_apertures.mat")]
 
         root.approximator.update({

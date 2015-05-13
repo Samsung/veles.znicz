@@ -52,5 +52,5 @@ root.mnist784.update({
     "learning_rate": 0.00001,
     "weights_decay": 0.00005,
     "layers": [784, 784],
-    "data_paths": {"arial": os.path.join(root.common.test_dataset_root,
+    "data_paths": {"arial": os.path.join(root.common.datasets_root,
                                          "arial.ttf")}})

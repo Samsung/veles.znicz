@@ -46,8 +46,8 @@ import veles.znicz.tests.research.CIFAR10.cifar as cifar
 class TestCifarAll2All(StandardTest):
     @classmethod
     def setUpClass(cls):
-        train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
-        validation_dir = os.path.join(root.common.test_dataset_root,
+        train_dir = os.path.join(root.common.datasets_root, "cifar/10")
+        validation_dir = os.path.join(root.common.datasets_root,
                                       "cifar/10/test_batch")
         root.cifar.update({
             "decision": {"fail_iterations": 1000, "max_epochs": 2},

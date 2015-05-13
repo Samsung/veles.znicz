@@ -77,7 +77,7 @@ root.mnist784.update({
     "weights_decay": 0.00005,
     "layers": [784, 784],
     "data_paths": {"arial":
-                   os.path.join(root.common.test_dataset_root, "arial.ttf")}})
+                   os.path.join(root.common.datasets_root, "arial.ttf")}})
 
 
 def do_plot(fontPath, text, size, angle, sx, sy,

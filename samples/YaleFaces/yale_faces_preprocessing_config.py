@@ -54,4 +54,4 @@ root.yalefaces.update({
                "color_space": "GRAY",
                "background_color": (0,),
                "train_paths":
-               [os.path.join(root.common.test_dataset_root, "CroppedYale")]}})
+               [os.path.join(root.common.datasets_root, "CroppedYale")]}})
