@@ -48,7 +48,6 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 from veles.interaction import Shell
-from veles.znicz.nnpublisher import NNPublisher
 
 sys.path.append(os.path.dirname(__file__))
 from .loader_mnist import MnistLoader
@@ -178,15 +177,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.gds[0])
         self.repeater.gate_block = self.decision.complete
 
-        self.publisher = NNPublisher(self, backends={"confluence": {
-            "server": "http://confluence.rnd.samsung.ru",
-            "username": "v.markovtsev", "password": "YhE927ak",
-            "space": "VEL", "parent": "Veles"}})
-        self.publisher.link_from(self.gds[0])
-        self.publisher.loader_unit = self.loader
-        self.publisher.errors_pt = self.decision.epoch_n_err_pt
-        self.publisher.gate_block = ~self.decision.complete
-        self.end_point.link_from(self.publisher)
+        self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete
