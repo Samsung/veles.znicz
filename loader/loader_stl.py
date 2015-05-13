@@ -51,14 +51,21 @@ class STL10FullBatchLoader(FullBatchImageLoader):
 
     def __init__(self, workflow, **kwargs):
         super(STL10FullBatchLoader, self).__init__(workflow, **kwargs)
-        self._files = [None] * 3
-        self.directory = kwargs["directory"]
+        self._directory = kwargs["directory"]
         self.original_shape = self.SIZE
 
+    def init_unpickled(self):
+        super(STL10FullBatchLoader, self).init_unpickled()
+        self._files_ = [None] * 3
+
     def __del__(self):
-        for file in self._files:
+        for file in self._files_:
             if file is not None:
                 file.close()
+
+    def initialize(self, device, **kwargs):
+        self.directory = self._directory
+        super(STL10FullBatchLoader, self).initialize(device=device, **kwargs)
 
     @property
     def directory(self):
@@ -71,12 +78,12 @@ class STL10FullBatchLoader(FullBatchImageLoader):
         self._directory = value
         with open(os.path.join(self.directory, "class_names.txt"), 'r') as fin:
             self._class_names = fin.read().split()
-        for file in self._files:
+        for file in self._files_:
             if file is not None:
                 file.close()
-        self._files[TRAIN] = open(
+        self._files_[TRAIN] = open(
             os.path.join(self.directory, "train_X.bin"), "rb")
-        self._files[VALID] = open(
+        self._files_[VALID] = open(
             os.path.join(self.directory, "test_X.bin"), "rb")
         self._labels = [None] * 3
         self._labels[TRAIN] = numpy.fromfile(
@@ -84,7 +91,7 @@ class STL10FullBatchLoader(FullBatchImageLoader):
         self._labels[VALID] = numpy.fromfile(
             os.path.join(self.directory, "test_y.bin"), dtype=numpy.uint8)
         for klass in TRAIN, VALID:
-            file = self._files[klass]
+            file = self._files_[klass]
             file.seek(0, os.SEEK_END)
             assert file.tell() / self.SQUARE == len(self._labels[klass])
 
@@ -95,7 +102,7 @@ class STL10FullBatchLoader(FullBatchImageLoader):
         return self.SIZE, "RGB"
 
     def get_image_data(self, key):
-        file = self._files[key[0]]
+        file = self._files_[key[0]]
         file.seek(key[1] * self.SQUARE, os.SEEK_SET)
         return numpy.transpose(
             numpy.frombuffer(file.read(self.SQUARE), dtype=numpy.uint8)
@@ -104,6 +111,6 @@ class STL10FullBatchLoader(FullBatchImageLoader):
     def get_keys(self, index):
         if index == TEST:
             return []
-        file = self._files[index]
+        file = self._files_[index]
         file.seek(0, os.SEEK_END)
         return zip(repeat(index), range(file.tell() // self.SQUARE))

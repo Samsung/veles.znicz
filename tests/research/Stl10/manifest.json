@@ -1,0 +1,15 @@
+{
+    "author": "VELES Team",
+    "configuration": "stl10_config.py",
+    "long_description": "Self-constructing Workflow (Fully-connected/Convolutional) for recognition of objects on base of STL-10 data.",
+    "name": "Stl10",
+    "requires": [
+        "veles >= 0.8.9",
+        "veles.znicz >= 0.7.2"
+    ],
+    "image": "stl10.png",
+    "tags": ["stl", "softmax", "fully-connected", "convolutional", "image"],
+    "short_description": "Model for object recognition with STL10 database.",
+    "workflow": "stl10.py",
+    "files": ["loader_stl.py"]
+}
