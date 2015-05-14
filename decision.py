@@ -156,8 +156,26 @@ class DecisionBase(Unit):
 
         self.complete.on_true = on_completed
 
+    @property
+    def max_epochs(self):
+        return self._max_epochs
+
+    @max_epochs.setter
+    def max_epochs(self, value):
+        if value is None:
+            self._max_epochs = None
+            return
+        if not isinstance(value, int):
+            raise TypeError(
+                "max_epochs must be an integer or None (got %s)" % type(value))
+        if value < 1:
+            raise ValueError(
+                "max_epochs must be greater than 0 (got %d)" % value)
+        self._max_epochs = value
+
     def initialize(self, **kwargs):
-        pass
+        if self.max_epochs is not None:
+            self.info("Will allow max %d epochs", self.max_epochs)
 
     def run(self):
         if self.epoch_timestamp is False:
