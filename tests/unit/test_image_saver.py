@@ -138,7 +138,7 @@ class TestImageSaver(unittest.TestCase):
                          "tmpimg/test_image_saver_%s/train"
                          % (i.strftime('%Y_%m_%d_%H_%M_%S')))]
         self.img_saver_MSE = image_saver.ImageSaver(
-            dummy_workflow.DummyWorkflow(), out_dirs=root.image_saver.out_dirs)
+            self.workflow, out_dirs=root.image_saver.out_dirs)
         self.fill_data()
         self.img_saver_MSE.input = self.minibatch_data
         self.img_saver_MSE.labels = self.lbls
