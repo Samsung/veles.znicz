@@ -39,6 +39,7 @@ under the License.
 import cv2
 import json
 import logging
+import matplotlib.pyplot as plt
 import numpy
 import pickle
 from PIL import Image
@@ -49,6 +50,7 @@ import sys
 from veles.compat import from_none
 from veles.config import root
 import veles.opencl_types as opencl_types
+import veles.prng as rnd
 from veles.znicz.external import xmltodict
 from veles.znicz.tests.research.ImagenetAE.processor import Processor
 
@@ -102,8 +104,8 @@ root.prep_imagenet.update({
     "get_label": "all_ways",
     # "from_image_name" "from_image_path" "from_xml" "all_ways"
     "get_label_from_txt_label": True,
-    "command_to_run": "save_dataset_to_file"
-    # "save_dataset_to_file" "init_dataset"
+    "command_to_run": "test_load_data"
+    # "save_dataset_to_file" "init_dataset" "test_load_data"
 })
 
 root.prep_imagenet.classes_count = (
@@ -452,6 +454,61 @@ class Main(Processor):
     def transformation_image(self, image):
         sample = cv2.resize(image, self.rect, interpolation=cv2.INTER_LANCZOS4)
         return sample
+
+    def test_load_data(self):
+        path_labels = os.path.join(
+            root.prep_imagenet.root_path, "original_labels_%s_%s.pickle"
+            % (root.prep_imagenet.root_name, root.prep_imagenet.series))
+
+        path_data = os.path.join(
+            root.prep_imagenet.root_path, "original_data_%s_%s.dat"
+            % (root.prep_imagenet.root_name, root.prep_imagenet.series))
+        rand = rnd.get()
+        with open(path_labels, "rb") as fout:
+            fout_file = pickle.load(fout)
+        i = int(rand.rand() * len(fout_file))
+        self.info("image number i %s" % i)
+        label = fout_file[i]
+        path_to_ind_labels = os.path.join(
+            root.prep_imagenet.root_path, "text_to_int_labels_%s_%s.json"
+            % (root.prep_imagenet.root_name, root.prep_imagenet.series))
+        self.info("label %s" % label)
+        label_num = None
+        if self.series == "img":
+            with open(path_to_ind_labels, "r") as ind_lab:
+                labels_to_int = json.load(ind_lab)
+                for label_txt, label_int in labels_to_int.items():
+                    if label == label_int:
+                        label_num = label_txt
+        if self.series == "DET":
+            path_to_labels_word = os.path.join(
+                root.prep_imagenet.root_path,
+                "classes_200_2014_DET.json")
+            with open(path_to_labels_word, "r") as labels_word:
+                label_cat = json.load(labels_word)
+                for (ind, label_w) in label_cat:
+                    if label == ind:
+                        label_num = label_w
+        self.info("label num %s" % label_num)
+        path_to_categories = os.path.join(root.prep_imagenet.root_path,
+                                          "indices_to_categories.txt")
+        num_word = []
+        label_word = None
+        with open(path_to_categories, "r") as word_lab:
+            for line in word_lab:
+                num = line[:line.find("\t")]
+                word = line[line.find("\t") + 1:line.find("\n")]
+                num_word.append((num, word))
+        for num, word in num_word:
+            if num == label_num:
+                label_word = word
+        self.info("categories %s" % label_word)
+        self.file_samples = open(path_data, "rb")
+        sample = numpy.zeros([256, 256, 3], dtype=numpy.uint8)
+        self.file_samples.seek(i * sample.nbytes)
+        self.file_samples.readinto(sample)
+        plt.imshow(sample[:, :, 0:3].copy(), interpolation="nearest")
+        plt.show()
 
     def init_dataset(self):
         if self.series == "DET":
