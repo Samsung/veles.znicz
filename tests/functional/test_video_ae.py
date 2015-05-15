@@ -53,7 +53,7 @@ class TestVideoAE(StandardTest):
                                         dtype=numpy.uint32, count=1024))
         root.video_ae.update({
             "snapshotter": {"prefix": "video_ae_test"},
-            "decision": {"fail_iterations": 100},
+            "decision": {"fail_iterations": 100, "max_epochs": None},
             "loader": {
                 "minibatch_size": 50, "force_numpy": False,
                 "train_paths": (os.path.join(root.common.datasets_root,

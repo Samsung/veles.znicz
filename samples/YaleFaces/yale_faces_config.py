@@ -40,10 +40,12 @@ import numpy
 import os
 from veles.config import root
 
+root.common.disable.publishing = True
+
 root.yalefaces.publisher.backends = {"confluence": {
-    "server": "http://confluence.rnd.samsung.ru",
-    "username": "al-jenkins", "password": "jenkins",
-    "space": "VEL", "parent": "Veles",
+    "server": "http://confluence",
+    "username": "user", "password": "password",
+    "space": "SPACE", "parent": "Veles",
     "path_to_save": os.path.join(root.common.cache_dir, "model_info")}}
 
 root.yalefaces.update({
