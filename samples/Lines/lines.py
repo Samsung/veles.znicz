@@ -49,23 +49,20 @@ class LinesWorkflow(StandardWorkflow):
     """
     def create_workflow(self):
         self.link_repeater(self.start_point)
-
         self.link_loader(self.repeater)
-
         self.link_forwards(("input", "minibatch_data"), self.loader)
-
         self.link_evaluator(self.forwards[-1])
-
         self.link_decision(self.evaluator)
-
         end_units = [link(self.decision) for link in (self.link_snapshotter,
                                                       self.link_image_saver,
                                                       self.link_error_plotter)]
         gd = self.link_gds(*end_units)
-        self.repeater.link_from(
-            self.link_weights_plotter(
-                "gradient_weights",
-                self.link_table_plotter(gd)))
+        self.link_table_plotter(gd)
+        self.link_weights_plotter(
+            "gradient_weights", self.table_plotter)
+        self.link_multi_hist_plotter(
+            "gradient_weights", self.weights_plotter[-1])
+        self.repeater.link_from(self.multi_hist_plotter[-1])
 
         self.link_end_point(gd)
 

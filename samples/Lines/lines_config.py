@@ -71,4 +71,4 @@ root.lines.update({
                "normalization_type": "mean_disp",
                "train_paths": [train],
                "validation_paths": [valid]},
-    "weights_plotter": {"limit": 32}})
+    "weights_plotter": {"limit": 32, "split_channels": False}})

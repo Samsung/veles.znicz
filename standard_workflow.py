@@ -1183,12 +1183,18 @@ class StandardWorkflow(StandardWorkflowBase):
         self.multi_hist_plotter = []
         prev = parents
         link_units = self._get_weights_source_units(weights_input)
+        index = 1
         for i, layer in enumerate(self.layers):
+            if (not isinstance(self.forwards[i], conv.Conv) and
+                    not isinstance(self.forwards[i], all2all.All2All) or
+                    isinstance(self.forwards[i], all2all.All2AllSoftmax)):
+                continue
             multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram %s %s" % (i + 1, layer["type"])) \
+                self, name="Histogram #%s: %s" % (index, layer["type"])) \
                 .link_from(*prev).link_attrs(
                     link_units[i], ("input", weights_input))
             multi_hist.gate_skip = ~self.decision.epoch_ended
+            index += 1
             prev = multi_hist,
             self.multi_hist_plotter.append(multi_hist)
             for name in "n_kernels", "output_sample_shape":
