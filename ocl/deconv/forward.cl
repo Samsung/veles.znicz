@@ -14,7 +14,7 @@ __kernel void apply_hits(__global dtype *output, __global const int *hits) {
   output[idx] /= n ? n : 1;
 }
 
-KERNEL_CLEAR(clear_hits, dtype)
+KERNEL_CLEAR(clear_hits, int)
 #endif
 
 KERNEL_CLEAR(clear_output, dtype)
