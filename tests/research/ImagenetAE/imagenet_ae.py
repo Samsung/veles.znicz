@@ -420,7 +420,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
         unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
 
-        unit = NNRollback(self)
+        unit = NNRollback(self, lr_plus=1)
         self.rollback = unit
         unit.link_from(self.snapshotter)
         unit.improved = self.decision.train_improved

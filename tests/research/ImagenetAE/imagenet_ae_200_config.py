@@ -41,7 +41,7 @@ import os
 from veles.config import root
 
 
-LR = 0.000002
+LR = 0.00002
 WD = 0.0005
 ORTHO = 0.001
 GM = 0.9
@@ -90,7 +90,7 @@ root.imagenet_ae.update({
     "layers":
     [{"type": "ae_begin"},  # 216
      {"type": "conv", "n_kernels": 108,
-      "kx": 9, "ky": 9, "sliding": (1, 1),
+      "kx": 9, "ky": 9, "sliding": (3, 3),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -100,12 +100,13 @@ root.imagenet_ae.update({
       "weights_stddev": STDDEV_CONV,
       "l1_vs_l2": L1_VS_L2},
      {"type": "stochastic_abs_pooling",
-      "kx": 3, "ky": 3, "sliding": (3, 3)},
+      "kx": 3, "ky": 3, "sliding": (3, 3)},  # 69
      {"type": "ae_end"},
      {"type": "activation_mul"},
-     {"type": "ae_begin"},  # 72
+     {"type": "ae_begin"},  # 23
      {"type": "conv", "n_kernels": 192,
-      "kx": 6, "ky": 6, "sliding": (1, 1),
+      "kx": 5, "ky": 5, "sliding": (1, 1),
+      "padding": (2, 2, 2, 2),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -115,12 +116,14 @@ root.imagenet_ae.update({
       "weights_stddev": STDDEV_CONV,
       "l1_vs_l2": L1_VS_L2},
      {"type": "stochastic_abs_pooling",
+      "padding": (2, 2, 2, 2),
       "kx": 2, "ky": 2, "sliding": (2, 2)},
      {"type": "ae_end"},
      {"type": "activation_mul"},
-     {"type": "ae_begin"},  # 36
+     {"type": "ae_begin"},  # 13
      {"type": "conv", "n_kernels": 224,
-      "kx": 6, "ky": 6, "sliding": (1, 1),
+      "kx": 5, "ky": 5, "sliding": (1, 1),
+      "padding": (2, 2, 2, 2),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -129,13 +132,12 @@ root.imagenet_ae.update({
       "weights_filling": FILLING,
       "weights_stddev": STDDEV_CONV,
       "l1_vs_l2": L1_VS_L2},
-     {"type": "stochastic_abs_pooling",
-      "kx": 2, "ky": 2, "sliding": (2, 2)},
      {"type": "ae_end"},
      {"type": "activation_mul"},
-     {"type": "ae_begin"},  # 18
+     {"type": "ae_begin"},  # 13
      {"type": "conv", "n_kernels": 256,
-      "kx": 6, "ky": 6, "sliding": (1, 1),
+      "kx": 3, "ky": 3, "sliding": (1, 1),
+      "padding": (1, 1, 1, 1),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -145,27 +147,27 @@ root.imagenet_ae.update({
       "weights_stddev": STDDEV_CONV,
       "l1_vs_l2": L1_VS_L2},
      {"type": "stochastic_abs_pooling",
-      "kx": 2, "ky": 2, "sliding": (2, 2)},
+      "kx": 2, "ky": 2, "sliding": (2, 2)},  # 6
      {"type": "ae_end"},
      {"type": "activation_mul"},
-     {"type": "all2all_tanh", "output_sample_shape": 2048,
+     {"type": "all2all_tanh", "output_sample_shape": 4096,
       "learning_rate": LRAA, "learning_rate_bias": LRBAA,
       "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
       "weights_decay": WDAA, "weights_decay_bias": WDBAA,
       "factor_ortho": ORTHOAA,
       "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
-      "weights_filling": "gaussian", "bias_filling": "gaussian",
-      "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
+      "weights_filling": "gaussian", "bias_filling": "constant",
+      "weights_stddev": STDDEV_AA, "bias_stddev": 0.1,
       "l1_vs_l2": L1_VS_L2},
      {"type": "dropout", "dropout_ratio": 0.5},
-     {"type": "all2all_tanh", "output_sample_shape": 2048,
+     {"type": "all2all_tanh", "output_sample_shape": 4096,
       "learning_rate": LRAA, "learning_rate_bias": LRBAA,
       "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
       "weights_decay": WDAA, "weights_decay_bias": WDBAA,
       "factor_ortho": ORTHOAA,
       "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
-      "weights_filling": "gaussian", "bias_filling": "gaussian",
-      "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
+      "weights_filling": "gaussian", "bias_filling": "constant",
+      "weights_stddev": STDDEV_AA, "bias_stddev": 0.1,
       "l1_vs_l2": L1_VS_L2},
      {"type": "dropout", "dropout_ratio": 0.5},
      {"type": "softmax", "output_sample_shape": 201,
@@ -173,6 +175,6 @@ root.imagenet_ae.update({
       "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
       "weights_decay": WDAA, "weights_decay_bias": WDBAA,
       "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
-      "weights_filling": "gaussian", "bias_filling": "gaussian",
-      "bias_stddev": 0.01, "weights_stddev": 0.01,
+      "weights_filling": "gaussian", "bias_filling": "constant",
+      "bias_stddev": 0, "weights_stddev": 0.01,
       "l1_vs_l2": L1_VS_L2}]})
