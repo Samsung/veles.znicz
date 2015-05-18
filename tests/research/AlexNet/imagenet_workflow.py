@@ -54,14 +54,16 @@ class ImagenetWorkflow(StandardWorkflow):
 
     def create_workflow(self):
         self.link_repeater(self.start_point)
-        self.link_loader(self.start_point)
-        avatar = self.link_avatar()
-        self.link_forwards(("input", "minibatch_data"), avatar)
+        self.link_loader(self.repeater)
+        # self.link_avatar()
+        self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
-        parallel_units = [self.link_snapshotter(self.decision)]
+        self.link_snapshotter(self.decision)
+        parallel_units = []
+        self.link_image_saver(self.snapshotter)
         if root.imagenet.add_plotters:
-            parallel_units.extend(link(self.decision) for link in (
+            parallel_units.extend(link(self.image_saver) for link in (
                 self.link_error_plotter,
                 self.link_err_y_plotter))
             parallel_units.append(self.link_weights_plotter(
@@ -81,5 +83,6 @@ def run(load, main):
          snapshotter_config=root.imagenet.snapshotter,
          weights_plotter_config=root.imagenet.weights_plotter,
          layers=root.imagenet.layers,
+         image_saver_config=root.imagenet.image_saver,
          loss_function=root.imagenet.loss_function)
     main()

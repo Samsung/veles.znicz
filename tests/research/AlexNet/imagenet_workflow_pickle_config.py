@@ -88,7 +88,6 @@ root.imagenet.loader.update({
         % (root.imagenet.root_name, root.imagenet.series)),
 })
 
-
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
                  "max_epochs": 10000},
@@ -97,8 +96,15 @@ root.imagenet.update({
     "loss_function": "softmax",
     "lr_adjuster": {"lr_policy_name": "arbitrary_step",
                     "bias_lr_policy_name": "arbitrary_step"},
+    "image_saver": {"out_dirs":
+                    [os.path.join(root.common.test_dataset_root,
+                                  "AlexNet/image_saver/test"),
+                     os.path.join(root.common.test_dataset_root,
+                                  "AlexNet/image_saver/validation"),
+                     os.path.join(root.common.test_dataset_root,
+                                  "AlexNet/image_saver/train")]},
     "loader_name": "imagenet_pickle_loader",
-    "weights_plotter": {"limit": 64},
+    "weights_plotter": {"limit": 256, "split_channels": False},
     "layers": [{"type": "conv_str",
                 "->": {"n_kernels": 96, "kx": 11, "ky": 11,
                        "padding": (0, 0, 0, 0), "sliding": (4, 4),
@@ -118,7 +124,7 @@ root.imagenet.update({
                 "->": {"n_kernels": 256, "kx": 5, "ky": 5,
                        "padding": (2, 2, 2, 2), "sliding": (1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
-                       "bias_filling": "constant", "bias_stddev": 1},
+                       "bias_filling": "constant", "bias_stddev": 0.1},
                 "<-": {"learning_rate": base_lr,
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
@@ -143,7 +149,7 @@ root.imagenet.update({
                 "->": {"n_kernels": 384, "kx": 3, "ky": 3,
                        "padding": (1, 1, 1, 1), "sliding": (1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
-                       "bias_filling": "constant", "bias_stddev": 1},
+                       "bias_filling": "constant", "bias_stddev": 0.1},
                 "<-": {"learning_rate": base_lr,
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
@@ -154,7 +160,7 @@ root.imagenet.update({
                 "->": {"n_kernels": 256, "kx": 3, "ky": 3,
                        "padding": (1, 1, 1, 1), "sliding": (1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
-                       "bias_filling": "constant", "bias_stddev": 1},
+                       "bias_filling": "constant", "bias_stddev": 0.1},
                 "<-": {"learning_rate": base_lr,
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
@@ -190,3 +196,7 @@ root.imagenet.update({
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9}}]})
+
+root.imagenet.loader.normalization_parameters = {
+    "mean_source": os.path.join(root.common.test_dataset_root,
+                                "AlexNet/mean_image.JPEG")}

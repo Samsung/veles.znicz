@@ -102,7 +102,7 @@ class ImagenetLoader(loader.Loader):
 
         with open(self.original_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
-                self.original_labels.append(int(lbl))
+                self.original_labels.append(lbl)
                 self.labels_mapping[int(lbl)] = int(lbl)
         self.info("Labels (min max count): %d %d %d",
                   numpy.min(self.original_labels),
@@ -158,7 +158,6 @@ class ImagenetLoader(loader.Loader):
     def deduct_mean(self, sample):
         sample = sample.astype(self.rdisp.dtype)
         sample -= self.mean.mem
-        sample *= self.rdisp.mem
         return sample
 
     def mirror_sample(self, sample):
@@ -196,8 +195,9 @@ class ImagenetLoader(loader.Loader):
         self.minibatch_data.map_invalidate()
         self.minibatch_labels.map_invalidate()
 
-        sample_bytes = self.mean.mem.nbytes
-        sample = numpy.zeros_like(self.mean.mem, dtype=numpy.uint8)
+        sample = numpy.zeros(
+            [self.sy, self.sx, self.channels], dtype=numpy.uint8)
+        sample_bytes = sample.nbytes
 
         for index, index_sample in enumerate(idxs[:count]):
             self.file_samples.seek(int(index_sample) * sample_bytes)

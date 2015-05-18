@@ -57,7 +57,9 @@ root.imagenet.lr_adjuster.bias_lr_parameters = {
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
                  "max_epochs": 10000000},
-    "snapshotter": {"prefix": "imagenet", "interval": 1, "time_interval": 0},
+    "snapshotter": {"prefix": "imagenet",
+                    "directory": "/data/veles/datasets/AlexNet/snapshots",
+                    "interval": 1, "time_interval": 0},
     "add_plotters": True,
     "lr_adjuster": {"lr_policy_name": "arbitrary_step",
                     "bias_lr_policy_name": "arbitrary_step"},
