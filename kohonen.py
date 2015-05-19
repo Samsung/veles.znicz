@@ -157,11 +157,12 @@ class KohonenForward(KohonenBase, AcceleratedUnit):
         self.argmin_group_size = \
             int(numpy.ceil(self.neurons_number / chunk_size))
 
-        block_size = self.device.device_info.get_block_size(
+        block_size, vector_opt = self.device.device_info.get_kernel_bs_vo(
             kernel="matrix_multiplication", dtype=self.input.dtype)
 
         defines = {
             'BLOCK_SIZE': block_size,
+            'VECTOR_OPT': int(bool(vector_opt)),
             'BATCH': batch_size,
             'SAMPLE_LENGTH': self.sample_length,
             'NEURONS_NUMBER': self.neurons_number,
@@ -410,11 +411,12 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
         self.argmin_group_size = int(numpy.ceil(float(self._neurons_number) /
                                                 chunk_size))
 
-        block_size = self.device.device_info.get_block_size(
+        block_size, vector_opt = self.device.device_info.get_kernel_bs_vo(
             kernel="matrix_multiplication", dtype=self.input.dtype)
 
         defines = {
             'BLOCK_SIZE': block_size,
+            'VECTOR_OPT': int(bool(vector_opt)),
             'BATCH': batch_size,
             'SAMPLE_LENGTH': self._sample_length,
             'NEURONS_NUMBER': self._neurons_number,
