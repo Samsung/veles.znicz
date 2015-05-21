@@ -35,9 +35,11 @@ under the License.
 
 
 import gc
+from six import PY3
 import os
 
 from veles.config import root
+from veles.memory import Vector
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
@@ -194,6 +196,9 @@ class TestCifarCaffe(StandardTest):
 
         file_name = workflow.snapshotter.file_name
         del workflow
+        self.parent = self.getParent()
+        if PY3:
+            Vector.reset_all()
         gc.collect()
 
         # Test loading from snapshot

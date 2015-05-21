@@ -33,12 +33,13 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-from six import PY3
 import gc
 import os
-from veles.backends import CUDADevice
+from six import PY3
 
+from veles.backends import CUDADevice
 from veles.config import root
+from veles.memory import Vector
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 import veles.znicz.samples.Lines.lines as lines
@@ -71,7 +72,7 @@ class TestLines(StandardTest):
                                           "tmp/validation"),
                              os.path.join(root.common.cache_dir,
                                           "tmp/train")]},
-            "loader": {"minibatch_size": 12, "force_numpy": False,
+            "loader": {"minibatch_size": 12, "force_numpy": True,
                        "color_space": "RGB", "file_subtypes": ["jpeg"],
                        "normalization_type": "mean_disp",
                        "train_paths": [train],
@@ -116,6 +117,9 @@ class TestLines(StandardTest):
 
         file_name = workflow.snapshotter.file_name
         del workflow
+        if PY3:
+            Vector.reset_all()
+        self.parent = self.getParent()
         gc.collect()
 
         # Test loading from snapshot
@@ -136,6 +140,7 @@ class TestLines(StandardTest):
             # Python 2 does not free the memory properly, so we get
             # CL_OUT_OF_HOST_MEMORY etc. on the second run
             return True
+
 
 if __name__ == "__main__":
     StandardTest.main()

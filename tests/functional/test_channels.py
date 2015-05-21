@@ -34,11 +34,13 @@ under the License.
 """
 
 
+import gc
 import numpy
 import os
-import six
+from six import PY3
 
 from veles.config import root
+from veles.memory import Vector
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
@@ -117,6 +119,13 @@ class TestChannels(StandardTest):
         self.assertEqual(err, 19)
         self.assertEqual(3, workflow.loader.epoch_number)
 
+        # Garbage collection
+        del workflow
+        self.parent = self.getParent()
+        if PY3:
+            Vector.reset_all()
+        gc.collect()
+
         self.info("Will load workflow from %s", file_name)
         workflow_from_snapshot = Snapshotter.import_(file_name)
         workflow_from_snapshot.workflow = self.parent
@@ -137,9 +146,10 @@ class TestChannels(StandardTest):
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
         # PIL Image for python2 and PIL for python3 returns different values
-        self.assertEqual(err, 15 if six.PY3 else 14)
+        self.assertEqual(err, 15 if PY3 else 14)
         self.assertEqual(4, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
+
 
 if __name__ == "__main__":
     StandardTest.main()
