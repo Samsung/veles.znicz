@@ -38,7 +38,7 @@ under the License.
 import numpy
 
 from veles.config import root
-import veles.memory as formats
+from veles.memory import Array
 import veles.opencl_types as opencl_types
 from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.gd_conv as gd_conv
@@ -48,7 +48,7 @@ class TestGDRELUConv(AcceleratedTest):
     def test_fixed(self):
         self.info("Will test RELU convolutional layer back propagation")
 
-        inp = formats.Vector()
+        inp = Array()
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.array([[[-1, 0, 2, 0, 3],
                               [0, 1, -2, 1, 2],
@@ -76,7 +76,7 @@ class TestGDRELUConv(AcceleratedTest):
         c.kx = c.ky = 3
         c.padding = 0, 0, 0, 0
         c.sliding = 1, 1
-        c.err_output = formats.Vector()
+        c.err_output = Array()
         c.err_output.mem = numpy.array(
             [[[-1, 3],
               [8, 2],
@@ -88,14 +88,14 @@ class TestGDRELUConv(AcceleratedTest):
               [1, 2],
               [1, 1]]], dtype=dtype)
         c.input = inp
-        c.weights = formats.Vector()
+        c.weights = Array()
         c.weights.mem = weights
-        c.bias = formats.Vector()
+        c.bias = Array()
         c.bias.mem = bias
-        c.output = formats.Vector()
+        c.output = Array()
         c.output.mem = c.err_output.mem.copy()
         c.unpack_size = 1
-        c.unpack_data = formats.Vector()
+        c.unpack_data = Array()
 
         err_output = c.err_output.mem * (1.0 - numpy.exp(-c.output.mem))
         batch_size = err_output.shape[0]

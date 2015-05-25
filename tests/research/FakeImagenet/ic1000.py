@@ -47,7 +47,7 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-from veles.memory import Vector
+from veles.memory import Array
 import veles.opencl_types as opencl_types
 import veles.loader as loader
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -72,8 +72,8 @@ class FakeImagenetLoader(loader.Loader):
 
     def __init__(self, workflow, **kwargs):
         super(FakeImagenetLoader, self).__init__(workflow, **kwargs)
-        self.mean = Vector()
-        self.rdisp = Vector()
+        self.mean = Array()
+        self.rdisp = Array()
         self.file_samples = ""
         self.sx = kwargs["sx"]
         self.sy = kwargs["sy"]

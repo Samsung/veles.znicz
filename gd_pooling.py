@@ -199,7 +199,7 @@ class GDMaxPooling(GDPooling):
 
     def __init__(self, workflow, **kwargs):
         super(GDMaxPooling, self).__init__(workflow, **kwargs)
-        self.input_offset = None  # formats.Vector()
+        self.input_offset = None  # memory.Array()
         self.demand("input_offset")
 
     def initialize(self, device, **kwargs):

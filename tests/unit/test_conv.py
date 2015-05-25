@@ -39,7 +39,7 @@ import numpy
 import time
 from veles.backends import NumpyDevice
 
-from veles.memory import Vector
+from veles.memory import Array
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.conv import Conv
 import veles.prng as prng
@@ -77,7 +77,7 @@ class TestConvBase(AcceleratedTest):
         """
         assert unit.__class__ == PatchedConv
         # set unit input and start initialization
-        input_vector = Vector()
+        input_vector = Array()
         input_vector.mem = input_data
         unit.input = input_vector
         unit.initialize(device=device)

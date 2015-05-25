@@ -82,9 +82,9 @@ class ImageSaver(Unit, TriviallyDistributable):
                          os.path.join(config.root.common.cache_dir,
                                       "tmpimg/train")])
         self.limit = kwargs.get("limit", 100)
-        self.output = None  # formats.Vector()
-        self.target = None  # formats.Vector()
-        self.max_idx = None  # formats.Vector()
+        self.output = None  # memory.Array()
+        self.target = None  # memory.Array()
+        self.max_idx = None  # memory.Array()
         self._last_save_time = 0
         self.save_time = 0
         self._n_saved = [0, 0, 0]

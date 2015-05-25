@@ -36,7 +36,7 @@ under the License.
 
 
 import numpy
-import veles.memory as formats
+import veles.memory as memory
 import veles.znicz.all2all as all2all
 
 
@@ -53,7 +53,7 @@ class GDNumDiff(object):
 
         Parameters:
             forward: forward unit instance, should have input attribute
-                     of type Vector where input.mem.shape[0] is the batch size.
+                     of type Array where input.mem.shape[0] is the batch size.
             vector_to_check: vector on which to do numeric differentiation.
             vector_value_map: dictionary of vectors to set => its values,
                               should contain vector_to_check.
@@ -74,9 +74,9 @@ class GDNumDiff(object):
                     "float data type, will skip it")
                 return
 
-        numdiff = formats.NumDiff()
+        numdiff = memory.NumDiff()
 
-        mem = formats.ravel(vector_to_check.mem)
+        mem = memory.ravel(vector_to_check.mem)
         derivative_to_check = derivative_to_check.ravel()
         for offs in range(mem.shape[0]):
             for i, p in enumerate(numdiff.points):
@@ -84,7 +84,7 @@ class GDNumDiff(object):
                     if v is None or k is None or k.mem is None:
                         continue
                     k.map_invalidate()
-                    formats.ravel(k.mem)[:] = v.ravel()[:]
+                    memory.ravel(k.mem)[:] = v.ravel()[:]
                 mem[offs] = mem[offs] + p
                 forward.stopped = False
                 forward.run()

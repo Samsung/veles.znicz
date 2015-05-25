@@ -40,7 +40,7 @@ import os
 import tarfile
 
 from veles.compat import IntEnum
-from veles.memory import Vector
+from veles.memory import Array
 from veles.tests import AcceleratedTest
 from veles.znicz import (activation, all2all, conv, evaluator, pooling,
                          normalization)
@@ -184,7 +184,7 @@ class ComplexTest(CaffeTestBase):
                           bias_filling="constant", bias_stddev=0)
         conv1_bottom = self._load_blob(
             "conv1", PropType.forward, WhenTaken.before, "bottom_0", iteration)
-        conv1.input = Vector(conv1_bottom)
+        conv1.input = Array(conv1_bottom)
         conv1.link_from(self.parent.start_point)
 
         pool1 = pooling.MaxPooling(self.parent, name="pool1",
@@ -212,7 +212,7 @@ class ComplexTest(CaffeTestBase):
         conv2.link_from(norm1)
 #        conv2_bottom = self._load_blob("conv2", PropType.forward,
 #                                       WhenTaken.before, "bottom_0")
-#        conv2.input = Vector(conv2_bottom)
+#        conv2.input = Array(conv2_bottom)
         conv2.link_attrs(norm1, ("input", "output"))
 
         relu2 = activation.ForwardStrictRELU(self.parent, name="relu2")
@@ -267,13 +267,13 @@ class ComplexTest(CaffeTestBase):
             ev.labels.map_write()
             ev.labels.mem[:] = labels[:]
         else:
-            ev.labels = Vector(labels)
+            ev.labels = Array(labels)
 
         conv1_bottom = self._load_blob(
             "conv1", PropType.forward, WhenTaken.before, "bottom_0", _iter)
         conv1 = self.parent["conv1"]
         if conv1.input is None:
-            conv1.input = Vector(conv1_bottom)
+            conv1.input = Array(conv1_bottom)
         else:
             conv1.input.map_write()
             conv1.input.mem[:] = conv1_bottom[:]

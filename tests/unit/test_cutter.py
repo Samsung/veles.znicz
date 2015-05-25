@@ -36,7 +36,7 @@ under the License.
 import numpy
 from veles.backends import NumpyDevice
 
-from veles.memory import Vector
+from veles.memory import Array
 from veles.znicz.cutter import Cutter, GDCutter
 import veles.prng as prng
 from veles.tests import AcceleratedTest, assign_backend
@@ -50,7 +50,7 @@ class TestCutter(AcceleratedTest):
 
     def _do_test(self, device):
         cutter = Cutter(self.parent, padding=(2, 3, 4, 5))
-        cutter.input = Vector(self.input.copy())
+        cutter.input = Array(self.input.copy())
         cutter.initialize(device)
         cutter.run()
         cutter.output.map_read()
@@ -64,7 +64,7 @@ class TestCutter(AcceleratedTest):
 
     def _do_test_gd(self, device):
         cutter = Cutter(self.parent, padding=(2, 3, 4, 5))
-        cutter.input = Vector(self.input.copy())
+        cutter.input = Array(self.input.copy())
         cutter.initialize(device)
         cutter.run()
         cutter.output.map_read()
@@ -72,7 +72,7 @@ class TestCutter(AcceleratedTest):
 
         gd = GDCutter(self.parent, padding=cutter.padding)
         gd.input = cutter.input
-        gd.err_output = Vector(cutter.output.mem.copy())
+        gd.err_output = Array(cutter.output.mem.copy())
         numpy.square(gd.err_output.mem, gd.err_output.mem)  # modify
         gd.initialize(device)
         gd.run()

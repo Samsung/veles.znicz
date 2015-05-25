@@ -44,7 +44,7 @@ from zope.interface import implementer
 
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.error as error
-from veles.memory import reshape, Vector
+from veles.memory import reshape, Array
 import veles.ocl_blas as ocl_blas
 import veles.znicz.nn_units as nn_units
 
@@ -69,7 +69,7 @@ class All2All(nn_units.NNLayerBase):
         output: output as batch of samples.
         weights: matrix of weights.
         bias: bias.
-        output_sample_shape: shape of the output layer (may be Vector).
+        output_sample_shape: shape of the output layer (may be Array).
         output_samples_number: the number of samples in the output If it is
         None (the default), it is taken from input.
         output_dtype: the dtype of output. If it is None (the default),
@@ -404,7 +404,7 @@ class All2AllSoftmax(All2All):
 
     def __init__(self, workflow, **kwargs):
         super(All2AllSoftmax, self).__init__(workflow, **kwargs)
-        self.max_idx = Vector()
+        self.max_idx = Array()
         self.reduce_size = 256
 
     def init_unpickled(self):

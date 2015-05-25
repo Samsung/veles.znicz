@@ -41,7 +41,7 @@ from zope.interface import implementer
 
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
     INumpyUnit
-from veles.memory import Vector
+from veles.memory import Array
 from veles.mutable import Bool
 import veles.prng as prng
 from veles.units import IUnit, Unit
@@ -89,7 +89,7 @@ class Binarization(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """
     def __init__(self, workflow, **kwargs):
         super(Binarization, self).__init__(workflow, **kwargs)
-        self.output = Vector()
+        self.output = Array()
         self.rand = kwargs.get("rand", prng.get())
         self.demand("input", "batch_size")
 
@@ -205,9 +205,9 @@ class BatchWeights(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """
     def __init__(self, workflow, **kwargs):
         super(BatchWeights, self).__init__(workflow, **kwargs)
-        self.vbias_batch = Vector()
-        self.hbias_batch = Vector()
-        self.weights_batch = Vector()
+        self.vbias_batch = Array()
+        self.hbias_batch = Array()
+        self.weights_batch = Array()
         self.demand("v", "h", "batch_size")
 
     def initialize(self, device, **kwargs):
@@ -292,9 +292,9 @@ class GradientsCalculator(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """
     def __init__(self, workflow, **kwargs):
         super(GradientsCalculator, self).__init__(workflow, **kwargs)
-        self.vbias_grad = Vector()
-        self.hbias_grad = Vector()
-        self.weights_grad = Vector()
+        self.vbias_grad = Array()
+        self.hbias_grad = Array()
+        self.weights_grad = Array()
         self.demand("hbias1", "vbias1", "hbias0", "vbias0", "weights0",
                     "weights1")
 
@@ -365,7 +365,7 @@ class WeightsUpdater(Unit):
 class MemCpy(AcceleratedUnit):
     def __init__(self, workflow, **kwargs):
         super(MemCpy, self).__init__(workflow, **kwargs)
-        self.output = Vector()
+        self.output = Array()
         self.demand("input")
 
     def initialize(self, device, **kwargs):

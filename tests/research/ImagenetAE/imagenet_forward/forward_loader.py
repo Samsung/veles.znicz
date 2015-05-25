@@ -45,7 +45,7 @@ from twisted.internet import reactor
 from zope.interface import implementer
 
 import veles.error as error
-import veles.memory as formats
+from veles.memory import Array
 from veles.mutable import Bool
 from veles.pickle2 import pickle
 from veles.znicz.tests.research.ImagenetAE.processor import Processor
@@ -82,7 +82,7 @@ class ImagenetForwardLoaderBbox(AcceleratedUnit, Processor):
         self.bboxes_file_name = bboxes_file_name
         self.aperture = 0
         self.channels = 0
-        self.minibatch_data = formats.Vector()
+        self.minibatch_data = Array()
         self.minibatch_size = 0
         self.minibatch_images = []
         self.max_minibatch_size = 0

@@ -11,7 +11,7 @@
 Created on Apr 20, 2015
 
 Collects sequential differences and absolute values of registered
-:class:`veles.memory.Vector` instances.
+:class:`veles.memory.Array` instances.
 
 ███████████████████████████████████████████████████████████████████████████████
 

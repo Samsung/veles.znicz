@@ -40,7 +40,7 @@ import os
 import time
 
 from veles.config import root
-import veles.memory as formats
+from veles.memory import Array
 import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.accelerated_units import TrivialAcceleratedUnit
@@ -79,14 +79,14 @@ class TestMatrixReduce(AcceleratedTest):
         """
         dtype = opencl_types.dtypes[root.common.precision_type]
 
-        a = formats.Vector()
+        a = Array()
         a.mem = numpy.array([[1, 2, 3],
                              [-1, -2, -3],
                              [9, 8, 7],
                              [-3, -4, -5],
                              [-1, -2, -3],
                              [7, 7, 7]], dtype=dtype)
-        b = formats.Vector()
+        b = Array()
         b.mem = numpy.ones(a.mem.shape[1] * 2, dtype=dtype)
 
         t = numpy.array([12, 9, 6], dtype=dtype)
@@ -141,14 +141,14 @@ class TestMatrixReduce(AcceleratedTest):
         """
         dtype = opencl_types.dtypes[root.common.precision_type]
 
-        a = formats.Vector()
+        a = Array()
         a.mem = numpy.zeros([3131, 1001], dtype=dtype)
         prng.get().fill(a.mem)
 
         t_col = numpy.sum(a.mem, axis=0)
         t = numpy.sum(a.mem, axis=1)
 
-        b = formats.Vector()
+        b = Array()
         b.mem = numpy.ones(numpy.max(a.mem.shape) * 2, dtype=dtype)
 
         a.initialize(self.device)

@@ -97,7 +97,7 @@ class Test(unittest.TestCase):
             fwd = TrivialForward(workflow, name="forward")
             fwd.weights.mem = numpy.ones(1000)
             fwd.bias.mem = numpy.ones(10)
-            fwd.input = memory.Vector()
+            fwd.input = memory.Array()
             fe.forwards.append(fwd)
             fwd.initialize(NumpyDevice())
         workflow.initialize(snapshot=False)

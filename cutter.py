@@ -43,7 +43,7 @@ from zope.interface import implementer
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 
 import veles.error as error
-import veles.memory as formats
+from veles.memory import reshape
 import veles.znicz.nn_units as nn_units
 from veles.units import Unit
 
@@ -165,7 +165,7 @@ class Cutter(nn_units.Forward, CutterBase):
         """
         self.output.map_invalidate()
         self.input.map_read()
-        out = formats.reshape(self.output.mem, self.output_shape)
+        out = reshape(self.output.mem, self.output_shape)
         inp = self.input.mem
         out[:, :, :, :] = inp[
             :, self.padding[1]:self.padding[1] + self.output_shape[1],
@@ -250,7 +250,7 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
         """
         self.err_input.map_invalidate()
         self.err_output.map_read()
-        out = formats.reshape(self.err_output.mem, self.output_shape)
+        out = reshape(self.err_output.mem, self.output_shape)
         inp = self.err_input.mem
         inp[:] = 0
         inp[:, self.padding[1]:self.padding[1] + self.output_shape[1],

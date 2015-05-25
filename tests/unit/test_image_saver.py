@@ -44,7 +44,7 @@ import time
 import unittest
 
 from veles.config import root
-import veles.memory as formats
+from veles.memory import Array
 import veles.prng as prng
 import veles.znicz.image_saver as image_saver
 import veles.dummy as dummy_workflow
@@ -90,32 +90,32 @@ class TestImageSaver(unittest.TestCase):
                              (root.image_saver.out_dirs[i]))
 
     def fill_data(self):
-        self.minibatch_data = formats.Vector()
+        self.minibatch_data = Array()
         self.minibatch_data.mem = numpy.zeros([20, 32, 32],
                                               dtype=numpy.float32)
         prng.get().fill(self.minibatch_data.mem)
 
-        self.lbls = formats.Vector()
+        self.lbls = Array()
         self.lbls.mem = numpy.array([1, 0, 0, 2, 4,
                                      7, 9, 3, 6, 8,
                                      6, 3, 5, 5, 5,
                                      9, 0, 1, 1, 0], dtype=numpy.int8)
 
-        self.max_idx = formats.Vector()
+        self.max_idx = Array()
         self.max_idx.mem = numpy.array([1, 2, 1, 2, 4,
                                         7, 8, 3, 6, 8,
                                         6, 1, 5, 5, 9,
                                         9, 0, 1, 4, 0],
                                        dtype=self.lbls.mem.dtype)
 
-        self.indices = formats.Vector()
+        self.indices = Array()
         self.indices.mem = numpy.array([0, 1, 2, 3, 4,
                                         5, 6, 7, 8, 9,
                                         0, 1, 2, 3, 4,
                                         5, 6, 7, 8, 9],
                                        dtype=self.lbls.mem.dtype)
 
-        self.output = formats.Vector()
+        self.output = Array()
         self.output.mem = numpy.zeros([20, 10], dtype=numpy.float32)
         prng.get().fill(self.output.mem)
         self.output.mem -= self.output.mem.max()
@@ -144,12 +144,12 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_MSE.labels = self.lbls
         self.img_saver_MSE.indices = self.indices
         self.img_saver_MSE.minibatch_size = 20
-        self.output = formats.Vector()
+        self.output = Array()
         self.output.mem = numpy.zeros([20, 32, 32], dtype=numpy.float32)
         self.img_saver_MSE.output = self.output
         self.img_saver_MSE.color_space = "RGB"
         self.img_saver_MSE.this_save_time = time.time()
-        self.target = formats.Vector()
+        self.target = Array()
         self.target.mem = numpy.zeros([20, 32, 32], dtype=numpy.float32)
         prng.get().fill(self.target.mem)
         self.img_saver_MSE.minibatch_class = 0

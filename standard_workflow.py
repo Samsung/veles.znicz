@@ -511,7 +511,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         if not tpe:
             raise ValueError("layer type must not be an empty string")
         if tpe not in self.layer_map:
-            raise error.NotExistsError("Unknown layer type %s" % tpe)
+            raise ValueError("Unknown layer type %s" % tpe)
         kwargs_forward = dict(layer.get("->", {}))
         kwargs_backward = dict(layer.get("<-", {}))
         # Add shared parameters to both dicts

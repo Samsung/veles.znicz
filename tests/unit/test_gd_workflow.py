@@ -39,7 +39,7 @@ import numpy
 from veles.backends import NumpyDevice
 
 from veles.config import root
-import veles.memory as formats
+from veles.memory import Array
 import veles.opencl_types as opencl_types
 from veles.tests import assign_backend
 from veles.znicz.nn_units import AcceleratedWorkflow
@@ -78,7 +78,7 @@ class Workflow(AcceleratedWorkflow):
             self, n_kernels=25, kx=3, ky=3,
             padding=(2, 2, 2, 2), sliding=(1, 1))
         self.conv_forward.link_from(self.start_point)
-        self.conv_forward.input = formats.Vector()
+        self.conv_forward.input = Array()
         self.conv_forward.input.mem = self.input.copy()
         prev = self.conv_forward
 
@@ -133,7 +133,7 @@ class Workflow(AcceleratedWorkflow):
         self.ev = evaluator.EvaluatorSoftmax(self)
         self.ev.link_from(self.sm_forward)
         self.ev.link_attrs(self.sm_forward, "output", "max_idx")
-        self.ev.labels = formats.Vector()
+        self.ev.labels = Array()
         self.ev.labels.mem = self.labels.copy()
         self.ev.batch_size = self.batch_size
 

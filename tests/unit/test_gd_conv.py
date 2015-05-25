@@ -40,7 +40,7 @@ from veles.backends import NumpyDevice
 
 from veles.config import root
 from veles.dummy import DummyUnit
-from veles.memory import assert_addr, Vector
+from veles.memory import assert_addr, Array
 import veles.opencl_types as opencl_types
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.gd_conv import GradientDescentConv, GDRELUConv, \
@@ -134,12 +134,12 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         c = PatchedGradientDescentConv(self.parent, gradient_moment=0.9)
         u = DummyUnit(kx=3, ky=3, n_kernels=2,
                       padding=(0, 0, 0, 0), sliding=(1, 1),
-                      err_output=Vector(err_output.copy()),
-                      input=Vector(inp.copy()),
-                      weights=Vector(weights.copy()),
-                      bias=Vector(bias.copy()),
-                      output=Vector(err_output.copy()),
-                      unpack_size=1, unpack_data=Vector())
+                      err_output=Array(err_output.copy()),
+                      input=Array(inp.copy()),
+                      weights=Array(weights.copy()),
+                      bias=Array(bias.copy()),
+                      output=Array(err_output.copy()),
+                      unpack_size=1, unpack_data=Array())
         c.link_conv_attrs(u)
         c.link_attrs(u, "err_output", "input", "output", "weights", "bias")
 
@@ -199,7 +199,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                               error_function_averaged=False)
 
     def _numdiff_init_forward(self, forward, inp, weights, bias, err_output):
-        forward.input = Vector()
+        forward.input = Array()
         forward.input.mem = inp.copy()
         forward.initialize(device=self.device)
         forward.weights.map_invalidate()
@@ -255,12 +255,12 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         c = PatchedGradientDescentConv(self.parent, gradient_moment=0.9)
         u = DummyUnit(n_kernels=2, kx=3, ky=3,
                       padding=(1, 2, 3, 4), sliding=(2, 3),
-                      err_output=Vector(err_output.copy()),
-                      input=Vector(inp.copy()),
-                      weights=Vector(weights.copy()),
-                      bias=Vector(bias.copy()),
-                      output=Vector(err_output.copy()),
-                      unpack_size=1, unpack_data=Vector())
+                      err_output=Array(err_output.copy()),
+                      input=Array(inp.copy()),
+                      weights=Array(weights.copy()),
+                      bias=Array(bias.copy()),
+                      output=Array(err_output.copy()),
+                      unpack_size=1, unpack_data=Array())
         c.link_conv_attrs(u)
         c.link_attrs(u, "err_output", "input", "output", "weights", "bias")
 
@@ -367,7 +367,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                           weights_transposed=weights_transposed)
         sh = list(inp.shape)
         sh[0] <<= 1
-        forward.input = Vector(numpy.zeros(sh, dtype=dtype))
+        forward.input = Array(numpy.zeros(sh, dtype=dtype))
         forward.input.initialize(device)
         forward.input.map_write()
         forward.input.unit_test_mem = forward.input.mem
@@ -399,7 +399,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         c.link_attrs(forward, "input", "output", "weights", "bias")
         sh = list(err_output.shape)
         sh[0] <<= 1
-        c.err_output = Vector(numpy.zeros(sh, dtype=dtype))
+        c.err_output = Array(numpy.zeros(sh, dtype=dtype))
         c.err_output.initialize(device)
         c.err_output.map_write()
         c.err_output.unit_test_mem = c.err_output.mem

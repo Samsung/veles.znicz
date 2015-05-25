@@ -35,7 +35,7 @@ under the License.
 
 import numpy
 
-from veles.memory import Vector
+from veles.memory import Array
 from veles.tests import AcceleratedTest, multi_device, timeout
 
 from veles.znicz import weights_zerofilling
@@ -46,8 +46,8 @@ class TestZeroFilling(AcceleratedTest):
     @multi_device()
     def test_zero_filling(self):
         zero_filler = weights_zerofilling.ZeroFiller(self.parent, grouping=2)
-        zero_filler.weights = Vector(numpy.ones(shape=(400, 15, 15, 40),
-                                                dtype=numpy.float64))
+        zero_filler.weights = Array(numpy.ones(shape=(400, 15, 15, 40),
+                                               dtype=numpy.float64))
 
         zero_filler.link_from(self.parent.start_point)
 

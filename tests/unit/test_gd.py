@@ -38,7 +38,7 @@ import numpy
 from veles.backends import NumpyDevice
 
 from veles.config import root
-from veles.memory import Vector
+from veles.memory import Array
 import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.znicz.gd import (GradientDescent, GDRELU, GDSoftmax, GDTanh,
@@ -92,7 +92,7 @@ class TestGD(AcceleratedTest, GDNumDiff):
         prng.get().fill(inp)
         forward = Forward(self.parent, output_sample_shape=[n_neurons],
                           weights_transposed=weights_transposed)
-        forward.input = Vector()
+        forward.input = Array()
         forward.input.mem = inp.copy()
         forward.initialize(device=self.device)
         forward.run()
@@ -118,15 +118,15 @@ class TestGD(AcceleratedTest, GDNumDiff):
                learning_rate_bias=-1, weights_decay_bias=0,
                weights_transposed=weights_transposed)
 
-        c.err_output = Vector()
+        c.err_output = Array()
         c.err_output.mem = err_output.copy()
-        c.input = Vector()
+        c.input = Array()
         c.input.mem = inp.copy()
-        c.weights = Vector()
+        c.weights = Array()
         c.weights.mem = weights.copy()
-        c.bias = Vector()
+        c.bias = Array()
         c.bias.mem = bias.copy()
-        c.output = Vector()
+        c.output = Array()
         c.output.mem = out.copy()
         c.initialize(device=device)
         c.run()

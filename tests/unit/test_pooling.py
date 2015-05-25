@@ -38,7 +38,7 @@ under the License.
 import numpy
 from veles.backends import NumpyDevice
 
-import veles.memory as formats
+from veles.memory import Array
 import veles.prng as prng
 from veles.prng.uniform import Uniform
 from veles.tests import AcceleratedTest, assign_backend
@@ -54,7 +54,7 @@ class TestMaxPooling(AcceleratedTest):
 
     def setUp(self):
         super(TestMaxPooling, self).setUp()
-        self._input = formats.Vector()
+        self._input = Array()
         self._input.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -136,7 +136,7 @@ class TestStochasticPooling(AcceleratedTest):
         uniform = Uniform(self.parent, output_bytes=315)
         unit = Unit(self.parent, kx=3, ky=3, sliding=(3, 3),
                     uniform=uniform)
-        unit.input = formats.Vector(self.input.copy())
+        unit.input = Array(self.input.copy())
         unit.initialize(device=device)
         unit.run()
         unit.output.map_read()
@@ -217,11 +217,11 @@ class TestGDMaxPooling(AcceleratedTest):
                   'test...')
         c = gd_pooling.GDMaxPooling(self.parent)
         c.link_pool_attrs(DummyUnit(kx=2, ky=2, sliding=(2, 2)))
-        c.input = formats.Vector()
+        c.input = Array()
         c.input.mem = self._input.copy()
-        c.input_offset = formats.Vector()
+        c.input_offset = Array()
         c.input_offset.mem = self._input_offset.copy()
-        c.err_output = formats.Vector()
+        c.err_output = Array()
         c.err_output.mem = self._err_output.copy()
         c.initialize(device=device)
         c.err_input.map_invalidate()
@@ -243,7 +243,7 @@ class TestAvgPooling(AcceleratedTest):
 
     def setUp(self):
         super(TestAvgPooling, self).setUp()
-        self._input = formats.Vector()
+        self._input = Array()
         self._input.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -314,7 +314,7 @@ class TestGDAvgPooling(AcceleratedTest, GDNumDiff):
         prng.get().fill(inp)
         forward = pooling.AvgPooling(self.parent, kx=3, ky=3,
                                      sliding=sliding)
-        forward.input = formats.Vector()
+        forward.input = Array()
         forward.input.mem = inp.copy()
         forward.initialize(device=self.device)
         forward.run()
@@ -326,11 +326,11 @@ class TestGDAvgPooling(AcceleratedTest, GDNumDiff):
 
         c = gd_pooling.GDAvgPooling(self.parent)
         c.link_pool_attrs(forward)
-        c.err_output = formats.Vector()
+        c.err_output = Array()
         c.err_output.mem = err_output.copy()
-        c.input = formats.Vector()
+        c.input = Array()
         c.input.mem = inp.copy()
-        c.output = formats.Vector()
+        c.output = Array()
         c.output.mem = c.err_output.mem.copy()
         c.initialize(device=device)
         c.run()
@@ -358,7 +358,7 @@ class TestStochasticPoolingDepooling(AcceleratedTest):
         uniform = Uniform(self.parent, output_bytes=315)
         unit = Unit(self.parent, kx=3, ky=3, sliding=(3, 3),
                     uniform=uniform)
-        unit.input = formats.Vector(self.input.copy())
+        unit.input = Array(self.input.copy())
         unit.initialize(device=device)
         unit.run()
         unit.input.map_read()
@@ -367,7 +367,7 @@ class TestStochasticPoolingDepooling(AcceleratedTest):
         uniform = Uniform(self.parent, output_bytes=315)
         forward = Forward(self.parent, kx=3, ky=3, sliding=(3, 3),
                           uniform=uniform)
-        forward.input = formats.Vector(self.input.copy())
+        forward.input = Array(self.input.copy())
         forward.initialize(device=device)
         forward.run()
 

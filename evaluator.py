@@ -44,7 +44,7 @@ from zope.interface import implementer
 
 from veles.distributable import TriviallyDistributable
 import veles.error as error
-from veles.memory import assert_addr, ravel, Vector
+from veles.memory import assert_addr, ravel, Array
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
     INumpyUnit
 from veles.opencl_types import numpy_dtype_to_opencl
@@ -75,7 +75,7 @@ class EvaluatorBase(AcceleratedUnit):
         super(EvaluatorBase, self).__init__(workflow, **kwargs)
         self.error_function_averaged = kwargs.get(
             "error_function_averaged", True)
-        self.err_output = Vector()
+        self.err_output = Array()
         self.krn_constants_i_ = None
         self.krn_constants_f_ = None
         self.demand("output", "batch_size")
@@ -132,9 +132,9 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         super(EvaluatorSoftmax, self).__init__(workflow, **kwargs)
         self.compute_confusion_matrix = kwargs.get(
             "compute_confusion_matrix", True)
-        self.confusion_matrix = Vector()
-        self.n_err = Vector()
-        self.max_err_output_sum = Vector()
+        self.confusion_matrix = Array()
+        self.n_err = Array()
+        self.max_err_output_sum = Array()
         self.demand("labels", "max_idx")
 
     def initialize(self, device, **kwargs):
@@ -285,11 +285,11 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
     """
     def __init__(self, workflow, **kwargs):
         super(EvaluatorMSE, self).__init__(workflow, **kwargs)
-        self.metrics = Vector()
-        self.mse = Vector()
+        self.metrics = Array()
+        self.mse = Array()
         self.labels = None
         self.class_targets = None
-        self.n_err = Vector()
+        self.n_err = Array()
         self.squared_mse = kwargs.get("squared_mse", False)
         self.demand("target")
 

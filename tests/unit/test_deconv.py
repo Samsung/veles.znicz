@@ -40,10 +40,10 @@ import os
 from veles.backends import NumpyDevice
 
 from veles.config import root
-import veles.memory as formats
+import veles.memory as memory
 import veles.opencl_types as opencl_types
 import veles.prng as rnd
-from veles.memory import Vector
+from veles.memory import Array
 from veles.tests import AcceleratedTest, assign_backend
 from veles.tests.doubling_reset import patch
 import veles.znicz.conv as conv
@@ -73,7 +73,7 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         forward = conv.Conv(self.parent, kx=3, ky=3, n_kernels=1,
                             padding=(0, 0, 0, 0), sliding=(1, 1),
                             include_bias=False)
-        forward.input = Vector(inp)
+        forward.input = Array(inp)
         forward.initialize(self.device)
         forward.weights.map_invalidate()
         forward.weights.mem[:] = 1.0
@@ -145,7 +145,7 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         gd.link_conv_attrs(first)
         gd.weights = first.weights
         gd.input = forward.input
-        gd.err_output = formats.Vector(err_output)
+        gd.err_output = memory.Array(err_output)
         gd.initialize(self.device)
         self.assertEqual(gd.err_input.shape, first.output.shape)
         gd.run()
@@ -178,13 +178,13 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
                                 padding=(4, 4, 4, 4), sliding=(2, 2),
                                 include_bias=False,
                                 weights_transposed=weights_transposed)
-            inp = formats.Vector(numpy.zeros([batch_size * 2, 18, 18, 4],
-                                             dtype=dtype))
+            inp = memory.Array(numpy.zeros([batch_size * 2, 18, 18, 4],
+                                           dtype=dtype))
             inp.initialize(device)
             inp.map_write()
             inp.unit_test_mem = inp.mem
             inp.mem = inp.unit_test_mem[:batch_size]
-            formats.assert_addr(inp.unit_test_mem, inp.mem)
+            memory.assert_addr(inp.unit_test_mem, inp.mem)
             rnd.get().fill(inp.mem)
             inp.unit_test_mem[batch_size:] = numpy.nan
             forward.input = inp
@@ -194,13 +194,13 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         forward.output.map_read()
         sh = list(forward.output.mem.shape)
         sh[0] <<= 1
-        out = formats.Vector(numpy.zeros(sh, dtype=dtype))
+        out = memory.Array(numpy.zeros(sh, dtype=dtype))
         out.initialize(forward.device)
         out.map_write()
         out.unit_test_mem = out.mem
         sh[0] >>= 1
         out.mem = out.unit_test_mem[:sh[0]]
-        formats.assert_addr(out.mem, out.unit_test_mem)
+        memory.assert_addr(out.mem, out.unit_test_mem)
         out.mem[:] = forward.output.mem[:]
         out.unit_test_mem[sh[0]:] = numpy.nan
 

@@ -39,7 +39,7 @@ under the License.
 import numpy as np
 
 from veles.dummy import DummyWorkflow
-from veles.memory import Vector
+from veles.memory import Array
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.dropout import DropoutForward, DropoutBackward
 
@@ -61,7 +61,7 @@ class TestDropout(AcceleratedTest):
     def _run_test(self, test_type):
         workflow = DummyWorkflow()
         fwd_dropout = DropoutForward(workflow, dropout_ratio=0.4)
-        fwd_dropout.input = Vector()
+        fwd_dropout.input = Array()
         sz = 100
         in_matrix = np.zeros(shape=(1, 1, sz, sz), dtype=np.float64)
 
@@ -95,7 +95,7 @@ class TestDropout(AcceleratedTest):
         err_output = np.zeros(shape=(1, 1, sz, sz), dtype=np.float64)
         for i in range(sz):
             err_output[0, 0, i, :] = np.linspace(0, sz * 2, sz) * (i + 1)
-        back_dropout.err_output = Vector()
+        back_dropout.err_output = Array()
         back_dropout.err_output.mem = err_output
         self.debug("[DropoutBackward] err_y matrix:\n%s", err_output)
 

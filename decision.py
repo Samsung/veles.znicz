@@ -332,7 +332,7 @@ class DecisionGD(DecisionBase):
         self.epoch_n_err = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err_pt = [100.0, 100.0, 100.0]
         self.best_n_err_pt = [100.0, 100.0, 100.0]
-        self.minibatch_n_err = None  # formats.Vector()
+        self.minibatch_n_err = None  # memory.Array()
 
         # minimum validation error and its epoch number
         self.min_validation_n_err = 1.0e30
@@ -346,9 +346,9 @@ class DecisionGD(DecisionBase):
         self.min_train_n_err_epoch_number = -1
 
         self.confusion_matrixes = [None, None, None]
-        self.minibatch_confusion_matrix = None  # formats.Vector()
+        self.minibatch_confusion_matrix = None  # memory.Array()
         self.max_err_y_sums = [0, 0, 0]
-        self.minibatch_max_err_y_sum = None  # formats.Vector()
+        self.minibatch_max_err_y_sum = None  # memory.Array()
         self.prev_train_err = 1.0e30
         self.demand("minibatch_size")
 

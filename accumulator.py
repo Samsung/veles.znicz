@@ -42,7 +42,7 @@ import sys
 from zope.interface import implementer
 
 import veles.error as error
-import veles.memory as formats
+from veles.memory import Array
 from veles.mutable import Bool
 from veles.units import Unit, IUnit
 
@@ -57,7 +57,7 @@ class FixAccumulator(Unit):
         self.bars = kwargs.get("bars", 200)
         self.type = kwargs.get("type", "relu")
         self.input = None
-        self.output = formats.Vector()
+        self.output = Array()
         self.reset_flag = Bool(True)
         self.n_bars = [0]
         self.max = 100

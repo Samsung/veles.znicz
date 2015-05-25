@@ -48,7 +48,7 @@ from zope.interface import implementer
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 from veles.compat import from_none
 import veles.error as error
-from veles.memory import reshape_transposed, Vector
+from veles.memory import reshape_transposed, Array
 from veles.units import Unit
 import veles.ocl_blas as ocl_blas
 import veles.znicz.nn_units as nn_units
@@ -127,7 +127,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
 
         # Image count to unpack at once
         self.unpack_size = kwargs.get("unpack_size", 16)
-        self.unpack_data = Vector()
+        self.unpack_data = Array()
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()

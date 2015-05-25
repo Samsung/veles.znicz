@@ -54,8 +54,8 @@ class RPropAll2All(GradientDescent):
         self.increase = 1.05
         self.decrease = 0.80
 
-        self.weight_lrs = memory.Vector()
-        self.bias_lrs = memory.Vector()
+        self.weight_lrs = memory.Array()
+        self.bias_lrs = memory.Array()
 
     def initialize(self, device, **kwargs):
         super(RPropAll2All, self).initialize(device=device, **kwargs)

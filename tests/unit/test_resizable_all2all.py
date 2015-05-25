@@ -39,7 +39,7 @@ under the License.
 import numpy
 
 from veles.config import root
-from veles.memory import Vector
+from veles.memory import Array
 import veles.opencl_types as opencl_types
 from veles.tests import AcceleratedTest, assign_backend
 
@@ -51,11 +51,11 @@ class TestResizableAll2All(AcceleratedTest):
 
     def test_adjust(self):
         dtype = opencl_types.dtypes[root.common.precision_type]
-        inp = Vector(numpy.array([[1, 2, 3, 2, 1],
-                                  [0, 1, 2, 1, 0],
-                                  [0, 1, 0, 1, 0],
-                                  [2, 0, 1, 0, 2],
-                                  [1, 0, 1, 0, 1]], dtype=dtype))
+        inp = Array(numpy.array([[1, 2, 3, 2, 1],
+                                 [0, 1, 2, 1, 0],
+                                 [0, 1, 0, 1, 0],
+                                 [2, 0, 1, 0, 2],
+                                 [1, 0, 1, 0, 1]], dtype=dtype))
         ra2a = ResizableAll2All(self.parent, output_sample_shape=(3,),
                                 weights_stddev=0.05)
         ra2a.input = inp

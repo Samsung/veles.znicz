@@ -49,7 +49,7 @@ import cuda4py.blas as cublas
 import numpy
 from zope.interface import implementer
 
-from veles.memory import reshape, Vector
+from veles.memory import reshape, Array
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.ocl_blas as ocl_blas
 import veles.znicz.nn_units as nn_units
@@ -153,12 +153,12 @@ class GradientDescent(nn_units.GradientDescentBase):
             kwargs.get("variant_moment_gradient", True))
         if "fast" in self.solvers:
             self.fast = FastGDObjects(kwargs.get("fast_learning_rate", 0.02),
-                                      Vector(), Vector())
+                                      Array(), Array())
         if "adadelta" in self.solvers:
             self.adadelta = AdaDeltaGDObjects(
                 kwargs.get("adadelta_momentum", 0.9),
-                Vector(), Vector(),
-                Vector(), Vector(),
+                Array(), Array(),
+                Array(), Array(),
                 kwargs.get("adadelta_adom", 0.3),
                 kwargs.get("adadelta_epsilon", 1e-8))
             self.adadelta_adom = self.adadelta.adom
@@ -166,7 +166,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         if "adagrad" in self.solvers:
             self.adagrad = AdaGradGDObjects(
                 kwargs.get("adagrad_epsilon", 1e-8),
-                Vector(), Vector())
+                Array(), Array())
 
         self.last_minibatch = kwargs.get("last_minibatch", False)
 

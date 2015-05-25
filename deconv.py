@@ -44,7 +44,7 @@ from zope.interface import implementer
 from veles.config import root
 from veles.compat import from_none
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
-from veles.memory import Vector
+from veles.memory import Array
 import veles.ocl_blas as ocl_blas
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
@@ -72,7 +72,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         input: input as batch of multichannel interleaved images.
         output: output as batch of multichannel interleaved images.
         weights: matrix of weights.
-        output_shape_source: Vector to get output shape from.
+        output_shape_source: Array to get output shape from.
         n_kernels: number of convolutional kernels
                    in the corresponding convolutional layer.
         kx: kernel width.
@@ -109,7 +109,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
     def __init__(self, workflow, **kwargs):
         super(Deconv, self).__init__(workflow, **kwargs)
         self.unsafe_padding = kwargs.get("unsafe_padding", False)
-        self.hits = Vector()
+        self.hits = Array()
         self.krn_clear_output_ = None
         self._global_size = None
         self._local_size = None

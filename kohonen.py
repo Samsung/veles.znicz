@@ -41,7 +41,7 @@ import opencl4py as cl
 from zope.interface import implementer
 
 from veles.units import Unit, IUnit
-import veles.memory as formats
+from veles.memory import Array, roundup
 import veles.opencl_types as opencl_types
 from veles.accelerated_units import IOpenCLUnit, AcceleratedUnit, INumpyUnit
 import veles.prng as prng
@@ -95,11 +95,11 @@ class KohonenForward(KohonenBase, AcceleratedUnit):
         super(KohonenForward, self).__init__(workflow, **kwargs)
         self.demand("input", "weights")
         self.argmins = None
-        self._distances = formats.Vector()
-        self.output = formats.Vector()
+        self._distances = Array()
+        self.output = Array()
         self._chunk_size_ = 0
         self.weights_transposed = False
-        self.total = formats.Vector() if kwargs.get("total", False) else None
+        self.total = Array() if kwargs.get("total", False) else None
         if self.total is not None:
             self.minibatch_offset = None
             self.minibatch_size = None
@@ -195,8 +195,8 @@ class KohonenForward(KohonenBase, AcceleratedUnit):
                                    None)
 
         self._gs_distance = [
-            formats.roundup(self.neurons_number, block_size),
-            formats.roundup(batch_size, block_size)]
+            roundup(self.neurons_number, block_size),
+            roundup(batch_size, block_size)]
         self._ls_distance = [block_size, block_size]
 
     def ocl_run(self):
@@ -282,11 +282,11 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
     """
     def __init__(self, workflow, **kwargs):
         super(KohonenTrainer, self).__init__(workflow, **kwargs)
-        self._distances = formats.Vector()
-        self.argmins = formats.Vector()
-        self._coords = formats.Vector()
-        self.weights = formats.Vector()
-        self.winners = formats.Vector()
+        self._distances = Array()
+        self.argmins = Array()
+        self._coords = Array()
+        self.weights = Array()
+        self.winners = Array()
         self.weights_filling = kwargs.get("weights_filling", "uniform")
         self.weights_stddev = kwargs.get("weights_stddev", None)
         self.weights_transposed = kwargs.get("weights_transposed", False)
@@ -454,8 +454,8 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
         self._krn_apply_gradient_.set_arg(3, self.weights.devmem)
 
         self._gs_distance = [
-            formats.roundup(self._neurons_number, block_size),
-            formats.roundup(batch_size, block_size)]
+            roundup(self._neurons_number, block_size),
+            roundup(batch_size, block_size)]
         self._ls_distance = [block_size, block_size]
 
     def iteration(fn):

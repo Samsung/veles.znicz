@@ -36,7 +36,7 @@ under the License.
 import numpy
 
 from veles.config import root
-import veles.memory as formats
+from veles.memory import Array
 import veles.opencl_types as opencl_types
 import veles.prng as random_generator
 from veles.tests import AcceleratedTest, assign_backend
@@ -58,9 +58,9 @@ class TestEvaluator(AcceleratedTest):
         random_generator.get().fill(target)
 
         ev = evaluator.EvaluatorMSE(self.parent)
-        ev.output = formats.Vector()
+        ev.output = Array()
         ev.output.mem = output.copy()
-        ev.target = formats.Vector()
+        ev.target = Array()
         ev.target.mem = target.copy()
         ev.batch_size = batch_size - 5
         gold_err_output = (output - target) / (batch_size - 5)
@@ -99,11 +99,11 @@ class TestEvaluator(AcceleratedTest):
             sample[labels[i]] = 1
 
         ev = evaluator.EvaluatorSoftmax(self.parent)
-        ev.output = formats.Vector()
+        ev.output = Array()
         ev.output.mem = output.copy()
-        ev.labels = formats.Vector()
+        ev.labels = Array()
         ev.labels.mem = labels.copy()
-        ev.max_idx = formats.Vector()
+        ev.max_idx = Array()
         ev.max_idx.mem = max_idx
         ev.batch_size = batch_size - 5
 

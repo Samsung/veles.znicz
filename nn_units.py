@@ -51,7 +51,7 @@ from veles.avatar import Avatar
 from veles.external.prettytable import PrettyTable
 from veles.distributable import IDistributable
 from veles.loader import Loader
-from veles.memory import reshape_transposed, roundup, Vector
+from veles.memory import reshape_transposed, roundup, Array
 from veles.mutable import Bool
 from veles.accelerated_units import AcceleratedUnit, AcceleratedWorkflow
 import veles.prng as prng
@@ -145,9 +145,9 @@ class Forward(ForwardBase):
         self.weights_transposed = kwargs.get("weights_transposed", False)
         self.include_bias = kwargs.get("include_bias", True)
         self.demand("input")
-        self.output = Vector()
-        self.weights = Vector()
-        self.bias = Vector()
+        self.output = Array()
+        self.weights = Array()
+        self.bias = Array()
         self.forward_mode = False
         self.exports = ["weights", "bias", "include_bias",
                         "weights_transposed"]
@@ -308,7 +308,7 @@ class GradientDescentBase(AcceleratedUnit):
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
-        self.err_input = Vector()
+        self.err_input = Array()
         self.ocl_set_const_args = True
         self.weights = None
         self.bias = None
@@ -327,20 +327,20 @@ class GradientDescentBase(AcceleratedUnit):
         self.need_err_input = kwargs.get("need_err_input", True)
         self.include_bias = kwargs.get("include_bias", True)
         self.factor_ortho = kwargs.get("factor_ortho", 0)
-        self.col_sums = Vector()  # for orthogonalization
+        self.col_sums = Array()  # for orthogonalization
 
         # Current gradient as it is without applying learning_rate etc.
-        self.gradient_weights = Vector()
-        self.gradient_bias = Vector()
+        self.gradient_weights = Array()
+        self.gradient_bias = Array()
 
         # Gradient with applied learning_rate etc.
         # optionally accumulated from the previous run
-        self.accumulated_gradient_weights = Vector()
-        self.accumulated_gradient_bias = Vector()
+        self.accumulated_gradient_weights = Array()
+        self.accumulated_gradient_bias = Array()
 
         # Gradient with accumulated moments
-        self.gradient_weights_with_moment = Vector()
-        self.gradient_bias_with_moment = Vector()
+        self.gradient_weights_with_moment = Array()
+        self.gradient_bias_with_moment = Array()
 
         # Sets to True when gradient changes
         self.gradient_changed = False

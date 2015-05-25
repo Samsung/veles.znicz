@@ -46,7 +46,7 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-from veles.memory import Vector
+from veles.memory import Array
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
@@ -112,8 +112,8 @@ class ImagenetAELoader(loader.Loader):
     """loads imagenet from samples.dat, labels.pickle"""
     def __init__(self, workflow, **kwargs):
         super(ImagenetAELoader, self).__init__(workflow, **kwargs)
-        self.mean = Vector()
-        self.rdisp = Vector()
+        self.mean = Array()
+        self.rdisp = Array()
         self.file_samples = ""
         self.sx = root.imagenet_ae.loader.sx
         self.sy = root.imagenet_ae.loader.sy

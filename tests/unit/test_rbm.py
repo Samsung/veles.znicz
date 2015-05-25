@@ -41,7 +41,7 @@ import scipy.io
 from veles.backends import NumpyDevice
 
 from veles.dummy import DummyLauncher
-from veles.memory import Vector
+from veles.memory import Array
 import veles.prng as prng
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.all2all import All2AllSigmoid
@@ -65,7 +65,7 @@ class TestRBMUnits(AcceleratedTest):
         a2a = All2AllSigmoid(self.parent, output_sample_shape=196,
                              weights_stddev=0.05)
         # add initialize and input
-        a2a.input = Vector()
+        a2a.input = Array()
         a2a.input.reset()
         a2a.input.mem = numpy.zeros((128, 1000),
                                     dtype=numpy.float64)
@@ -86,7 +86,7 @@ class TestRBMUnits(AcceleratedTest):
     def test_Binarization(self):
         b1 = rbm.Binarization(self.parent)
         # add initialize and input
-        b1.input = Vector()
+        b1.input = Array()
         b1.input.reset()
         test_data = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__),
@@ -108,11 +108,11 @@ class TestRBMUnits(AcceleratedTest):
         test_data = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_eval.mat'))
-        evl.input = Vector()
+        evl.input = Array()
         evl.input.mem = test_data["h"]
-        evl.weights = Vector()
+        evl.weights = Array()
         evl.weights.mem = test_data["W"].transpose()
-        evl.target = Vector()
+        evl.target = Array()
         evl.target.mem = test_data["ground_truth"]
         evl.batch_size = 128
         evl.initialize(device=NumpyDevice(), snapshot=False)
@@ -127,10 +127,10 @@ class TestRBMUnits(AcceleratedTest):
         launcher = DummyLauncher()
         gds = rbm.GradientRBM(launcher, stddev=0.05, v_size=196,
                               h_size=1000, cd_k=1)
-        gds.input = Vector()
-        gds.weights = Vector()
-        gds.vbias = Vector()
-        gds.hbias = Vector()
+        gds.input = Array()
+        gds.weights = Array()
+        gds.vbias = Array()
+        gds.hbias = Array()
         grad_data = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_grad.mat'))
@@ -141,12 +141,12 @@ class TestRBMUnits(AcceleratedTest):
         gds.input.map_write()
         gds.input.mem[:] = grad_data["h1_in"][:]
         gds.weights.mem = grad_data["W"][:].transpose()
-        gds.hbias = Vector()
+        gds.hbias = Array()
         gds.hbias.reset()
         gds.hbias.mem = numpy.zeros((1, 1000), dtype=numpy.float64)
         gds.hbias.mem[:] = grad_data["hbias"][:].transpose()
         gds.hbias.initialize(device=NumpyDevice())
-        gds.vbias = Vector()
+        gds.vbias = Array()
         gds.vbias.reset()
         gds.vbias.mem = numpy.zeros((1, 196), dtype=numpy.float64)
         gds.vbias.mem[:] = grad_data["vbias"][:].transpose()
@@ -162,15 +162,15 @@ class TestRBMUnits(AcceleratedTest):
         del launcher
 
     def test_BatchWeights(self):
-        # will make initialization for crated Vectors and make map_read
+        # will make initialization for crated Arrays and make map_read
         # and map_write
         bw = rbm.BatchWeights(self.parent)
         test_data = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_batchWeights.mat'))
         bw.batch_size = 128
-        bw.v = Vector()
-        bw.h = Vector()
+        bw.v = Array()
+        bw.h = Array()
         bw.v.mem = test_data["v"]
         bw.h.mem = test_data["h"]
         bw.initialize(device=NumpyDevice())
@@ -192,12 +192,12 @@ class TestRBMUnits(AcceleratedTest):
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_makeGrad.mat'))
         mg = rbm.GradientsCalculator(self.parent)
-        mg.hbias1 = Vector()
-        mg.vbias1 = Vector()
-        mg.hbias0 = Vector()
-        mg.vbias0 = Vector()
-        mg.weights0 = Vector()
-        mg.weights1 = Vector()
+        mg.hbias1 = Array()
+        mg.vbias1 = Array()
+        mg.hbias0 = Array()
+        mg.vbias0 = Array()
+        mg.weights0 = Array()
+        mg.weights1 = Array()
         mg.vbias0.mem = test_data["vbias0"]
         mg.hbias0.mem = test_data["hbias0"]
         mg.vbias1.mem = test_data["vbias1"]
@@ -220,17 +220,17 @@ class TestRBMUnits(AcceleratedTest):
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_updateWeights.mat'))
         uw = rbm.WeightsUpdater(self.parent, learning_rate=0.001)
-        uw.weights = Vector()
+        uw.weights = Array()
         uw.weights.mem = test_data["W_old"]
-        uw.vbias = Vector()
+        uw.vbias = Array()
         uw.vbias.mem = test_data["vbias_old"]
-        uw.hbias = Vector()
+        uw.hbias = Array()
         uw.hbias.mem = test_data["hbias_old"]
-        uw.weights_grad = Vector()
+        uw.weights_grad = Array()
         uw.weights_grad.mem = test_data["W_grad"].transpose()
-        uw.vbias_grad = Vector()
+        uw.vbias_grad = Array()
         uw.vbias_grad.mem = test_data["vbias_grad"]
-        uw.hbias_grad = Vector()
+        uw.hbias_grad = Array()
         uw.hbias_grad.mem = test_data["hbias_grad"]
 
         uw.initialize(device=NumpyDevice())

@@ -38,7 +38,7 @@ under the License.
 import numpy
 
 from veles.config import root
-import veles.memory as formats
+from veles.memory import Array
 import veles.opencl_types as opencl_types
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.conv import ConvRELU
@@ -53,7 +53,7 @@ class TestConvRelu(AcceleratedTest):
     def test_fixed(self):
         self.info("Will test RELU convolutional layer forward propagation")
 
-        inp = formats.Vector()
+        inp = Array()
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],

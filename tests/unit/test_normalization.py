@@ -38,7 +38,7 @@ under the License.
 
 import numpy
 
-from veles.memory import Vector
+from veles.memory import Array
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.normalization import LRNormalizerForward, LRNormalizerBackward
 
@@ -48,7 +48,7 @@ class TestNormalization(AcceleratedTest):
 
     def test_normalization_forward(self):
         fwd_normalizer = LRNormalizerForward(self.parent)
-        fwd_normalizer.input = Vector()
+        fwd_normalizer.input = Array()
         in_vector = numpy.zeros(shape=(3, 2, 5, 19), dtype=self.dtype)
 
         for i in range(5):
@@ -91,8 +91,8 @@ class TestNormalization(AcceleratedTest):
             err_y[1, 0, i, :] = numpy.linspace(2, 10, 5) * (i + 1) + 1
 
         back_normalizer = LRNormalizerBackward(self.parent, n=3)
-        back_normalizer.input = Vector()
-        back_normalizer.err_output = Vector()
+        back_normalizer.input = Array()
+        back_normalizer.err_output = Array()
 
         back_normalizer.input.mem = h
         back_normalizer.err_output.mem = err_y

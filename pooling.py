@@ -56,8 +56,7 @@ import numpy
 import time
 from zope.interface import implementer
 
-import veles.error as error
-import veles.memory as formats
+from veles.memory import Array
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
@@ -271,7 +270,7 @@ class OffsetPooling(Pooling):
 
     def __init__(self, workflow, **kwargs):
         super(OffsetPooling, self).__init__(workflow, **kwargs)
-        self.input_offset = formats.Vector()
+        self.input_offset = Array()
         self.demand("input")
 
     def initialize(self, device, **kwargs):
@@ -396,9 +395,9 @@ class StochasticPoolingBase(OffsetPooling):
 
         if self.uniform.output_bytes < (self.output_size << 1):
             if self.uniform.is_initialized:
-                raise error.AlreadyExistsError(
-                    "uniform is already initialized and "
-                    "has not enough output size")
+                raise ValueError(
+                    "uniform is already initialized and does not have enough "
+                    "output size")
             self.uniform.output_bytes = self.output_size << 1
 
         self.uniform.initialize(self.device)

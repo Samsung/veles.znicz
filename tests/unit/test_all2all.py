@@ -39,7 +39,7 @@ import time
 from veles.backends import NumpyDevice
 
 from veles.config import root
-from veles.memory import Vector
+from veles.memory import Array
 import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.tests import AcceleratedTest, assign_backend
@@ -55,7 +55,7 @@ class TestAll2All(AcceleratedTest):
 
     def test_with_fixed_input(self):
         self.info("Will test all2all unit")
-        inp = Vector()
+        inp = Array()
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.array([[1, 2, 3, 2, 1],
                                [0, 1, 2, 1, 0],
@@ -93,7 +93,7 @@ class TestAll2All(AcceleratedTest):
         self.info("All Ok")
 
     def _do_test(self, device, Unit, weights_transposed):
-        inp = Vector()
+        inp = Array()
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.empty((1999, 1777), dtype=dtype)
         prng.get().fill(inp.mem)
@@ -175,7 +175,7 @@ class TestAll2All(AcceleratedTest):
         dtype = opencl_types.dtypes[root.common.precision_type]
         a2a = all2all.All2All(self.parent, output_sample_shape=(75, 75),
                               output_samples_number=1999, output_dtype=dtype)
-        a2a.input = Vector()
+        a2a.input = Array()
         a2a.initialize(self.device)
         self.assertTrue(a2a.output)
         self.assertEqual(a2a.output.shape, (1999, 75, 75))
@@ -184,7 +184,7 @@ class TestAll2All(AcceleratedTest):
         self.assertFalse(a2a.bias)
         out = a2a.output.mem
 
-        inp = Vector()
+        inp = Array()
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.empty((1999, 1777), dtype=dtype)
         prng.get().fill(inp.mem)

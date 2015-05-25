@@ -40,7 +40,7 @@ import os
 from scipy.signal import correlate2d, convolve2d  # pylint: disable=E0611
 
 from veles.dummy import DummyUnit
-from veles.memory import Vector
+from veles.memory import Array
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
@@ -160,7 +160,7 @@ class TestConvCaffe(CaffeTestBase):
                              sliding=(1, 1),
                              n_kernels=2)
 
-        fwd_conv.input = Vector()
+        fwd_conv.input = Array()
         fwd_conv.input.mem = bottom
 
         fwd_conv.initialize(self.device)
@@ -242,7 +242,7 @@ class TestConvCaffe(CaffeTestBase):
                                       padding_size, padding_size),
                              sliding=(1, 1), n_kernels=n_kernels)
 
-        fwd_conv.input = Vector(bottom)
+        fwd_conv.input = Array(bottom)
 
         fwd_conv.initialize(self.device)
         fwd_conv.weights.map_invalidate()
@@ -263,16 +263,16 @@ class TestConvCaffe(CaffeTestBase):
 
         back_conv = gd_conv.GradientDescentConv(self.parent)
 
-        back_conv.input = Vector(bottom)
+        back_conv.input = Array(bottom)
 
-        back_conv.output = Vector(top)
+        back_conv.output = Array(top)
 
-        back_conv.err_output = Vector(top_err)
+        back_conv.err_output = Array(top_err)
 
-        back_conv.weights = Vector()
+        back_conv.weights = Array()
         back_conv.weights.mem = fwd_conv.weights.mem
 
-        back_conv.bias = Vector(fwd_conv.bias.mem)
+        back_conv.bias = Array(fwd_conv.bias.mem)
 
         back_conv.batch_size = 2
 
@@ -334,7 +334,7 @@ class TestConvCaffe(CaffeTestBase):
         fwd_pool = pooling.MaxPooling(self.parent, kx=kernel_size,
                                       ky=kernel_size, sliding=(stride, stride),
                                       device=self.device)
-        fwd_pool.input = Vector(bottom)
+        fwd_pool.input = Array(bottom)
         fwd_pool.input.map_write()
 
         fwd_pool.initialize(device=self.device)
@@ -390,7 +390,7 @@ class TestConvCaffe(CaffeTestBase):
         # FORWARD PROP
         fwd_pool = pooling.MaxPooling(self.parent, kx=kernel_size,
                                       ky=kernel_size, sliding=(stride, stride))
-        fwd_pool.input = Vector(bottom)
+        fwd_pool.input = Array(bottom)
         fwd_pool.input.map_write()
 
         fwd_pool.initialize(device=self.device)
@@ -426,10 +426,10 @@ class TestConvCaffe(CaffeTestBase):
                                             ky=kernel_size,
                                             sliding=(stride, stride),
                                             device=self.device)
-        grad_pool.input = Vector(bottom)
+        grad_pool.input = Array(bottom)
         grad_pool.input.map_write()
 
-        grad_pool.err_output = Vector(top_err)
+        grad_pool.err_output = Array(top_err)
         grad_pool.err_output.map_write()
 
         grad_pool.input_offset = fwd_pool.input_offset
@@ -477,7 +477,7 @@ class TestConvCaffe(CaffeTestBase):
                                                      k=1, device=self.device)
 
         # FWD PROP
-        fwd_norm.input = Vector(bottom)
+        fwd_norm.input = Array(bottom)
 
         fwd_norm.initialize(self.device)
         fwd_norm.run()
@@ -495,11 +495,11 @@ class TestConvCaffe(CaffeTestBase):
         # BACK PROP
         back_norm = normalization.LRNormalizerBackward(self.parent,
                                                        k=1, device=self.device)
-        back_norm.output = Vector(top)
+        back_norm.output = Array(top)
 
-        back_norm.input = Vector(bottom)
+        back_norm.input = Array(bottom)
 
-        back_norm.err_output = Vector(top_err)
+        back_norm.err_output = Array(top_err)
 
         back_norm.initialize(self.device)
         back_norm.run()
@@ -559,7 +559,7 @@ class TestConvCaffe(CaffeTestBase):
             padding=(padding_size, padding_size, padding_size, padding_size),
             sliding=(1, 1), n_kernels=n_kernels, device=self.device)
 
-        fwd_conv_relu.input = Vector(conv_bottom)
+        fwd_conv_relu.input = Array(conv_bottom)
 
         fwd_conv_relu.initialize(self.device)
 
@@ -631,7 +631,7 @@ class TestConvCaffe(CaffeTestBase):
             padding=(padding_size, padding_size, padding_size, padding_size),
             sliding=(1, 1), n_kernels=n_kernels, device=self.device)
 
-        fwd_conv_relu.input = Vector(conv_bottom)
+        fwd_conv_relu.input = Array(conv_bottom)
 
         fwd_conv_relu.initialize(self.device)
 
@@ -714,18 +714,18 @@ class TestConvCaffe(CaffeTestBase):
                                                   weights_decay=0,
                                                   batch_size=n_pics)
 
-        back_conv_relu.err_output = Vector(relu_top_err)
-        back_conv_relu.input = Vector(conv_bottom)
+        back_conv_relu.err_output = Array(relu_top_err)
+        back_conv_relu.input = Array(conv_bottom)
 
-        back_conv_relu.weights = Vector(conv_weights.reshape(2, 75))
-        back_conv_relu.bias = Vector(numpy.zeros(shape=n_kernels))
+        back_conv_relu.weights = Array(conv_weights.reshape(2, 75))
+        back_conv_relu.bias = Array(numpy.zeros(shape=n_kernels))
 
-        back_conv_relu.output = Vector(relu_top)
+        back_conv_relu.output = Array(relu_top)
 
         back_conv_relu.link_conv_attrs(
             DummyUnit(kx=kernel_size, ky=kernel_size, n_kernels=n_kernels,
                       padding=((padding,) * 4), sliding=(1, 1),
-                      unpack_size=1, unpack_data=Vector()))
+                      unpack_size=1, unpack_data=Array()))
 
         back_conv_relu.initialize(device=self.device)
 
@@ -800,7 +800,7 @@ class TestConvCaffe(CaffeTestBase):
             weights_filling="uniform", weights_stddev=0.1,
             bias_filling="uniform", bias_stddev=0.01)
 
-        a2a_softmax.input = Vector(a2a_bottom)
+        a2a_softmax.input = Array(a2a_bottom)
 
         a2a_softmax.initialize(self.device)
         a2a_softmax.weights.mem[:] = a2a_weights[:]
@@ -834,7 +834,7 @@ class TestConvCaffe(CaffeTestBase):
         ev_sm.max_idx = a2a_softmax.max_idx
         ev_sm.batch_size = n_pics
         ev_sm.output = a2a_softmax.output
-        ev_sm.labels = Vector(labels.reshape(n_pics))
+        ev_sm.labels = Array(labels.reshape(n_pics))
 
         ev_sm.initialize(self.device)
         ev_sm.numpy_run()

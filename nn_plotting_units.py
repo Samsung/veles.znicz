@@ -41,7 +41,7 @@ import numpy.linalg as linalg
 from zope.interface import implementer
 
 import veles.config as config
-import veles.memory as formats
+from veles.memory import Array, roundup
 from veles.mutable import Bool
 import veles.plotter as plotter
 import veles.opencl_types as opencl_types
@@ -90,7 +90,7 @@ class Weights2D(plotter.Plotter):
         n_channels = 1
         get_shape_from = (self.input if self.get_shape_from is None
                           else self.get_shape_from)
-        if isinstance(get_shape_from, formats.Vector):
+        if isinstance(get_shape_from, Array):
             if len(get_shape_from.shape) < 2:
                 self.warning(
                     "Shape of the get_shape_from should be 2, 3 or 4, "
@@ -118,7 +118,7 @@ class Weights2D(plotter.Plotter):
                 sx = get_shape_from[-2]
                 sy = get_shape_from[-3]
                 n_channels = get_shape_from[-1]
-                if isinstance(n_channels, formats.Vector):
+                if isinstance(n_channels, Array):
                     n_channels = n_channels.shape[-1]
         return n_channels, sx, sy
 
@@ -193,8 +193,8 @@ class Weights2D(plotter.Plotter):
         figure = self.pp.figure(self.name)
         figure.clf()
 
-        n_cols = formats.roundup(int(numpy.round(numpy.sqrt(len(pics)))),
-                                 self.column_align)
+        n_cols = roundup(int(numpy.round(numpy.sqrt(len(pics)))),
+                         self.column_align)
         n_rows = int(numpy.ceil(len(pics) / n_cols))
 
         i = 0

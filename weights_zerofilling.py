@@ -37,7 +37,7 @@ import numpy
 from zope.interface import implementer
 
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
-import veles.memory as formats
+from veles.memory import Array
 from veles.distributable import TriviallyDistributable
 from veles.znicz.nn_units import ForwardBase
 
@@ -51,7 +51,7 @@ class ZeroFiller(ForwardBase, TriviallyDistributable):
     def __init__(self, workflow, **kwargs):
         super(ZeroFiller, self).__init__(workflow, **kwargs)
 
-        self.mask = formats.Vector()
+        self.mask = Array()
         self.grouping = kwargs.get("grouping", 1)
         self.demand("weights")
 

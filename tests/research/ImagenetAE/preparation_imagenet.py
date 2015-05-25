@@ -63,7 +63,7 @@ import scipy.misc
 import shutil
 import sys
 import veles.config as config
-import veles.memory as formats
+from veles.memory import roundup
 import veles.prng as rnd
 import veles.znicz.conv as conv
 from veles.znicz.external import xmltodict
@@ -430,7 +430,7 @@ class Main(Processor):
                 figure = plt.figure()
                 figure.clf()
                 if len(pics) > 0:
-                    n_cols = formats.roundup(
+                    n_cols = roundup(
                         int(numpy.round(numpy.sqrt(len(pics)))), 4)
                     n_rows = int(numpy.ceil(len(pics) / n_cols))
                 self.info("n_cols %s" % n_cols)

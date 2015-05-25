@@ -46,7 +46,7 @@ from zope.interface import implementer
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
     INumpyUnit
 from veles.distributable import IDistributable, TriviallyDistributable
-from veles.memory import eq_addr, ravel, Vector
+from veles.memory import eq_addr, ravel, Array
 import veles.prng as random_generator
 from veles.znicz.nn_units import Forward, GradientDescentBase
 
@@ -90,8 +90,8 @@ class DropoutForward(Forward, Dropout):
 
     def __init__(self, workflow, **kwargs):
         super(DropoutForward, self).__init__(workflow, **kwargs)
-        self.mask = Vector()  # dropout mask
-        self.states = Vector()
+        self.mask = Array()  # dropout mask
+        self.states = Array()
         self.rand = random_generator.get()
 
     @Dropout.dropout_ratio.setter

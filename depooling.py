@@ -65,7 +65,7 @@ class Depooling(nn_units.Forward):
         input: data to depool.
         output: depooled data.
         output_offset: input_offset from the corresponding pooling unit.
-        output_shape_source: Vector to get output shape from.
+        output_shape_source: Array to get output shape from.
         krn_output_clear_: kernel for zeroing the output.
     """
     def __init__(self, workflow, **kwargs):
