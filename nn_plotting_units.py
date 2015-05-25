@@ -69,7 +69,7 @@ class Weights2D(plotter.Plotter):
         self.limit = kwargs.get("limit", 64)
         self.transposed = kwargs.get('transposed', False)
         self.yuv = Bool(kwargs.get("yuv", False))
-        self.split_channels = kwargs.get("split_channels", True)
+        self.split_channels = kwargs.get("split_channels", False)
         self.column_align = kwargs.get("column_align", 4)
         self.cm = None
         self.pp = None

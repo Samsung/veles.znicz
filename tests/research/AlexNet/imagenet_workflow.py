@@ -82,6 +82,7 @@ def run(load, main):
          decision_config=root.imagenet.decision,
          snapshotter_config=root.imagenet.snapshotter,
          weights_plotter_config=root.imagenet.weights_plotter,
+         lr_adjuster_config=root.imagenet.lr_adjuster,
          layers=root.imagenet.layers,
          image_saver_config=root.imagenet.image_saver,
          loss_function=root.imagenet.loss_function)

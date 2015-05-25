@@ -74,6 +74,7 @@ from veles.znicz.evaluator import EvaluatorsRegistry
 import veles.znicz.image_saver as image_saver
 from veles.loader.base import UserLoaderRegistry, LoaderMSEMixin, CLASS_NAME
 from veles.loader.image import ImageLoader
+from veles.znicz.nn_rollback import NNRollback
 from veles.loader.saver import MinibatchesSaver
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
@@ -89,7 +90,6 @@ class TypeDict(UserDict):
         the `key` inheritance hierarchy and chooses its nearest ancestor
         as a key to return its coupled value.
     """
-
     def __getitem__(self, key):
         if not isinstance(key, type):
             raise TypeError("key must be of class type")
@@ -254,8 +254,45 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         if "loader_config" not in kwargs:
             raise ValueError(
                 "Loader's configuration must be specified (\"loader_config\")")
+        self.apply_config(**kwargs)
+
+    def reset_unit(fn):
+        def wrapped(self, *args, **kwargs):
+            function_name = fn.__name__
+            instance_name = function_name[5:]
+            self.unlink_unit(instance_name)
+            return fn(self, *args, **kwargs)
+
+        return wrapped
+
+    def check_forward_units(fn):
+        def wrapped(self, *args, **kwargs):
+            self._check_forwards()
+            return fn(self, *args, **kwargs)
+
+        return wrapped
+
+    def check_backward_units(fn):
+        def wrapped(self, *args, **kwargs):
+            self._check_gds()
+            return fn(self, *args, **kwargs)
+
+        return wrapped
+
+    def unlink_unit(self, remove_unit_name):
+        if hasattr(self, remove_unit_name):
+            self.warning(
+                "Instance %s exists. It will be removed and unlink"
+                % remove_unit_name)
+            remove_unit = getattr(self, remove_unit_name)
+            remove_unit.unlink_all()
+            self.del_ref(remove_unit)
+
+    def apply_config(self, **kwargs):
+        old_config = getattr(self, "config", None)
         self.config = self.WorkflowConfig(
-            **{f: self.config2kwargs(kwargs.pop("%s_config" % f, {}))
+            **{f: self.config2kwargs(kwargs.pop("%s_config" % f,
+                                                getattr(old_config, f, {})))
                for f in self.WorkflowConfig._fields})
 
     @property
@@ -552,12 +589,17 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         else:
             new_unit.link_attrs(parents[0], init_attrs)
 
+    reset_unit = staticmethod(reset_unit)
+    check_forward_units = staticmethod(check_forward_units)
+    check_backward_units = staticmethod(check_backward_units)
+
 
 StandardWorkflowConfig = namedtuple(
     "StandardWorkflowConfig",
     ("decision", "snapshotter", "image_saver", "evaluator", "data_saver",
      "result_loader", "weights_plotter", "similar_weights_plotter",
-     "lr_adjuster", "downloader", "publisher") + BaseWorkflowConfig._fields)
+     "lr_adjuster", "downloader", "publisher", "rollback")
+    + BaseWorkflowConfig._fields)
 
 
 class StandardWorkflow(StandardWorkflowBase):
@@ -621,9 +663,9 @@ class StandardWorkflow(StandardWorkflowBase):
         if value is not None:
             setattr(self, "_%s_name" % name, value)
             if self.loss_function is not None:
-                self.warning("Loss function and %s name is defined at the"
-                             "same time. %s name has higher priority, then"
-                             "loss function")
+                self.warning("Loss function and %s name is defined at the "
+                             "same time. %s name has higher priority, then "
+                             "loss function" % (name, name))
 
     @property
     def decision_name(self):
@@ -703,6 +745,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 fwd_exp.generate_data_for_slave(None))
         return wf
 
+    @StandardWorkflowBase.check_forward_units
     def link_gds(self, *parents):
         """
         Creates :class:`veles.znicz.nn_units.GradientDescentBase`
@@ -733,7 +776,6 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         if type(self.layers) != list:
             raise error.BadFormatError("layers should be a list of dicts")
-        self._check_forwards()
         self.gds[:] = (None,) * len(self.layers)
         first_gd = None
         units_to_delete = []
@@ -819,10 +861,13 @@ class StandardWorkflow(StandardWorkflowBase):
         self.loader = avatar
         return avatar
 
+    @StandardWorkflowBase.reset_unit
     def link_downloader(self, *parents):
         self.downloader = Downloader(self, **self.config.downloader)
         self.downloader.link_from(*parents)
 
+    @StandardWorkflowBase.reset_unit
+    @StandardWorkflowBase.check_forward_units
     def link_evaluator(self, *parents):
         """
         Creates instance of :class:`veles.znicz.evaluator.EvaluatorBase`
@@ -839,7 +884,6 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.znicz.evaluator.EvaluatorBase` descendant unit
         """
-        self._check_forwards()
         self.evaluator = EvaluatorsRegistry.evaluators[
             self.evaluator_name](self, **self.config.evaluator) \
             .link_from(*parents).link_attrs(self.forwards[-1], "output") \
@@ -855,6 +899,7 @@ class StandardWorkflow(StandardWorkflowBase):
                                       "class_targets")
         return self.evaluator
 
+    @StandardWorkflowBase.reset_unit
     def link_decision(self, *parents):
         """
         Creates instance of :class:`veles.znicz.decision.DecisionBase`
@@ -898,6 +943,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.real_loader.gate_block = self.decision.complete
         return self.decision
 
+    @StandardWorkflowBase.reset_unit
     def link_snapshotter(self, *parents):
         """
         Creates instance of :class:`veles.snapshotter.SnapshotterBase`
@@ -935,6 +981,8 @@ class StandardWorkflow(StandardWorkflowBase):
         self.end_point.gate_block = ~self.decision.complete
         return self.end_point
 
+    @StandardWorkflowBase.reset_unit
+    @StandardWorkflowBase.check_forward_units
     def link_image_saver(self, *parents):
         """
         Creates instance of :class:`veles.znicz.image_saver.ImageSaver` .
@@ -950,7 +998,6 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.znicz.image_saver.ImageSaver` unit
         """
-        self._check_forwards()
         self.image_saver = \
             image_saver.ImageSaver(self, **self.config.image_saver) \
             .link_from(*parents)
@@ -972,6 +1019,8 @@ class StandardWorkflow(StandardWorkflowBase):
             .gate_skip = ~self.decision.improved
         return self.image_saver
 
+    @StandardWorkflowBase.reset_unit
+    @StandardWorkflowBase.check_backward_units
     def link_lr_adjuster(self, *parents):
         """
         Creates instance of :class:`veles.znicz.lr_adjust.LearningRateAdjust`
@@ -985,14 +1034,23 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.znicz.lr_adjust.LearningRateAdjust` unit
         """
-        self._check_gds()
         self.lr_adjuster = lr_adjust.LearningRateAdjust(
-            self, **self.config.lr_adjuster)
+            self, **self.dictify(self.config.lr_adjuster))
         for gd_elm in self.gds:
             self.lr_adjuster.add_gd_unit(gd_elm)
         self.lr_adjuster.link_from(*parents)
         return self.lr_adjuster
 
+    @StandardWorkflowBase.reset_unit
+    def link_rollback(self, *parents):
+        self.rollback = NNRollback(self, **self.config.rollback)
+        self.rollback.link_from(*parents)
+        self.rollback.improved = self.decision.train_improved
+        self.rollback.gate_skip = ~self.loader.epoch_ended | \
+            self.decision.complete
+        return self.rollback
+
+    @StandardWorkflowBase.reset_unit
     def link_meandispnorm(self, *parents):
         """
         Creates an instance of
@@ -1015,6 +1073,7 @@ class StandardWorkflow(StandardWorkflowBase):
             .link_from(*parents)
         return self.meandispnorm
 
+    @StandardWorkflowBase.reset_unit
     def link_gd_diff_stats(self, *parents, **kwargs):
         """
         Creates an instance of
@@ -1036,6 +1095,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.gd_diff_stats.gate_skip = self.decision.gd_skip
         return self.gd_diff_stats
 
+    @StandardWorkflowBase.reset_unit
     def link_ipython(self, *parents):
         """
         Creates instance of :class:`veles.interaction.Shell` unit.
@@ -1050,6 +1110,7 @@ class StandardWorkflow(StandardWorkflowBase):
             .gate_skip = ~self.decision.epoch_ended
         return self.ipython
 
+    @StandardWorkflowBase.reset_unit
     def link_publisher(self, *parents):
         self.publisher = NNPublisher(self, **self.config.publisher) \
             .link_from(*parents) \
@@ -1058,6 +1119,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.publisher.gate_skip = ~self.decision.complete
         return self.publisher
 
+    @StandardWorkflowBase.reset_unit
     def link_error_plotter(self, *parents):
         """
         Creates the list of instances of
@@ -1203,6 +1265,7 @@ class StandardWorkflow(StandardWorkflowBase):
                     break
         return prev[0]
 
+    @StandardWorkflowBase.check_forward_units
     def link_weights_plotter(self, weights_input, *parents):
         """
         Creates the list of instances of
@@ -1225,9 +1288,9 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units, from whom will be link the first of\
             :class:`veles.znicz.nn_plotting_units.Weights2D` units.
         """
-        self._check_forwards()
+        name = "weights_plotter_%s" % weights_input
         prev = parents
-        self.weights_plotter = []
+        setattr(self, name, [])
         prev_channels = 3
         link_units = self._get_weights_source_units(weights_input)
         index = 1
@@ -1236,7 +1299,8 @@ class StandardWorkflow(StandardWorkflowBase):
                     not isinstance(self.forwards[i], all2all.All2All)):
                 continue
             plt_wd = nn_plotting_units.Weights2D(
-                self, name="Weights #%s: %s" % (index, layer["type"]),
+                self,
+                name="%s #%s: %s" % (weights_input, index, layer["type"]),
                 **self.config.weights_plotter).link_from(*prev) \
                 .link_attrs(link_units[i], ("input", weights_input))
             if isinstance(self.loader, ImageLoader):
@@ -1253,7 +1317,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 if isinstance(self.loader, ImageLoader):
                     plt_wd.link_attrs(self.loader, "color_space")
             plt_wd.gate_skip = ~self.decision.epoch_ended
-            self.weights_plotter.append(plt_wd)
+            getattr(self, name).append(plt_wd)
             index += 1
             prev = plt_wd,
         return prev[0]
@@ -1315,6 +1379,9 @@ class StandardWorkflow(StandardWorkflowBase):
         self.similar_weights_plotter[-1].redraw_plot = True
         return prev[0]
 
+    @StandardWorkflowBase.reset_unit
+    @StandardWorkflowBase.check_forward_units
+    @StandardWorkflowBase.check_backward_units
     def link_table_plotter(self, *parents):
         """
         Creates instance of :class:`veles.plotting_units.TableMaxMin` unit.
@@ -1329,8 +1396,6 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.plotting_units.TableMaxMin` unit.
         """
-        self._check_forwards()
-        self._check_gds()
         self.table_plotter = plotting_units.TableMaxMin(self, name="Max, Min")
         del self.table_plotter.y[:]
         del self.table_plotter.col_labels[:]
@@ -1426,6 +1491,8 @@ class StandardWorkflow(StandardWorkflowBase):
         plotters[-1].redraw_plot = True
         return prev[0]
 
+    @StandardWorkflowBase.reset_unit
+    @StandardWorkflowBase.check_forward_units
     def link_image_plotter(self, *parents):
         """
         Creates instance of :class:`veles.plotting_units.ImagePlotter` unit.
@@ -1439,7 +1506,6 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.plotting_units.ImagePlotter` unit.
         """
-        self._check_forwards()
         self.image_plotter = plotting_units.ImagePlotter(
             self, name="output sample").link_from(*parents)
         self.image_plotter.inputs.append(self.forwards[-1].output)
@@ -1449,6 +1515,8 @@ class StandardWorkflow(StandardWorkflowBase):
         self.image_plotter.gate_skip = ~self.decision.epoch_ended
         return self.image_plotter
 
+    @StandardWorkflowBase.reset_unit
+    @StandardWorkflowBase.check_forward_units
     def link_immediate_plotter(self, *parents):
         """
         Creates instance of :class:`veles.plotting_units.ImmediatePlotter`
@@ -1466,7 +1534,6 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.plotting_units.ImmediatePlotter` unit.
         """
-        self._check_forwards()
         self.immediate_plotter = plotting_units.ImmediatePlotter(
             self, name="ImmediatePlotter", ylim=[-1.1, 1.1]) \
             .link_from(*parents)
@@ -1502,6 +1569,7 @@ class StandardWorkflow(StandardWorkflowBase):
         res_unit.gate_block = ~self.decision.complete
         return res_unit
 
+    @StandardWorkflowBase.reset_unit
     def link_data_saver(self, *parents):
         """
         Creates instance of :class:`veles.loader.saver.MinibatchesSaver` unit.
@@ -1525,13 +1593,13 @@ class StandardWorkflow(StandardWorkflowBase):
     def _check_forwards(self):
         if len(self.forwards) == 0:
             raise ValueError(
-                "Please create forwards in workflow first."
+                "Please create forwards in workflow first. "
                 "You can use link_forwards() function")
 
     def _check_gds(self):
         if len(self.gds) == 0:
             raise ValueError(
-                "Please create gds in workflow first."
+                "Please create gds in workflow first. "
                 "For that you can use link_gds() function")
 
     def _get_weights_source_units(self, weights_input):

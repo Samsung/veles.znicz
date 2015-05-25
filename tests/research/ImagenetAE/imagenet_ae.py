@@ -38,7 +38,6 @@ under the License.
 
 
 import json
-import os
 import pickle
 
 import numpy
@@ -49,27 +48,21 @@ import veles.error as error
 from veles.memory import Array
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
-import veles.plotting_units as plotting_units
 import veles.znicz.conv as conv
-import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
 import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
+import veles.znicz.nn_units as nn_units
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
-import veles.znicz.dropout as dropout
 import veles.znicz.activation as activation
-import veles.znicz.all2all as all2all
 import veles.znicz.gd as gd
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.gd_conv as gd_conv
-from veles.znicz.nn_rollback import NNRollback
-from veles.znicz.nn_units import NNSnapshotter
-from veles.znicz.standard_workflow import StandardWorkflowBase
-from veles.mean_disp_normalizer import MeanDispNormalizer
+from veles.znicz.standard_workflow import StandardWorkflow
 from veles.units import IUnit, Unit
 from veles.distributable import IDistributable
 import veles.prng as prng
@@ -115,8 +108,12 @@ class ImagenetAELoader(loader.Loader):
         self.mean = Array()
         self.rdisp = Array()
         self.file_samples = ""
-        self.sx = root.imagenet_ae.loader.sx
-        self.sy = root.imagenet_ae.loader.sy
+        self.sx = kwargs.get("sx", 216)
+        self.sy = kwargs.get("sy", 216)
+        self.names_labels_filename = kwargs["names_labels_filename"]
+        self.count_samples_filename = kwargs["count_samples_filename"]
+        self.matrixes_filename = kwargs["matrixes_filename"]
+        self.samples_filename = kwargs["samples_filename"]
 
     def init_unpickled(self):
         super(ImagenetAELoader, self).init_unpickled()
@@ -136,7 +133,7 @@ class ImagenetAELoader(loader.Loader):
 
     def load_data(self):
         self.original_labels = []
-        with open(root.imagenet_ae.loader.names_labels_filename, "rb") as fin:
+        with open(self.names_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
                 self.original_labels.append(int(lbl))
                 self.labels_mapping[int(lbl)] = int(lbl)
@@ -145,7 +142,7 @@ class ImagenetAELoader(loader.Loader):
                   numpy.max(self.original_labels),
                   len(self.original_labels))
 
-        with open(root.imagenet_ae.loader.count_samples_filename, "r") as fin:
+        with open(self.count_samples_filename, "r") as fin:
             for i, n in enumerate(json.load(fin)):
                 self.class_lengths[i] = n
         self.info("Class Lengths: %s", str(self.class_lengths))
@@ -154,7 +151,7 @@ class ImagenetAELoader(loader.Loader):
             raise error.Bug(
                 "Number of labels missmatches sum of class lengths")
 
-        with open(root.imagenet_ae.loader.matrixes_filename, "rb") as fin:
+        with open(self.matrixes_filename, "rb") as fin:
             matrixes = pickle.load(fin)
 
         self.mean.mem = matrixes[0]
@@ -169,7 +166,7 @@ class ImagenetAELoader(loader.Loader):
         if self.mean.shape[0] != self.sy or self.mean.shape[1] != self.sx:
             raise ValueError("mean.shape != (%d, %d)" % (self.sy, self.sx))
 
-        self.file_samples = open(root.imagenet_ae.loader.samples_filename,
+        self.file_samples = open(self.samples_filename,
                                  "rb")
         if (self.file_samples.seek(0, 2) // (self.sx * self.sy * 4) !=
                 len(self.original_labels)):
@@ -211,36 +208,26 @@ class ImagenetAELoader(loader.Loader):
         raise error.Bug("Control should not go here")
 
 
-class ImagenetAEWorkflow(StandardWorkflowBase):
-    """Workflow.
+class ImagenetAEWorkflow(StandardWorkflow):
     """
-    def fix(self, unit, *attrs):
-        fix = {}
-        for attr in attrs:
-            fix[attr] = id(getattr(unit, attr))
-        self.fixed[unit] = fix
-
-    def check_fixed(self):
-        for unit, fix in self.fixed.items():
-            for attr, addr in fix.items():
-                if id(getattr(unit, attr)) != addr:
-                    raise ValueError("Fixed attribute has changed: %s.%s" %
-                                     (unit.__class__.__name__, attr))
+    Workflow for recognition of images on base of Imagenet data.
+    Model - Concolutional Neural Network with pretraining of each layer with
+    autoencoder. New layers will be added to the model if
+    workflow is loaded from snapshot and option from_snapshot_add_layer
+    is True. When all layers are trained separately, workflow swithes to the
+    fine tuning stage and model is training with all layers.
+    """
+    def __init__(self, workflow, **kwargs):
+        self.from_snapshot_add_layer = kwargs["from_snapshot_add_layer"]
+        self.add_epochs = kwargs["add_epochs"]
+        self.fine_tuning_noise = kwargs["fine_tuning_noise"]
+        self.decision_mse_config = kwargs["decision_mse_config"]
+        self.decision_gd_config = kwargs["decision_gd_config"]
+        self.layer_map = nn_units.MatchingObject.mapping
+        super(ImagenetAEWorkflow, self).__init__(workflow, **kwargs)
 
     def init_unpickled(self):
         super(ImagenetAEWorkflow, self).init_unpickled()
-        self.forward_map = {
-            "conv": conv.Conv,
-            "stochastic_abs_pooling": pooling.StochasticAbsPooling,
-            "max_abs_pooling": pooling.MaxAbsPooling,
-            "stochastic_pooling": pooling.StochasticPooling,
-            "max_pooling": pooling.MaxPooling,
-            "activation_mul": activation.ForwardMul,
-            "all2all": all2all.All2All,
-            "all2all_tanh": all2all.All2AllTanh,
-            "activation_tanhlog": activation.ForwardTanhLog,
-            "softmax": all2all.All2AllSoftmax,
-            "dropout": dropout.DropoutForward}
         self.last_de_map = {  # If the last unit in ae-layer => replace with:
             pooling.StochasticAbsPooling:
             pooling.StochasticAbsPoolingDepooling,
@@ -255,51 +242,44 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             pooling.MaxAbsPooling: depooling.Depooling,
             pooling.StochasticPooling: depooling.Depooling,
             pooling.MaxPooling: depooling.Depooling}
-        self.gd_map = {
-            deconv.Deconv: gd_deconv.GDDeconv,
-            all2all.All2All: gd.GradientDescent,
-            all2all.All2AllTanh: gd.GDTanh,
-            all2all.All2AllSoftmax: gd.GDSoftmax,
-            activation.ForwardTanhLog: activation.BackwardTanhLog,
-            activation.ForwardMul: activation.BackwardMul,
-            pooling.StochasticAbsPooling: gd_pooling.GDMaxAbsPooling,
-            pooling.StochasticPooling: gd_pooling.GDMaxPooling,
-            pooling.MaxAbsPooling: gd_pooling.GDMaxAbsPooling,
-            pooling.MaxPooling: gd_pooling.GDMaxPooling,
-            conv.Conv: gd_conv.GradientDescentConv,
-            dropout.DropoutForward: dropout.DropoutBackward}
-        self.fixed = {}
+        self.gd_map = {}
+        for layer_type, forw_back in (dict(self.layer_map)).items():
+            if len(forw_back) > 1:
+                self.gd_map[forw_back[0]] = forw_back[1]
 
-    def __init__(self, workflow, **kwargs):
-        layers = kwargs.get("layers")
-        device = kwargs.get("device")
-        kwargs["layers"] = layers
-        kwargs["device"] = device
-        super(ImagenetAEWorkflow, self).__init__(workflow, **kwargs)
+    def link_evaluator_mse(self, *parents):
+        if hasattr(self, "evaluator"):
+            self.evaluator.unlink_all()
+            self.del_ref(self.evaluator)
+        self.evaluator = evaluator.EvaluatorMSE(self)
+        self.evaluator.link_from(*parents)
+        self.evaluator.link_attrs(self.forwards[-1], "output")
+        self.evaluator.link_attrs(
+            self.loader, ("batch_size", "minibatch_size"))
+        self.evaluator.link_attrs(self.meandispnorm, ("target", "output"))
+        return self.evaluator
 
-        self.slave_stats = plotting_units.SlaveStats(self)
-        self.slave_stats.link_from(self.start_point)
+    def link_end_point(self, *parents):
+        self.rollback.gate_block = Bool(False)
+        self.rollback.gate_skip = (~self.loader.epoch_ended |
+                                   self.decision.complete)
+        self.end_point.unlink_all()
+        self.end_point.link_from(*parents)
+        self.end_point.gate_block = ~self.decision.complete
+        self.loader.gate_block = self.decision.complete
+        if not hasattr(self, "destroyer"):
+            self.destroyer = Destroyer(self)
+        self.destroyer.unlink_all()
+        self.destroyer.link_from(*parents)
+        self.destroyer.gate_block = ~self.decision.complete
 
-        self.repeater.link_from(self.start_point)
-
-        self.loader = ImagenetAELoader(
-            self, minibatch_size=root.imagenet_ae.loader.minibatch_size)
-        self.loader.link_from(self.repeater)
-        self.fix(self.loader, "minibatch_data", "mean", "rdisp",
-                 "class_lengths")
-
-        self.meandispnorm = MeanDispNormalizer(self)
-        self.meandispnorm.link_attrs(self.loader,
-                                     ("input", "minibatch_data"),
-                                     "mean", "rdisp")
-        self.meandispnorm.link_from(self.loader)
-        self.fix(self.meandispnorm, "input", "output", "mean", "rdisp")
-        prev = self.meandispnorm
-
-        ae = []
+    def _add_forwards(self, prev, layers, pool):
+        """
+        Add one block at the time to train with autoencoder: conv -> pooling
+        """
+        ae_units = []
         ae_layers = []
         last_conv = None
-        self.n_ae = 0
         in_ae = False
         self.uniform = None
         for layer in layers:
@@ -310,271 +290,193 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             if layer["type"] == "ae_end":
                 self.info("Autoencoder block end")
                 self.info("One AE at a time, so skipping other layers")
-                self.n_ae += 1
+                self.number_ae_blocks += 1
                 break
-            if layer["type"][:4] == "conv":
+            if layer["type"].find("conv") > -1:
                 if in_ae:
                     layer["include_bias"] = False
-                layer["padding"] = deconv.Deconv.compute_padding(
+                layer["->"]["padding"] = deconv.Deconv.compute_padding(
                     self.loader.sx, self.loader.sy,
-                    layer["kx"], layer["ky"], layer["sliding"])
-            Forward = self.forward_map[layer["type"]]
-            unit = Forward(self, **layer)
-            unit.layer = dict(layer)
+                    layer["->"]["kx"], layer["->"]["ky"],
+                    layer["->"]["sliding"])
+            tpe, kwargs, _ = self._get_layer_type_kwargs(layer)
+            forward_unit = self.layer_map[tpe].forward(self, **kwargs)
+            forward_unit.layer = dict(layer)
             if in_ae:
-                ae.append(unit)
+                ae_units.append(forward_unit)
                 ae_layers.append(layer)
-            if isinstance(unit, pooling.StochasticPoolingBase):
-                if self.uniform is None:
-                    self.uniform = Uniform(DummyWorkflow(), num_states=512)
-                unit.uniform = self.uniform
-            self.forwards.append(unit)
-            unit.link_from(prev)
-            if isinstance(unit, conv.ConvolutionalBase):
-                conv_ = unit
-            unit.link_attrs(prev, ("input", "output"))
-            if isinstance(unit, activation.ForwardMul):
-                unit.link_attrs(prev, "output")
-            self.fix(unit, "input", "output", "weights")
-            prev = unit
-            if layer["type"][:4] == "conv" and in_ae:
+            getattr(self, pool)(forward_unit)
+            self.forwards.append(forward_unit)
+            forward_unit.link_from(prev)
+            if hasattr(prev, "output"):
+                forward_unit.link_attrs(prev, ("input", "output"))
+            prev = forward_unit
+            if layer["type"].find("conv") > -1 and in_ae:
                 last_conv = prev
-        else:
-            raise error.BadFormatError("No autoencoder layers found")
 
-        if last_conv is None:
+        if last_conv is None and in_ae:
             raise error.BadFormatError("No convolutional layer found")
 
-        de = []
-        for i in range(len(ae) - 1, -1, -1):
-            if (i == len(ae) - 1 and id(ae[-1]) == id(self.forwards[-1]) and
-                    ae[-1].__class__ in self.last_de_map):
+        return ae_units, ae_layers, last_conv, in_ae, prev
+
+    def get_pool(self, forward_unit):
+        if isinstance(forward_unit, pooling.StochasticPoolingBase):
+            forward_unit.uniform = self.uniform
+
+    def set_pool(self, forward_unit):
+        if isinstance(forward_unit, pooling.StochasticPoolingBase):
+            if self.uniform is None:
+                self.uniform = Uniform(DummyWorkflow(), num_states=512)
+                forward_unit.uniform = self.uniform
+
+    def _add_deconv_units(self, ae_units, ae_layers, prev):
+        """
+        Add deconvolutional and depooling units
+        """
+        deconv_units = []
+        for i in range(len(ae_units) - 1, -1, -1):
+            __, kwargs, _ = self._get_layer_type_kwargs(ae_layers[i])
+            if (i == len(ae_units) - 1 and
+                    id(ae_units[-1]) == id(self.forwards[-1]) and
+                    ae_units[-1].__class__ in self.last_de_map):
                 self.info("Replacing pooling with pooling-depooling")
-                De = self.last_de_map[ae[-1].__class__]
-                unit = De(self, **ae_layers[i])
-                unit.uniform = ae[-1].uniform
-                unit.layer = ae[-1].layer
-                unit.link_attrs(self.forwards[-2], ("input", "output"))
+                depool_unit = self.last_de_map[ae_units[-1].__class__](
+                    self, **kwargs)
+                depool_unit.uniform = ae_units[-1].uniform
+                depool_unit.layer = ae_units[-1].layer
+                depool_unit.link_attrs(self.forwards[-2], ("input", "output"))
+
                 del self.forwards[-1]
-                ae[-1].unlink_all()
-                self.del_ref(ae[-1])
-                ae[-1] = unit
-                self.forwards.append(unit)
-                unit.link_from(self.forwards[-2])
-                prev = unit
-                self.fix(unit, "input", "uniform")
-                de.append(unit)  # for the later assert to work
+                ae_units[-1].unlink_all()
+                self.del_ref(ae_units[-1])
+
+                ae_units[-1] = depool_unit
+                self.forwards.append(depool_unit)
+                depool_unit.link_from(self.forwards[-2])
+                prev = depool_unit
+                # for the later assert to work:
+                deconv_units.append(depool_unit)
                 continue
-            De = self.de_map[ae[i].__class__]
-            unit = De(self, **ae_layers[i])
-            if isinstance(unit, deconv.Deconv):
-                unit.link_conv_attrs(conv_)
-                self.deconv = unit
-                unit.unsafe_padding = True
-            de.append(unit)
-            self.forwards.append(unit)
-            unit.link_from(prev)
+            de_unit = self.de_map[ae_units[i].__class__](self, **kwargs)
+            if isinstance(de_unit, deconv.Deconv):
+                de_unit.link_conv_attrs(ae_units[i])
+                self.deconv = de_unit
+                de_unit.unsafe_padding = True
+                deconv_units.append(de_unit)
+            self.forwards.append(de_unit)
+            de_unit.link_from(prev)
             for dst_src in (("weights", "weights"),
                             ("output_shape_source", "input"),
                             ("output_offset", "input_offset")):
-                if hasattr(unit, dst_src[0]):
-                    unit.link_attrs(ae[i], dst_src)
+                if hasattr(de_unit, dst_src[0]):
+                    de_unit.link_attrs(ae_units[i], dst_src)
             if isinstance(prev, pooling.StochasticPoolingDepooling):
-                unit.link_attrs(prev, "input")
+                de_unit.link_attrs(prev, "input")
             else:
-                unit.link_attrs(prev, ("input", "output"))
-            self.fix(unit, "input", "weights", "output",
-                     "output_shape_source")
-            prev = unit
+                de_unit.link_attrs(prev, ("input", "output"))
+            prev = de_unit
 
-        assert len(ae) == len(de)
+        assert len(ae_units) == len(deconv_units)
 
-        # Add evaluator unit
-        unit = evaluator.EvaluatorMSE(self)
-        self.evaluator = unit
-        unit.link_from(self.forwards[-1])
-        unit.link_attrs(self.forwards[-1], "output")
-        unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        unit.link_attrs(self.meandispnorm, ("target", "output"))
-        self.fix(self.evaluator, "output", "target", "err_output", "metrics")
-
-        # Add decision unit
-        unit = decision.DecisionMSE(
-            self, fail_iterations=root.imagenet_ae.decision.fail_iterations,
-            max_epochs=root.imagenet_ae.decision.max_epochs)
-        self.decision = unit
-        unit.link_from(self.evaluator)
-        unit.link_attrs(self.loader, "minibatch_class",
-                        "minibatch_size", "last_minibatch",
-                        "class_lengths", "epoch_ended",
-                        "epoch_number")
-        unit.link_attrs(self.evaluator, ("minibatch_metrics", "metrics"))
-        self.fix(self.decision, "minibatch_metrics", "class_lengths")
-
-        unit = NNSnapshotter(
-            self, prefix=root.imagenet_ae.snapshotter.prefix,
-            directory=root.imagenet_ae.snapshotter.directory,
-            compress="", time_interval=0, interval=1)
-        self.snapshotter = unit
-        unit.link_from(self.decision)
-        unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
-        unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
-
-        unit = NNRollback(self, lr_plus=1)
-        self.rollback = unit
-        unit.link_from(self.snapshotter)
-        unit.improved = self.decision.train_improved
-        unit.gate_skip = ~self.loader.epoch_ended | self.decision.complete
-
-        # Add gradient descent unit
-        GD = self.gd_map[self.forwards[-1].__class__]
-        unit = GD(self, **ae_layers[0])
-        if isinstance(unit, gd_deconv.GDDeconv):
-            unit.link_attrs(
+    def add_gds_and_plots(self, ae_layers, last_conv, ae_units):
+        __, _, kwargs = self._get_layer_type_kwargs(ae_layers[0])
+        gd_deconv_unit = self.gd_map[self.forwards[-1].__class__](
+            self, **kwargs)
+        if isinstance(gd_deconv_unit, gd_deconv.GDDeconv):
+            gd_deconv_unit.link_attrs(
                 self.deconv, "weights", "input", "hits", "n_kernels",
                 "kx", "ky", "sliding", "padding", "unpack_data", "unpack_size")
-        self.gds.append(unit)
-        unit.link_attrs(self.evaluator, "err_output")
-        unit.link_attrs(self.forwards[-1], "weights", "input")
-        unit.gate_skip = self.decision.gd_skip
-        self.fix(unit, "err_output", "weights", "input", "err_input")
-        self.rollback.add_gd(unit)
+        self.gds.append(gd_deconv_unit)
+        gd_deconv_unit.link_attrs(self.evaluator, "err_output")
+        gd_deconv_unit.link_attrs(self.forwards[-1], "weights", "input")
+        gd_deconv_unit.gate_skip = self.decision.gd_skip
+        self.rollback.add_gd(gd_deconv_unit)
 
-        assert len(self.gds) == 1
+        assert len(self.gds) == 1  # unit must be GDDeconv
 
         self.gds[0].need_err_input = False
         self.repeater.link_from(self.gds[0])
 
-        prev = self.add_plotters(self.rollback, last_conv, ae[-1])
-
+        prev = self.add_ae_plotters(self.rollback, last_conv, ae_units[-1])
         self.gds[-1].link_from(prev)
 
+    def create_workflow(self):
+        self.link_repeater(self.start_point)
+        self.link_loader(self.repeater)
+
+        prev = self.link_meandispnorm(self.loader)
+
+        self.number_ae_blocks = 0
+        ae_units, ae_layers, last_conv, _, prev = self._add_forwards(
+            prev, self.layers, "set_pool")
+        self._add_deconv_units(ae_units, ae_layers, prev)
+
+        self.link_evaluator_mse(self.forwards[-1])
+        self.loss_function = "mse"
+        self.decision_name = "decision_mse"
+        self.apply_config(decision_config=self.decision_mse_config)
+        self.link_decision(self.evaluator)
+        self.link_snapshotter(self.decision)
+        self.link_rollback(self.snapshotter)
+
+        self.add_gds_and_plots(ae_layers, last_conv, ae_units)
+
         self.destroyer = Destroyer(self)
+        self.link_end_point(self.gds[0])
 
-        self.add_end_point()
+    def link_ae_weights_plotter(
+            self, weights_input, last_conv, last_ae, *parents):
+        name = "ae_weights_plotter_%s" % weights_input
+        self.unlink_unit(name)
+        setattr(self, name, nn_plotting_units.Weights2D(
+            self, name=weights_input, **self.config.weights_plotter))
+        if weights_input == "weights":
+            getattr(self, name).get_shape_from = [
+                last_conv.kx, last_conv.ky, last_conv.input]
+        if weights_input == "output":
+            if isinstance(last_ae, pooling.StochasticPoolingDepooling):
+                getattr(self, name).link_attrs(last_ae, "input")
+            else:
+                getattr(self, name).link_attrs(last_ae, ("input", "output"))
+        else:
+            getattr(self, name).link_attrs(last_conv, ("input", weights_input))
+        getattr(self, name).link_from(*parents)
+        getattr(self, name).gate_skip = ~self.decision.epoch_ended
+        return getattr(self, name)
 
-    def add_end_point(self):
-        self.rollback.gate_block = Bool(False)
-        self.rollback.gate_skip = (~self.loader.epoch_ended |
-                                   self.decision.complete)
-        self.end_point.unlink_all()
-        self.end_point.link_from(self.gds[0])
-        self.end_point.gate_block = ~self.decision.complete
-        self.loader.gate_block = self.decision.complete
-        if not hasattr(self, "destroyer"):
-            self.destroyer = Destroyer(self)
-        self.destroyer.unlink_all()
-        self.destroyer.link_from(self.gds[0])
-        self.destroyer.gate_block = ~self.decision.complete
-
-        uu = None
-        for u in self.start_point.links_to.keys():
-            if isinstance(u, plotting_units.SlaveStats):
-                uu = u
-                break
-        if uu is not None:
-            self.warning("Found malicious plotter, will purge it")
-            uu.unlink_before()
-            self.del_ref(uu)
-            del uu
-            self.warning("Purge succeeded")
-
-    def del_plotters(self):
-        if hasattr(self, "plt"):
-            for p in self.plt:
-                p.unlink_all()
-                self.del_ref(p)
-            del self.plt
-        if hasattr(self, "plt_mx"):
-            self.plt_mx.unlink_all()
-            self.del_ref(self.plt_mx)
-            del self.plt_mx
-        if hasattr(self, "plt_inp"):
-            self.plt_inp.unlink_all()
-            self.del_ref(self.plt_inp)
-            del self.plt_inp
-        if hasattr(self, "plt_out"):
-            self.plt_out.unlink_all()
-            self.del_ref(self.plt_out)
-            del self.plt_out
-        if hasattr(self, "plt_deconv"):
-            self.plt_deconv.unlink_all()
-            self.del_ref(self.plt_deconv)
-            del self.plt_deconv
-
-    def add_plotters(self, prev, last_conv, last_ae):
+    def add_ae_plotters(self, prev, last_conv, last_ae):
         if not self.is_standalone:
             return prev
+        last_mse = self.link_mse_plotter(prev)
+        last_weights = self.link_ae_weights_plotter(
+            "weights", last_conv, last_ae, last_mse)
+        last_input = self.link_ae_weights_plotter(
+            "input", last_conv, last_ae, last_weights)
+        last_output = self.link_ae_weights_plotter(
+            "output", last_conv, last_ae, last_input)
 
-        self.del_plotters()
-
-        # MSE plotter
-        self.plt = []
-        styles = ["r-", "b-", "k-"]
-        for i in range(1, 3):
-            self.plt.append(plotting_units.AccumulatingPlotter(
-                self, name="mse", plot_style=styles[i]))
-            self.plt[-1].input = self.decision.epoch_metrics
-            self.plt[-1].input_field = i
-            self.plt[-1].link_from(prev)
-            self.plt[-1].gate_skip = ~self.decision.epoch_ended
-            prev = self.plt[-1]
-        self.plt[0].clear_plot = True
-        self.plt[-1].redraw_plot = True
-
-        # Weights plotter
-        self.plt_mx = nn_plotting_units.Weights2D(
-            self, name="Conv Weights", limit=256, split_channels=False)
-        self.plt_mx.link_attrs(last_conv, ("input", "weights"))
-        self.plt_mx.get_shape_from = [last_conv.kx, last_conv.ky,
-                                      last_conv.input]
-        self.plt_mx.link_from(prev)
-        self.plt_mx.gate_skip = ~self.decision.epoch_ended
-        prev = self.plt_mx
-
-        # Input plotter
-        self.plt_inp = nn_plotting_units.Weights2D(
-            self, name="Conv Input", limit=64, split_channels=False)
-        self.plt_inp.link_attrs(last_conv, "input")
-        self.plt_inp.link_from(prev)
-        self.plt_inp.gate_skip = ~self.decision.epoch_ended
-        prev = self.plt_inp
-
-        # Output plotter
-        self.plt_out = nn_plotting_units.Weights2D(
-            self, name="Output", limit=256, split_channels=False)
-        if isinstance(last_ae, pooling.StochasticPoolingDepooling):
-            self.plt_out.link_attrs(last_ae, "input")
-        else:
-            self.plt_out.link_attrs(last_ae, ("input", "output"))
-        self.plt_out.link_from(prev)
-        self.plt_out.gate_skip = ~self.decision.epoch_ended
-        prev = self.plt_out
-
-        # Deconv result plotter
+        self.unlink_unit("plt_deconv")
         self.plt_deconv = nn_plotting_units.Weights2D(
-            self, name="Deconv result", limit=64, split_channels=False)
+            self, name="Deconv result", limit=256, split_channels=False)
         self.plt_deconv.link_attrs(self.forwards[-1], ("input", "output"))
-        self.plt_deconv.link_from(prev)
+        self.plt_deconv.link_from(last_output)
         self.plt_deconv.gate_skip = ~self.decision.epoch_ended
-        prev = self.plt_deconv
 
-        return prev
+        return self.plt_deconv
 
     def initialize(self, device, **kwargs):
         if (self.forwards[0].weights.mem is not None and
-                root.imagenet_ae.from_snapshot_add_layer):
+                self.from_snapshot_add_layer):
             self.info("Restoring from snapshot detected, "
                       "will adjust the workflow")
             self.adjust_workflow()
             self.info("Workflow adjusted, will initialize now")
         else:
-            self.decision.max_epochs += root.imagenet_ae.decision.max_epochs
+            self.decision.max_epochs += self.add_epochs
         self.decision.complete <<= False
         self.info("Set decision.max_epochs to %d and complete=False",
                   self.decision.max_epochs)
         super(ImagenetAEWorkflow, self).initialize(device, **kwargs)
-        self.check_fixed()
         self.dump_shapes()
 
     def dump_shapes(self):
@@ -586,80 +488,73 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
     def switch_to_fine_tuning(self):
         if len(self.gds) == len(self.forwards):
-            self.info("Already at fine-tune stage, will exit with code 1 now")
-            os._exit(1)
+            self.info("Already at fine-tune stage, continue training")
+            return
         # Add gradient descent units for the remaining forward units
         self.gds[0].unlink_after()
         self.gds[0].need_err_input = True
         prev = self.gds[0]
 
-        pool = None
         for i in range(len(self.forwards) - len(self.gds) - 1, -1, -1):
-            GD = self.gd_map[self.forwards[i].__class__]
             if hasattr(self.forwards[i], "layer"):
-                kwargs = dict(self.forwards[i].layer)
-            if isinstance(self.forwards[i], pooling.StochasticPoolingBase):
-                pool = self.forwards[i]
-            if isinstance(self.forwards[i], conv.Conv):
-                conv_ = self.forwards[i]
-            for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
-                         "factor", "include_bias"):
-                vle = getattr(self.forwards[i], attr, None)
-                if vle is not None:
-                    kwargs[attr] = vle
+                __, kwargs, _ = self._get_layer_type_kwargs(
+                    self.forwards[i].layer)
             if "learning_rate_ft" in kwargs:
                 kwargs["learning_rate"] = kwargs["learning_rate_ft"]
             if "learning_rate_ft_bias" in kwargs:
                 kwargs["learning_rate_bias"] = kwargs["learning_rate_ft_bias"]
-            unit = GD(self, **kwargs)
-            self.gds.insert(0, unit)
-            unit.link_from(prev)
-            if isinstance(unit, gd_pooling.GDPooling) and pool is not None:
-                unit.link_attrs(pool, "kx", "ky", "sliding")
-            if isinstance(unit, gd_conv.GradientDescentConv):
-                unit.link_attrs(
-                    conv_, "n_kernels", "kx", "ky", "sliding", "padding",
-                    "unpack_data", "unpack_size")
-            unit.link_attrs(prev, ("err_output", "err_input"))
-            unit.link_attrs(self.forwards[i], "weights", "input", "output")
+
+            gd_unit = self.gd_map[self.forwards[i].__class__](self, **kwargs)
+            self.gds.insert(0, gd_unit)
+            gd_unit.link_from(prev)
+            if isinstance(gd_unit, gd_pooling.GDPooling):
+                gd_unit.link_attrs(self.forwards[i], "kx", "ky", "sliding")
+            if isinstance(gd_unit, gd_conv.GradientDescentConv):
+                gd_unit.link_attrs(
+                    self.forwards[i], "n_kernels", "kx", "ky", "sliding",
+                    "padding", "unpack_data", "unpack_size")
+            gd_unit.link_attrs(prev, ("err_output", "err_input"))
+            gd_unit.link_attrs(self.forwards[i], "weights", "input", "output")
             if hasattr(self.forwards[i], "input_offset"):
-                unit.link_attrs(self.forwards[i], "input_offset")
+                gd_unit.link_attrs(self.forwards[i], "input_offset")
             if hasattr(self.forwards[i], "mask"):
-                unit.link_attrs(self.forwards[i], "mask")
+                gd_unit.link_attrs(self.forwards[i], "mask")
             if self.forwards[i].bias is not None:
-                unit.link_attrs(self.forwards[i], "bias")
-            unit.gate_skip = self.decision.gd_skip
-            prev = unit
-            self.fix(unit, "weights", "input", "output",
-                     "err_input", "err_output")
+                gd_unit.link_attrs(self.forwards[i], "bias")
+                gd_unit.gate_skip = self.decision.gd_skip
+            prev = gd_unit
 
         self.gds[0].need_err_input = False
         self.repeater.link_from(self.gds[0])
 
         self.rollback.reset()
-        noise = float(root.imagenet_ae.fine_tuning_noise)
+        noise = float(self.fine_tuning_noise)
         for unit in self.gds:
             if not isinstance(unit, activation.Activation):
                 self.rollback.add_gd(unit)
             if not noise:
                 continue
             if unit.weights:
-                a = unit.weights.plain
-                a += prng.get().normal(0, noise, unit.weights.size)
+                weights = unit.weights.plain
+                weights += prng.get().normal(0, noise, unit.weights.size)
             if unit.bias:
-                a = unit.bias.plain
-                a += prng.get().normal(0, noise, unit.bias.size)
+                bias = unit.bias.plain
+                bias += prng.get().normal(0, noise, unit.bias.size)
 
-        # Reset last best error, `cause we have modified the workflow
+        self.reset_best_error()
+        self.decision.max_epochs += root.imagenet_ae.decision.add_epochs
+        self.link_end_point(self.gds[0])
+
+    def reset_best_error(self):
+        """
+        Reset last best error for modified workflow
+        """
+        self.decision.min_validation_mse = 1.0e30
+        self.decision.min_train_validation_mse = 1.0e30
+        self.decision.min_train_mse = 1.0e30
         self.decision.min_validation_n_err = 1.0e30
         self.decision.min_train_validation_n_err = 1.0e30
         self.decision.min_train_n_err = 1.0e30
-
-        self.decision.max_epochs += root.imagenet_ae.decision.max_epochs * 10
-
-        self.add_end_point()
-
-        # self.reset_weights()
 
     def reset_weights(self):
         for unit in self:
@@ -667,18 +562,21 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 continue
             if hasattr(unit, "weights") and unit.weights:
                 self.info("RESETTING weights for %s", repr(unit))
-                a = unit.weights.plain
-                a *= 0
-                a += prng.get().normal(0, unit.layer["weights_stddev"],
-                                       unit.weights.size)
+                weights = unit.weights.plain
+                weights *= 0
+                weights += prng.get().normal(
+                    0, unit.layer["->"]["weights_stddev"], unit.weights.size)
             if hasattr(unit, "bias") and unit.bias:
                 self.info("RESETTING bias for %s", repr(unit))
-                a = unit.bias.plain
-                a *= 0
-                a += prng.get().normal(0, unit.layer["bias_stddev"],
-                                       unit.bias.size)
+                bias = unit.bias.plain
+                bias *= 0
+                bias += prng.get().normal(
+                    0, unit.layer["->"]["bias_stddev"], unit.bias.size)
 
     def create_output(self, unit):
+        """
+        Create output for polling
+        """
         unit._batch_size = unit.input.shape[0]
         unit._sy = unit.input.shape[1]
         unit._sx = unit.input.shape[2]
@@ -706,10 +604,23 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             unit.output.mem = numpy.zeros(
                 unit.output_shape, dtype=unit.input.dtype)
 
-    def adjust_workflow(self):
-        self.info("Will extend %d autoencoder layers", self.n_ae)
+    def link_image_saver(self, *parents):
+        self.image_saver = image_saver.ImageSaver(
+            self, **self.config.image_saver)
+        self.image_saver.link_from(*parents)
+        self.image_saver.link_attrs(self.forwards[-1], "output", "max_idx")
+        self.image_saver.link_attrs(
+            self.loader,
+            ("indices", "minibatch_indices"),
+            ("labels", "minibatch_labels"),
+            "minibatch_class", "minibatch_size")
+        self.image_saver.link_attrs(self.meandispnorm, ("input", "output"))
+        return self.image_saver
 
-        layers = root.imagenet_ae.layers
+    def adjust_workflow(self):
+        self.info("Will extend %d autoencoder layers", self.number_ae_blocks)
+
+        layers = self.layers
         n_ae = 0
         i_layer = 0
         i_fwd = 0
@@ -721,7 +632,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             if layer["type"] == "ae_end":
                 i_fwd_last = i_fwd
                 n_ae += 1
-                if n_ae >= self.n_ae:
+                if n_ae >= self.number_ae_blocks:
                     break
                 continue
             i_fwd += 1
@@ -729,6 +640,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             self.warning("Will switch to the fine-tuning task")
             return self.switch_to_fine_tuning()
 
+        # remove all forwards after the last autoencoder block
         i_fwd = i_fwd_last
         for i in range(i_fwd, len(self.forwards)):
             self.forwards[i].unlink_all()
@@ -739,116 +651,30 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
         if prev.__class__ in self.last_de_unmap:
             self.info("Replacing pooling-depooling with pooling")
-            Forward = self.last_de_unmap[prev.__class__]
             layer = prev.layer
+            __, kwargs, _ = self._get_layer_type_kwargs(layer)
             uniform = prev.uniform
             prev.unlink_all()
             self.del_ref(prev)
-            unit = Forward(self, **layer)
+            unit = self.last_de_unmap[prev.__class__](self, **kwargs)
             unit.layer = layer
             self.forwards[-1] = unit
             unit.uniform = uniform
             unit.link_from(self.forwards[-2])
             unit.link_attrs(self.forwards[-2], ("input", "output"))
             self.create_output(unit)
-            self.fix(unit, "input", "output", "input_offset", "uniform")
             prev = unit
-            last_fwd = unit
 
-        ae = []
-        ae_layers = []
-        last_conv = None
-        in_ae = False
-        for layer in layers[i_layer:]:
-            if layer["type"] == "ae_begin":
-                self.info("Autoencoder block begin")
-                in_ae = True
-                continue
-            if layer["type"] == "ae_end":
-                self.info("Autoencoder block end")
-                self.info("One AE at a time, so skipping other layers")
-                self.n_ae += 1
-                break
-            if layer["type"][:4] == "conv":
-                if in_ae:
-                    layer["include_bias"] = False
-                layer["padding"] = deconv.Deconv.compute_padding(
-                    last_fwd.output.shape[2], last_fwd.output.shape[1],
-                    layer["kx"], layer["ky"], layer["sliding"])
-                self.info("Computed padding for (kx, ky)=(%d, %d) "
-                          "sliding=%s is %s", layer["kx"], layer["ky"],
-                          str(layer["sliding"]), str(layer["padding"]))
-            Forward = self.forward_map[layer["type"]]
-            unit = Forward(self, **layer)
-            unit.layer = dict(layer)
-            if in_ae:
-                ae.append(unit)
-                ae_layers.append(layer)
-            self.forwards.append(unit)
-            unit.link_from(prev)
-            if isinstance(unit, conv.ConvolutionalBase):
-                conv_ = unit
-            unit.link_attrs(prev, ("input", "output"))
-            if isinstance(unit, activation.ForwardMul):
-                unit.link_attrs(prev, "output")
-            if isinstance(unit, pooling.StochasticPoolingBase):
-                unit.uniform = self.uniform
-            self.fix(unit, "input", "output", "weights")
-            prev = unit
-            if layer["type"][:4] == "conv" and in_ae:
-                last_conv = prev
-
-        if last_conv is None and in_ae:
-            raise error.BadFormatError("No convolutional layer found")
+        ae_units, ae_layers, last_conv, in_ae, prev = self._add_forwards(
+            prev, layers[i_layer:], "get_pool")
 
         if in_ae:
-            de = []
-            for i in range(len(ae) - 1, -1, -1):
-                if (i == len(ae) - 1 and id(ae[-1]) == id(self.forwards[-1])
-                        and ae[-1].__class__ in self.last_de_map):
-                    self.info("Replacing pooling with pooling-depooling")
-                    De = self.last_de_map[ae[-1].__class__]
-                    unit = De(self, **ae_layers[i])
-                    unit.uniform = ae[-1].uniform
-                    unit.layer = ae[-1].layer
-                    unit.link_attrs(self.forwards[-2], ("input", "output"))
-                    del self.forwards[-1]
-                    ae[-1].unlink_all()
-                    self.del_ref(ae[-1])
-                    ae[-1] = unit
-                    self.forwards.append(unit)
-                    unit.link_from(self.forwards[-2])
-                    prev = unit
-                    self.fix(unit, "input", "uniform")
-                    continue
-                De = self.de_map[ae[i].__class__]
-                unit = De(self, **ae_layers[i])
-                if isinstance(unit, deconv.Deconv):
-                    unit.link_conv_attrs(conv_)
-                    self.deconv = unit
-                    unit.unsafe_padding = True
-                de.append(unit)
-                self.forwards.append(unit)
-                unit.link_from(prev)
-                for dst_src in (("weights", "weights"),
-                                ("output_shape_source", "input"),
-                                ("output_offset", "input_offset")):
-                    if hasattr(unit, dst_src[0]):
-                        unit.link_attrs(ae[i], dst_src)
-                if isinstance(prev, pooling.StochasticPoolingDepooling):
-                    unit.link_attrs(prev, "input")
-                else:
-                    unit.link_attrs(prev, ("input", "output"))
-                self.fix(unit, "input", "weights", "output",
-                         "output_shape_source")
-                prev = unit
+            self._add_deconv_units(ae_units, ae_layers, prev)
 
             unit = self.evaluator
             unit.link_from(self.forwards[-1])
             unit.link_attrs(self.forwards[-1], "output")
             unit.link_attrs(last_conv, ("target", "input"))
-            self.fix(self.evaluator, "output", "target", "err_output",
-                     "metrics")
 
             assert len(self.gds) == 1
 
@@ -856,91 +682,29 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             self.del_ref(self.gds[0])
             del self.gds[:]
 
-            # Add gradient descent unit
-            GD = self.gd_map[self.forwards[-1].__class__]
-            unit = GD(self, **ae_layers[0])
-            if isinstance(unit, gd_deconv.GDDeconv):
-                unit.link_attrs(
-                    self.deconv, "weights", "input", "hits", "n_kernels",
-                    "kx", "ky", "sliding", "padding", "unpack_data",
-                    "unpack_size")
-            self.gds.append(unit)
-            unit.link_attrs(self.evaluator, "err_output")
-            unit.link_attrs(self.forwards[-1], "weights", "input")
-            unit.gate_skip = self.decision.gd_skip
-            self.fix(unit, "err_output", "weights", "input", "err_input")
             self.rollback.reset()
-            self.rollback.add_gd(unit)
+            self.add_gds_and_plots(ae_layers, last_conv, ae_units)
 
-            assert len(self.gds) == 1
-
-            self.gds[0].need_err_input = False
-            self.repeater.link_from(self.gds[0])
-
-            prev = self.add_plotters(self.rollback, last_conv, ae[-1])
-
-            self.gds[-1].link_from(prev)
-
-            # Reset last best error, `cause we have extended the workflow
-            self.decision.min_validation_mse = 1.0e30
-            self.decision.min_train_validation_mse = 1.0e30
-            self.decision.min_train_mse = 1.0e30
-            self.decision.min_validation_n_err = 1.0e30
-            self.decision.min_train_validation_n_err = 1.0e30
-            self.decision.min_train_n_err = 1.0e30
-
-            self.decision.max_epochs += root.imagenet_ae.decision.max_epochs
+            self.reset_best_error()
+            self.decision.max_epochs += \
+                root.imagenet_ae.decision_mse.max_epochs
+            last = self.gds[0]
 
         else:
             self.info("No more autoencoder levels, "
                       "will switch to the classification task")
-            self.n_ae += 1
-            # Add Image Saver unit
-            self.image_saver = image_saver.ImageSaver(
-                self, out_dirs=root.imagenet_ae.image_saver.out_dirs)
-            self.image_saver.link_from(self.forwards[-1])
-            self.image_saver.link_attrs(self.forwards[-1], "output", "max_idx")
-            self.image_saver.link_attrs(
-                self.loader,
-                ("indices", "minibatch_indices"),
-                ("labels", "minibatch_labels"),
-                "minibatch_class", "minibatch_size")
-            self.image_saver.link_attrs(self.meandispnorm, ("input", "output"))
-            # Add evaluator unit
-            self.evaluator.unlink_all()
-            self.del_ref(self.evaluator)
-            unit = evaluator.EvaluatorSoftmax(self)
-            self.evaluator = unit
-            unit.link_from(self.image_saver)
-            unit.link_attrs(self.forwards[-1], "output", "max_idx")
-            unit.link_attrs(self.loader, ("labels", "minibatch_labels"),
-                            ("batch_size", "minibatch_size"))
-            self.fix(self.evaluator, "output", "max_idx",
-                     "labels", "err_output")
+            self.number_ae_blocks += 1
 
-            # Add decision unit
-            max_epochs = self.decision.max_epochs
-            self.decision.unlink_all()
-            self.del_ref(self.decision)
-            unit = decision.DecisionGD(
-                self,
-                fail_iterations=root.imagenet_ae.decision.fail_iterations,
-                max_epochs=max_epochs)
-            self.decision = unit
-            unit.link_from(self.evaluator)
-            unit.link_attrs(self.loader, "minibatch_class",
-                            "minibatch_size", "last_minibatch",
-                            "class_lengths", "epoch_ended",
-                            "epoch_number")
-            unit.link_attrs(self.evaluator, ("minibatch_n_err", "n_err"),
-                            ("minibatch_confusion_matrix", "confusion_matrix"),
-                            ("minibatch_max_err_y_sum", "max_err_output_sum"))
-            self.fix(self.decision, "minibatch_n_err", "class_lengths")
+            self.link_image_saver(self.forwards[-1])
+            self.evaluator_name = "evaluator_softmax"
+            self.link_evaluator(self.image_saver)
+            self.config.decision = self.dictify(self.decision_gd_config)
+            self.loss_function = "softmax"
+            self.decision_name = "decision_gd"
+            self.link_decision(self.evaluator)
+            self.link_snapshotter(self.decision)
+            self.link_rollback(self.snapshotter)
 
-            unit = self.snapshotter
-            unit.link_from(self.decision)
-            unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
-            unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
             self.image_saver.gate_skip = ~self.decision.improved
             self.image_saver.link_attrs(self.snapshotter,
                                         ("this_save_time", "time"))
@@ -961,14 +725,9 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             prev = None
             gds = []
             for i in range(len(self.forwards) - 1, i_fwd - 1, -1):
-                GD = self.gd_map[self.forwards[i].__class__]
-                kwargs = dict(self.forwards[i].layer)
-                for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
-                             "factor", "include_bias"):
-                    vle = getattr(self.forwards[i], attr, None)
-                    if vle is not None:
-                        kwargs[attr] = vle
-                unit = GD(self, **kwargs)
+                __, kwargs, _ = self._get_layer_type_kwargs(
+                    self.forwards[i].layer)
+                unit = self.gd_map[self.forwards[i].__class__](self, **kwargs)
                 gds.append(unit)
                 if prev is not None:
                     unit.link_from(prev)
@@ -986,8 +745,6 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 unit.gate_skip = self.decision.gd_skip
                 prev_gd = unit
                 prev = unit
-                self.fix(unit, "weights", "bias", "input", "output",
-                         "err_input", "err_output")
                 if not isinstance(unit, activation.Activation):
                     self.rollback.add_gd(unit)
             # Strip gd's without weights
@@ -998,7 +755,6 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 unit = gds.pop(-1)
                 unit.unlink_all()
                 self.del_ref(unit)
-                del self.fixed[unit]
             for _ in gds:
                 self.gds.append(None)
             for i, _gd in enumerate(gds):
@@ -1011,57 +767,33 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             prev = self.rollback
 
             if self.is_standalone:
-                self.del_plotters()
-
-                # Error plotter
-                self.plt = []
-                styles = ["r-", "b-", "k-"]
-                for i in range(1, 3):
-                    self.plt.append(plotting_units.AccumulatingPlotter(
-                        self, name="Errors", plot_style=styles[i]))
-                    self.plt[-1].input = self.decision.epoch_n_err_pt
-                    self.plt[-1].input_field = i
-                    self.plt[-1].link_from(prev)
-                    self.plt[-1].gate_skip = ~self.decision.epoch_ended
-                    prev = self.plt[-1]
-                self.plt[0].clear_plot = True
-                self.plt[-1].redraw_plot = True
-
-                # Output plotter
-                self.plt_out = nn_plotting_units.Weights2D(
-                    self, name="Output", limit=256, split_channels=False)
-                self.plt_out.link_attrs(self.forwards[i_fwd_last], "input")
-                self.plt_out.link_from(prev)
-                self.plt_out.gate_skip = ~self.decision.epoch_ended
-                prev = self.plt_out
+                err_plot = self.link_error_plotter(prev)
+                last_input = self.link_weights_plotter("input", err_plot)
+                prev = self.link_weights_plotter("weights", last_input)
 
             self.gds[-1].link_from(prev)
+            self.link_lr_adjuster(self.gds[0])
 
+            last = self.lr_adjuster
             self.decision.max_epochs += 15
 
-        self.add_end_point()
+        self.link_end_point(last)
 
 
 def run(load, main):
-    IMAGENET_BASE_PATH = root.imagenet_ae.loader.path
-    root.imagenet_ae.snapshotter.prefix = (
-        "imagenet_ae_%s" % root.imagenet_ae.loader.year)
-    CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH,
-                                    str(root.imagenet_ae.loader.year))
-    root.imagenet_ae.loader.names_labels_filename = os.path.join(
-        CACHED_DATA_FNME, "original_labels_%s_%s_0.pickle" %
-        (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
-    root.imagenet_ae.loader.count_samples_filename = os.path.join(
-        CACHED_DATA_FNME, "count_samples_%s_%s_0.json" %
-        (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
-    root.imagenet_ae.loader.samples_filename = os.path.join(
-        CACHED_DATA_FNME, "original_data_%s_%s_0.dat" %
-        (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
-    root.imagenet_ae.loader.matrixes_filename = os.path.join(
-        CACHED_DATA_FNME, "matrixes_%s_%s_0.pickle" %
-        (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
     load(ImagenetAEWorkflow,
+         loss_function="mse",
          layers=root.imagenet_ae.layers,
          loader_name=root.imagenet_ae.loader_name,
-         loader_config={})
+         from_snapshot_add_layer=root.imagenet_ae.from_snapshot_add_layer,
+         weights_plotter_config=root.imagenet_ae.weights_plotter,
+         lr_adjuster_config=root.imagenet_ae.lr_adjuster,
+         loader_config=root.imagenet_ae.loader,
+         decision_mse_config=root.imagenet_ae.decision_mse,
+         decision_gd_config=root.imagenet_ae.decision_gd,
+         add_epochs=root.imagenet_ae.decision.add_epochs,
+         fine_tuning_noise=root.imagenet_ae.fine_tuning_noise,
+         image_saver_config=root.imagenet_ae.image_saver,
+         rollback_config=root.imagenet_ae.rollback,
+         snapshotter_config=root.imagenet_ae.snapshotter)
     main()

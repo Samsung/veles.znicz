@@ -196,7 +196,3 @@ root.imagenet.update({
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9}}]})
-
-root.imagenet.loader.normalization_parameters = {
-    "mean_source": os.path.join(root.common.test_dataset_root,
-                                "AlexNet/mean_image.JPEG")}

@@ -65,9 +65,18 @@ STDDEV_AA = 0.005
 root.common.precision_type = "float"
 root.imagenet_ae.model = "imagenet"
 root.imagenet_ae.update({
-    "decision": {"fail_iterations": 50,
-                 "max_epochs": 50},
+    "decision_mse": {"fail_iterations": 50,
+                     "max_epochs": 50},
+    "decision_gd": {"fail_iterations": 50,
+                    "max_epochs": 50},
+    # number of epochs to add to max_epochs if model is training from snapshot
+    # and another layer was not added:
+    "decision": {"add_epochs": 50},
+    "rollback": {"lr_plus": 1},
     "loader_name": "imagenet_ae_loader",
+    "lr_adjuster": {"lr_policy_name": "arbitrary_step",
+                    "bias_lr_policy_name": "arbitrary_step"},
+    "weights_plotter": {"limit": 256, "split_channels": False},
     "loader": {"year": "2014",
                "series": "DET",
                "minibatch_size": 120,
@@ -82,6 +91,7 @@ root.imagenet_ae.update({
                      os.path.join(root.common.cache_dir,
                                   "tmp_imagenet/train")]},
     "snapshotter": {"prefix": "imagenet_ae",
+                    "compression": "",
                     "directory":
                     os.path.join(root.common.datasets_root,
                                  "imagenet/snapshots/DET/new")},
@@ -89,92 +99,122 @@ root.imagenet_ae.update({
     "fine_tuning_noise": 1.0e-6,
     "layers":
     [{"type": "ae_begin"},  # 216
-     {"type": "conv", "n_kernels": 108,
-      "kx": 9, "ky": 9, "sliding": (3, 3),
-      "learning_rate": LR,
-      "learning_rate_ft": LRFT,
-      "weights_decay": WD,
-      "factor_ortho": ORTHO,
-      "gradient_moment": GM,
-      "weights_filling": FILLING,
-      "weights_stddev": STDDEV_CONV,
-      "l1_vs_l2": L1_VS_L2},
+     {"type": "conv",
+      "->": {"n_kernels": 108, "kx": 9, "ky": 9, "sliding": (3, 3),
+             "weights_filling": FILLING,
+             "weights_stddev": STDDEV_CONV},
+      "<-": {"learning_rate": LR, "learning_rate_ft": LRFT,
+             "learning_rate_bias": LR, "learning_rate_ft_bias": LRFT,
+             "weights_decay": WD, "weights_decay_bias": WD,
+             "factor_ortho": ORTHO,
+             "gradient_moment": GM, "gradient_moment_bias": GM,
+             "l1_vs_l2": L1_VS_L2}},
      {"type": "stochastic_abs_pooling",
-      "kx": 3, "ky": 3, "sliding": (3, 3)},  # 69
+      "->": {"kx": 3, "ky": 3, "sliding": (3, 3)}},  # 69
      {"type": "ae_end"},
+
      {"type": "activation_mul"},
+
      {"type": "ae_begin"},  # 23
-     {"type": "conv", "n_kernels": 192,
-      "kx": 5, "ky": 5, "sliding": (1, 1),
-      "padding": (2, 2, 2, 2),
-      "learning_rate": LR,
-      "learning_rate_ft": LRFT,
-      "weights_decay": WD,
-      "factor_ortho": ORTHO,
-      "gradient_moment": GM,
-      "weights_filling": FILLING,
-      "weights_stddev": STDDEV_CONV,
-      "l1_vs_l2": L1_VS_L2},
+     {"type": "conv",
+      "->": {"n_kernels": 192, "kx": 5, "ky": 5, "sliding": (1, 1),
+             "padding": (2, 2, 2, 2), "weights_filling": FILLING,
+             "weights_stddev": STDDEV_CONV},
+      "<-": {"learning_rate": LR, "learning_rate_ft": LRFT,
+             "learning_rate_bias": LR, "learning_rate_ft_bias": LRFT,
+             "weights_decay": WD, "weights_decay_bias": WD,
+             "factor_ortho": ORTHO,
+             "gradient_moment": GM, "gradient_moment_bias": GM,
+             "l1_vs_l2": L1_VS_L2}},
      {"type": "stochastic_abs_pooling",
-      "padding": (2, 2, 2, 2),
-      "kx": 2, "ky": 2, "sliding": (2, 2)},
+      "->": {"padding": (2, 2, 2, 2), "kx": 2, "ky": 2, "sliding": (2, 2)}},
      {"type": "ae_end"},
+
      {"type": "activation_mul"},
+
      {"type": "ae_begin"},  # 13
-     {"type": "conv", "n_kernels": 224,
-      "kx": 5, "ky": 5, "sliding": (1, 1),
-      "padding": (2, 2, 2, 2),
-      "learning_rate": LR,
-      "learning_rate_ft": LRFT,
-      "weights_decay": WD,
-      "factor_ortho": ORTHO,
-      "gradient_moment": GM,
-      "weights_filling": FILLING,
-      "weights_stddev": STDDEV_CONV,
-      "l1_vs_l2": L1_VS_L2},
+     {"type": "conv",
+      "->": {"n_kernels": 224, "kx": 5, "ky": 5, "sliding": (1, 1),
+             "padding": (2, 2, 2, 2), "weights_filling": FILLING,
+             "weights_stddev": STDDEV_CONV},
+      "<-": {"learning_rate": LR, "learning_rate_ft": LRFT,
+             "learning_rate_bias": LR, "learning_rate_ft_bias": LRFT,
+             "weights_decay": WD, "weights_decay_bias": WD,
+             "factor_ortho": ORTHO,
+             "gradient_moment": GM, "gradient_moment_bias": GM,
+             "l1_vs_l2": L1_VS_L2}},
      {"type": "ae_end"},
+
      {"type": "activation_mul"},
+
      {"type": "ae_begin"},  # 13
-     {"type": "conv", "n_kernels": 256,
-      "kx": 3, "ky": 3, "sliding": (1, 1),
-      "padding": (1, 1, 1, 1),
-      "learning_rate": LR,
-      "learning_rate_ft": LRFT,
-      "weights_decay": WD,
-      "factor_ortho": ORTHO,
-      "gradient_moment": GM,
-      "weights_filling": FILLING,
-      "weights_stddev": STDDEV_CONV,
-      "l1_vs_l2": L1_VS_L2},
+     {"type": "conv",
+      "->": {"n_kernels": 256, "kx": 3, "ky": 3, "sliding": (1, 1),
+             "padding": (1, 1, 1, 1), "weights_filling": FILLING,
+             "weights_stddev": STDDEV_CONV},
+      "<-": {"learning_rate": LR, "learning_rate_ft": LRFT,
+             "learning_rate_bias": LR, "learning_rate_ft_bias": LRFT,
+             "weights_decay": WD, "weights_decay_bias": WD,
+             "factor_ortho": ORTHO,
+             "gradient_moment": GM, "gradient_moment_bias": GM,
+             "l1_vs_l2": L1_VS_L2}},
      {"type": "stochastic_abs_pooling",
-      "kx": 2, "ky": 2, "sliding": (2, 2)},  # 6
+      "->": {"kx": 2, "ky": 2, "sliding": (2, 2)}},  # 6
      {"type": "ae_end"},
+
      {"type": "activation_mul"},
-     {"type": "all2all_tanh", "output_sample_shape": 4096,
-      "learning_rate": LRAA, "learning_rate_bias": LRBAA,
-      "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
-      "weights_decay": WDAA, "weights_decay_bias": WDBAA,
-      "factor_ortho": ORTHOAA,
-      "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
-      "weights_filling": "gaussian", "bias_filling": "constant",
-      "weights_stddev": STDDEV_AA, "bias_stddev": 0.1,
-      "l1_vs_l2": L1_VS_L2},
+
+     {"type": "all2all_tanh",
+      "->": {"output_sample_shape": 4096, "weights_filling": "gaussian",
+             "bias_filling": "constant", "weights_stddev": STDDEV_AA,
+             "bias_stddev": 0.1},
+      "<-": {"learning_rate": LRAA, "learning_rate_bias": LRBAA,
+             "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
+             "weights_decay": WDAA, "weights_decay_bias": WDBAA,
+             "factor_ortho": ORTHOAA, "l1_vs_l2": L1_VS_L2,
+             "gradient_moment": GMAA, "gradient_moment_bias": GMBAA}},
      {"type": "dropout", "dropout_ratio": 0.5},
-     {"type": "all2all_tanh", "output_sample_shape": 4096,
-      "learning_rate": LRAA, "learning_rate_bias": LRBAA,
-      "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
-      "weights_decay": WDAA, "weights_decay_bias": WDBAA,
-      "factor_ortho": ORTHOAA,
-      "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
-      "weights_filling": "gaussian", "bias_filling": "constant",
-      "weights_stddev": STDDEV_AA, "bias_stddev": 0.1,
-      "l1_vs_l2": L1_VS_L2},
+     {"type": "all2all_tanh",
+      "->": {"output_sample_shape": 4096,
+             "weights_filling": "gaussian", "weights_stddev": STDDEV_AA,
+             "bias_filling": "constant", "bias_stddev": 0.1},
+      "<-": {"learning_rate": LRAA, "learning_rate_bias": LRBAA,
+             "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
+             "weights_decay": WDAA, "weights_decay_bias": WDBAA,
+             "factor_ortho": ORTHOAA, "l1_vs_l2": L1_VS_L2,
+             "gradient_moment": GMAA, "gradient_moment_bias": GMBAA}},
      {"type": "dropout", "dropout_ratio": 0.5},
-     {"type": "softmax", "output_sample_shape": 201,
-      "learning_rate": LRAA, "learning_rate_bias": LRBAA,
-      "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
-      "weights_decay": WDAA, "weights_decay_bias": WDBAA,
-      "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
-      "weights_filling": "gaussian", "bias_filling": "constant",
-      "bias_stddev": 0, "weights_stddev": 0.01,
-      "l1_vs_l2": L1_VS_L2}]})
+     {"type": "softmax",
+      "->": {"output_sample_shape": 201,
+             "weights_filling": "gaussian", "weights_stddev": 0.01,
+             "bias_filling": "constant", "bias_stddev": 0},
+      "<-": {"learning_rate": LRAA, "learning_rate_bias": LRBAA,
+             "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
+             "weights_decay": WDAA, "weights_decay_bias": WDBAA,
+             "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
+             "l1_vs_l2": L1_VS_L2}}]})
+
+root.imagenet_ae.lr_adjuster.lr_parameters = {
+    "lrs_with_lengths":
+    [(1, 100000), (0.1, 100000), (0.1, 100000), (0.01, 100000000)]}
+root.imagenet_ae.lr_adjuster.bias_lr_parameters = {
+    "lrs_with_lengths":
+    [(1, 100000), (0.1, 100000), (0.1, 100000), (0.01, 100000000)]}
+
+imagenet_base_path = root.imagenet_ae.loader.path
+root.imagenet_ae.snapshotter.prefix = (
+    "imagenet_ae_%s" % root.imagenet_ae.loader.year)
+imagenet_data_path = os.path.join(
+    imagenet_base_path, str(root.imagenet_ae.loader.year))
+root.imagenet_ae.loader.names_labels_filename = os.path.join(
+    imagenet_data_path, "original_labels_%s_%s_0.pickle" %
+    (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
+root.imagenet_ae.loader.count_samples_filename = os.path.join(
+    imagenet_data_path, "count_samples_%s_%s_0.json" %
+    (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
+root.imagenet_ae.loader.samples_filename = os.path.join(
+    imagenet_data_path, "original_data_%s_%s_0.dat" %
+    (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
+root.imagenet_ae.loader.matrixes_filename = os.path.join(
+    imagenet_data_path, "matrixes_%s_%s_0.pickle" %
+    (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
