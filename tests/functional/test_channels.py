@@ -40,7 +40,7 @@ import os
 from six import PY3
 
 from veles.config import root
-from veles.memory import Vector
+from veles.memory import Array
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
@@ -123,7 +123,7 @@ class TestChannels(StandardTest):
         del workflow
         self.parent = self.getParent()
         if PY3:
-            Vector.reset_all()
+            Array.reset_all()
         gc.collect()
 
         self.info("Will load workflow from %s", file_name)

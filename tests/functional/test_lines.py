@@ -39,7 +39,7 @@ from six import PY3
 
 from veles.backends import CUDADevice
 from veles.config import root
-from veles.memory import Vector
+from veles.memory import Array
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 import veles.znicz.samples.Lines.lines as lines
@@ -118,7 +118,7 @@ class TestLines(StandardTest):
         file_name = workflow.snapshotter.file_name
         del workflow
         if PY3:
-            Vector.reset_all()
+            Array.reset_all()
         self.parent = self.getParent()
         gc.collect()
 

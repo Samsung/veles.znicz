@@ -39,7 +39,7 @@ from six import PY3
 import os
 
 from veles.config import root
-from veles.memory import Vector
+from veles.memory import Array
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
@@ -198,7 +198,7 @@ class TestCifarCaffe(StandardTest):
         del workflow
         self.parent = self.getParent()
         if PY3:
-            Vector.reset_all()
+            Array.reset_all()
         gc.collect()
 
         # Test loading from snapshot
