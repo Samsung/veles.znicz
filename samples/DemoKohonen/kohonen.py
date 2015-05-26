@@ -53,8 +53,6 @@ class KohonenLoader(loader.FullBatchLoader):
     """
 
     def load_data(self):
-        """Here we will load MNIST data.
-        """
         file_name = root.kohonen.loader.dataset_file
         try:
             data = numpy.loadtxt(file_name)
