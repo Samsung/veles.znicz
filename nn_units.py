@@ -59,7 +59,7 @@ from veles.units import UnitCommandLineArgumentsRegistry
 from veles.workflow import Repeater
 from veles.snapshotter import SnapshotterBase, Snapshotter, SnappyFile
 from veles.error import MasterSlaveCommunicationError
-from veles.timeit import timeit
+from veles.timeit2 import timeit
 from veles.znicz.decision import DecisionBase
 from veles.znicz.evaluator import EvaluatorBase
 
