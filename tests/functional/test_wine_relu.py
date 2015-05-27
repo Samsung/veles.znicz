@@ -37,28 +37,35 @@ under the License.
 from veles.config import root
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
-import veles.znicz.tests.research.WineRelu.wine_relu as wine_relu
+from veles.znicz.standard_workflow import StandardWorkflow
 
 
 class TestWineRelu(StandardTest):
     @classmethod
     def setUpClass(cls):
         root.wine_relu.update({
-            "decision": {"fail_iterations": 250},
-            "snapshotter": {"prefix": "wine_relu"},
-            "loader": {"minibatch_size": 10},
-            "learning_rate": 0.03,
-            "weights_decay": 0.0,
-            "layers": [10, 3]})
+            "decision": {"fail_iterations": 250, "max_epochs": 100000},
+            "snapshotter": {"prefix": "wine_relu", "interval": 1,
+                            "time_interval": 0},
+            "loader_name": "wine_loader",
+            "loader": {"minibatch_size": 10, "force_numpy": False},
+            "layers": [{"type": "all2all_relu",
+                        "->": {"output_sample_shape": 10},
+                        "<-": {"learning_rate": 0.03, "weights_decay": 0.0}},
+                       {"type": "softmax",
+                        "<-": {"learning_rate": 0.03, "weights_decay": 0.0}}]})
 
     @timeout(500)
     @multi_device()
     def test_wine_relu(self):
         self.info("Will test wine relu workflow")
 
-        workflow = wine_relu.WineReluWorkflow(
+        workflow = StandardWorkflow(
             self.parent,
-            layers=root.wine_relu.layers)
+            layers=root.wine_relu.layers,
+            loader_name=root.wine_relu.loader_name,
+            loader_config=root.wine_relu.loader,
+            loss_function="softmax")
 
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)

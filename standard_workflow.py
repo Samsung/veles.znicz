@@ -251,9 +251,6 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.layers = kwargs.get("layers", [{}])
         self.loader_name = kwargs["loader_name"]
         self._loader = None
-        if "loader_config" not in kwargs:
-            raise ValueError(
-                "Loader's configuration must be specified (\"loader_config\")")
         self.apply_config(**kwargs)
 
     def reset_unit(fn):
@@ -704,11 +701,14 @@ class StandardWorkflow(StandardWorkflowBase):
         # Add snapshotter unit
         self.link_snapshotter(self.decision)
 
-        # Add gradient descent units and loop the workflow
-        self.link_loop(self.link_gds(self.snapshotter))
+        # Add gradient descent units
+        last_gd = self.link_gds(self.snapshotter)
+
+        # Loop the workflow
+        self.link_loop(last_gd)
 
         # Add end_point unit
-        self.link_end_point(self.snapshotter)
+        self.link_end_point(last_gd)
 
     def extract_forward_workflow(self, loader_name, loader_config,
                                  result_unit_factory, cyclic):

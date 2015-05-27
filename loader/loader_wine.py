@@ -54,6 +54,8 @@ root.wine.loader.dataset_file = os.path.join(data_path, "wine.txt.gz")
 class WineLoader(loader.FullBatchLoader):
     """Loads Wine dataset.
     """
+    MAPPING = "wine_loader"
+
     def __init__(self, workflow, **kwargs):
         kwargs["normalization_type"] = "pointwise"
         super(WineLoader, self).__init__(workflow, **kwargs)
