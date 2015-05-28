@@ -60,7 +60,6 @@ import veles.znicz.nn_units as nn_units
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
 import veles.znicz.activation as activation
-import veles.znicz.gd as gd
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.gd_conv as gd_conv
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -753,57 +752,24 @@ class ImagenetAEWorkflow(StandardWorkflow):
 
             assert len(self.gds) == 1
 
-            self.gds[0].unlink_all()
-            self.del_ref(self.gds[0])
+            for gd_ in self.gds:
+                gd_.unlink_all()
+                self.del_ref(gd_)
             del self.gds[:]
 
-            # Add gradient descent units
             self.rollback.reset()
-            prev_gd = self.evaluator
-            prev = None
-            gds = []
+            for layer in self.layers:
+                if (layer["type"].find("ae_begin") >= 0 or
+                        layer["type"].find("ae_end") >= 0):
+                    self.layers.remove(layer)
 
-            for i in range(len(self.forwards) - 1, i_fwd - 1, -1):
-                __, kwargs, _ = self._get_layer_type_kwargs(
-                    self.forwards[i].layer)
-                unit = self.gd_map[self.forwards[i].__class__](self, **kwargs)
-                gds.append(unit)
-                if prev is not None:
-                    unit.link_from(prev)
-                if isinstance(prev_gd, evaluator.EvaluatorBase):
-                    unit.link_attrs(prev_gd, "err_output")
-                else:
-                    unit.link_attrs(prev_gd, ("err_output", "err_input"))
-                unit.link_attrs(self.forwards[i], "weights", "input", "output")
-                if hasattr(self.forwards[i], "input_offset"):
-                    unit.link_attrs(self.forwards[i], "input_offset")
-                if hasattr(self.forwards[i], "mask"):
-                    unit.link_attrs(self.forwards[i], "mask")
-                if self.forwards[i].bias is not None:
-                    unit.link_attrs(self.forwards[i], "bias")
-                unit.gate_skip = self.decision.gd_skip
-                prev_gd = unit
-                prev = unit
-                if not isinstance(unit, activation.Activation):
-                    self.rollback.add_gd(unit)
-            # Strip gd's without weights
-            for i in range(len(gds) - 1, -1, -1):
-                if (isinstance(gds[i], gd.GradientDescent) or
-                        isinstance(gds[i], gd_conv.GradientDescentConv)):
-                    break
-                unit = gds.pop(-1)
-                unit.unlink_all()
-                self.del_ref(unit)
-            for _ in gds:
-                self.gds.append(None)
-            for i, _gd in enumerate(gds):
-                self.gds[-(i + 1)] = _gd
-            del gds
-
+            self.link_gds(self.rollback)
+            for gd_ in self.gds:
+                if not isinstance(gd_, activation.Activation):
+                    self.rollback.add_gd(gd_)
             self.gds[0].need_err_input = False
-            self.repeater.link_from(self.gds[0])
 
-            prev = self.rollback
+            prev = self.gds[0]
 
             if self.is_standalone:
                 for unit in self.mse_plotter:
@@ -813,14 +779,15 @@ class ImagenetAEWorkflow(StandardWorkflow):
                     name = "ae_weights_plotter_%s" % weights_input
                     self.unlink_unit(name)
                 self.unlink_unit("plt_deconv")
-                prev = self.link_error_plotter(prev)
-                # prev = self.link_weights_plotter("weights", err_plot)
+                prev = self.link_error_plotter(self.gds[0])
+                prev = self.link_weights_plotter(prev)
 
-            self.gds[-1].link_from(prev)
-            self.link_lr_adjuster(self.gds[0])
+            self.link_lr_adjuster(prev)
 
             last = self.lr_adjuster
             self.decision.max_epochs += 15
+
+            self.repeater.link_from(last)
 
         self.link_end_point(last)
 

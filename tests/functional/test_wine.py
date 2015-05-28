@@ -46,8 +46,10 @@ class TestWine(StandardTest):
     @classmethod
     def setUpClass(cls):
         # We must test how snapshotting works, at least one-way
-
-        data_path = os.path.abspath(os.path.dirname(__file__))
+        data_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "samples/Wine"))
         root.wine.update({
             "decision": {"fail_iterations": 200,
                          "snapshot_prefix": "wine"},
