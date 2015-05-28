@@ -60,6 +60,11 @@ class TestCifarCaffe(StandardTest):
 
         root.cifar.update({
             "loader_name": "cifar_loader",
+            "downloader": {
+                "url":
+                "http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz",
+                "directory": root.common.datasets_root,
+                "files": ["cifar-10-batches-py"]},
             "decision": {"fail_iterations": 250, "max_epochs": 1},
             "lr_adjuster": {"do": True, "lr_policy_name": "arbitrary_step",
                             "bias_lr_policy_name": "arbitrary_step"},
@@ -177,6 +182,7 @@ class TestCifarCaffe(StandardTest):
             loader_name=root.cifar.loader_name,
             loader_config=root.cifar.loader,
             layers=root.cifar.layers,
+            downloader_config=root.cifar.downloader,
             loss_function=root.cifar.loss_function,
             lr_adjuster_config=root.cifar.lr_adjuster)
         self.init_wf(workflow, snapshot)

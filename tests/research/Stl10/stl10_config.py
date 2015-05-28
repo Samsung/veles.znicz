@@ -33,7 +33,7 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
+import os
 from veles.config import root
 
 root.stl.publisher.backends = {"confluence": {
@@ -44,8 +44,13 @@ root.stl.publisher.backends = {"confluence": {
 root.stl.update({
     "loader_name": "full_batch_stl_10",
     "loss_function": "softmax",
+    "downloader": {
+        "url": "http://ai.stanford.edu/~acoates/stl10/stl10_binary.tar.gz",
+        "directory": root.common.datasets_root,
+        "files": ["stl10_binary"]},
     "decision": {"fail_iterations": 20, "max_epochs": 100},
-    "loader": {"directory": "/data/veles/datasets/stl10_binary",
+    "loader": {"directory":
+               os.path.join(root.common.datasets_root, "stl10_binary"),
                "minibatch_size": 50,
                "scale": (32, 32),
                "normalization_type": "internal_mean"},

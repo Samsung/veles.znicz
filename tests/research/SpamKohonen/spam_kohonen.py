@@ -47,27 +47,12 @@ from veles.config import root
 from veles.external.progressbar import ProgressBar
 from veles.interaction import Shell
 import veles.units as units
+from veles.znicz.downloader import Downloader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.kohonen as kohonen
 from veles.loader import IFullBatchLoader
 from veles import plotting_units, loader
-
-
-spam_dir = os.path.dirname(__file__)
-
-root.spam_kohonen.update({
-    "forward": {"shape": (8, 8),
-                "weights_stddev": 0.05,
-                "weights_filling": "uniform"},
-    "decision": {"snapshot_prefix": "spam_kohonen",
-                 "epochs": 5},
-    "loader": {"minibatch_size": 60, "force_numpy": True,
-               "file": os.path.join(spam_dir, "data.txt.xz")},
-    "train": {"gradient_decay": lambda t: 0.001 / (1.0 + t * 0.00001),
-              "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00001)},
-    "exporter": {"file": "weights.txt"}})
-root.spam_kohonen.loader.validation_ratio = 0.0
 
 
 @implementer(IFullBatchLoader)
@@ -211,7 +196,13 @@ class SpamKohonenWorkflow(nn_units.NNWorkflow):
         kwargs["name"] = kwargs.get("name", "Kohonen Spam")
         super(SpamKohonenWorkflow, self).__init__(workflow, **kwargs)
 
-        self.repeater.link_from(self.start_point)
+        self.downloader = Downloader(
+            self, url=root.spam_kohonen.downloader.url,
+            directory=root.spam_kohonen.downloader.directory,
+            files=root.spam_kohonen.downloader.files)
+        self.downloader.link_from(self.start_point)
+
+        self.repeater.link_from(self.downloader)
 
         self.loader = SpamKohonenLoader(
             self, name="Kohonen Spam fullbatch loader",

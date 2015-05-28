@@ -34,20 +34,10 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
-import os
-
 import numpy
 from zope.interface import implementer
 
-from veles.config import root, get
 import veles.loader as loader
-
-
-data_path = os.path.abspath(get(
-    root.wine.loader.base, os.path.dirname(__file__)))
-
-root.wine.loader.dataset_file = os.path.join(data_path, "wine.txt.gz")
 
 
 @implementer(loader.IFullBatchLoader)
@@ -59,9 +49,10 @@ class WineLoader(loader.FullBatchLoader):
     def __init__(self, workflow, **kwargs):
         kwargs["normalization_type"] = "pointwise"
         super(WineLoader, self).__init__(workflow, **kwargs)
+        self.dataset_file = kwargs["dataset_file"]
 
     def load_data(self):
-        arr = numpy.loadtxt(root.wine.loader.dataset_file, delimiter=',',
+        arr = numpy.loadtxt(self.dataset_file, delimiter=',',
                             dtype=numpy.float32)
         self.original_data.mem = arr[:, 1:]
         self.original_labels[:] = arr[:, 0].ravel().astype(numpy.int32) - 1

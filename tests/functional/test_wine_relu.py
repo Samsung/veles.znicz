@@ -37,7 +37,7 @@ under the License.
 from veles.config import root
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
-from veles.znicz.standard_workflow import StandardWorkflow
+from veles.znicz.tests.research.WineRelu.wine_relu import WineReluWorkflow
 
 
 class TestWineRelu(StandardTest):
@@ -45,6 +45,12 @@ class TestWineRelu(StandardTest):
     def setUpClass(cls):
         root.wine_relu.update({
             "decision": {"fail_iterations": 250, "max_epochs": 100000},
+            "downloader": {
+                "url":
+                "https://s3-eu-west-1.amazonaws.com/veles.f"
+                "orge/WineRelu/wine.tar",
+                "directory": root.common.datasets_root,
+                "files": ["wine"]},
             "snapshotter": {"prefix": "wine_relu", "interval": 1,
                             "time_interval": 0},
             "loader_name": "wine_loader",
@@ -60,11 +66,12 @@ class TestWineRelu(StandardTest):
     def test_wine_relu(self):
         self.info("Will test wine relu workflow")
 
-        workflow = StandardWorkflow(
+        workflow = WineReluWorkflow(
             self.parent,
             layers=root.wine_relu.layers,
             loader_name=root.wine_relu.loader_name,
             loader_config=root.wine_relu.loader,
+            downloader_config=root.wine_relu.downloader,
             loss_function="softmax")
 
         self.assertEqual(workflow.evaluator.labels,

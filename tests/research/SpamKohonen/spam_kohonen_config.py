@@ -38,17 +38,25 @@ under the License.
 import os
 from veles.config import root
 
-spam_dir = os.path.dirname(__file__)
+# FIXME(v.markovtsev): remove this when Kohonen is ported to CUDA
+root.common.engine.backend = "ocl"
 
 root.spam_kohonen.update({
-    "forward": {"shape": (8, 8)},
-    "decision": {"epochs": 200},
+    "forward": {"shape": (8, 8),
+                "weights_stddev": 0.05,
+                "weights_filling": "uniform"},
+    "downloader": {
+        "url":
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/SpamKohonen/spam.tar",
+        "directory": root.common.datasets_root,
+        "files": ["spam"]},
+    "decision": {"epochs": 200, "snapshot_prefix": "spam_kohonen"},
     "loader": {"minibatch_size": 80,
                "force_numpy": True,
                "ids": True,
                "classes": False,
-               "file": "/data/veles/VD/VDLogs/histogramConverter/data/hist",
-               },
+               "file": os.path.join(root.common.datasets_root, "spam/hist")},
     "train": {"gradient_decay": lambda t: 0.002 / (1.0 + t * 0.00002),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00002)},
     "exporter": {"file": "classified_fast4.txt"}})
+root.spam_kohonen.loader.validation_ratio = 0.0

@@ -50,6 +50,7 @@ import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
+from veles.znicz.downloader import Downloader
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.loader as loader
@@ -173,7 +174,14 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
     """
     def __init__(self, workflow, **kwargs):
         super(ApproximatorWorkflow, self).__init__(workflow, **kwargs)
-        self.repeater.link_from(self.start_point)
+
+        self.downloader = Downloader(
+            self, url=root.approximator.downloader.url,
+            directory=root.approximator.downloader.directory,
+            files=root.approximator.downloader.files)
+        self.downloader.link_from(self.start_point)
+
+        self.repeater.link_from(self.downloader)
 
         self.loader = ApproximatorLoader(
             self, **root.approximator.loader.__content__)

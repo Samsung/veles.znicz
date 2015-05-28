@@ -41,7 +41,6 @@ from veles.config import root
 
 mnist_dir = "veles/znicz/samples/MNIST"
 
-# optional parameters
 test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
 test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")

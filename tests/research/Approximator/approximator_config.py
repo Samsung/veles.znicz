@@ -40,8 +40,6 @@ import os
 from veles.config import root
 
 
-# optional parameters
-
 target_dir = [os.path.join(root.common.datasets_root,
                            "approximator/all_org_apertures.mat")]
 train_dir = [os.path.join(root.common.datasets_root,
@@ -50,6 +48,12 @@ train_dir = [os.path.join(root.common.datasets_root,
 root.approximator.update({
     "decision": {"fail_iterations": 1000, "max_epochs": 1000000000},
     "snapshotter": {"prefix": "approximator"},
+    "downloader": {
+        "url":
+        "https://s3-eu-west-1.amazonaws.com/veles.forge" +
+        "/Approximator/approximator.tar",
+        "directory": root.common.datasets_root,
+        "files": ["approximator"]},
     "loader": {"minibatch_size": 100, "train_paths": train_dir,
                "target_paths": target_dir,
                "normalization_type": "mean_disp",

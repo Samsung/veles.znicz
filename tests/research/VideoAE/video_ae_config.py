@@ -39,12 +39,13 @@ import os
 
 from veles.config import root
 
-
-# optional parameters
-
-
 root.video_ae.update({
     "decision": {"fail_iterations": 100, "max_epochs": 100000},
+    "downloader": {
+        "url":
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/VideoAE/video_ae.tar",
+        "directory": root.common.datasets_root,
+        "files": ["video_ae"]},
     "snapshotter": {"prefix": "video_ae"},
     "loader": {"minibatch_size": 50, "force_numpy": False,
                "train_paths":

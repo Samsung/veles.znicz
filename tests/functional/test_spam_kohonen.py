@@ -34,6 +34,7 @@ under the License.
 """
 
 
+import os
 from veles.config import root
 from veles.tests import timeout
 from veles.znicz.tests.functional import StandardTest
@@ -49,12 +50,18 @@ class TestSpamKohonen(StandardTest):
         root.spam_kohonen.update({
             "forward": {"shape": (8, 8)},
             "decision": {"epochs": 5},
+            "downloader": {
+                "url":
+                "https://s3-eu-west-1.amazonaws.com/veles.forge/"
+                "SpamKohonen/spam.tar",
+                "directory": root.common.datasets_root,
+                "files": ["spam"]},
             "loader": {"minibatch_size": 80,
                        "force_numpy": True,
                        "ids": True,
                        "classes": False,
                        "file":
-                       "/data/veles/VD/VDLogs/histogramConverter/data/hist"},
+                       os.path.join(root.common.datasets_root, "spam/hist")},
             "train": {"gradient_decay": lambda t: 0.002 / (1.0 + t * 0.00002),
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00002)},
             "exporter": {"file": "classified_fast4.txt"}})

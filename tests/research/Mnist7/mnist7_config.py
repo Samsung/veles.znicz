@@ -39,7 +39,6 @@ under the License.
 from veles.config import root
 
 
-# optional parameters
 root.mnist7.update({
     "decision": {"fail_iterations": 25, "max_epochs": 1000000},
     "snapshotter": {"prefix": "mnist7"},

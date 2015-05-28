@@ -60,6 +60,12 @@ class TestKanji(StandardTest):
         root.kanji.update({
             "decision": {"fail_iterations": 1000,
                          "max_epochs": 2},
+            "downloader": {
+                "url":
+                "https://s3-eu-west-1.amazonaws.com/veles.forge/Kanji"
+                "/kanji.tar",
+                "directory": root.common.datasets_root,
+                "files": ["kanji"]},
             "loss_function": "mse",
             "loader_name": "full_batch_auto_label_file_image_mse",
             "add_plotters": False,
@@ -103,6 +109,7 @@ class TestKanji(StandardTest):
             loader_config=root.kanji.loader,
             loader_name=root.kanji.loader_name,
             snapshotter_config=root.kanji.snapshotter,
+            downloader_config=root.kanji.downloader,
             layers=root.kanji.layers,
             loss_function=root.kanji.loss_function)
         self.assertEqual(workflow.evaluator.labels,

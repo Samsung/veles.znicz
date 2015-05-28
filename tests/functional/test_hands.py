@@ -53,6 +53,12 @@ class TestHands(StandardTest):
 
         root.hands.update({
             "decision": {"fail_iterations": 100, "max_epochs": 2},
+            "downloader": {
+                "url":
+                "https://s3-eu-west-1.amazonaws.com/veles.forge/Hands/"
+                "hands.tar",
+                "directory": root.common.datasets_root,
+                "files": ["hands"]},
             "loss_function": "softmax",
             "loader_name": "hands_loader",
             "snapshotter": {"prefix": "hands", "interval": 2,
@@ -80,6 +86,7 @@ class TestHands(StandardTest):
             decision_config=root.hands.decision,
             snapshotter_config=root.hands.snapshotter,
             loader_config=root.hands.loader,
+            downloader_config=root.hands.downloader,
             loss_function=root.hands.loss_function,
             loader_name=root.hands.loader_name)
         self.assertEqual(workflow.evaluator.labels,

@@ -42,9 +42,28 @@ from .loader_wine import WineLoader  # pylint: disable=W0611
 from veles.znicz.standard_workflow import StandardWorkflow
 
 
+class WineReluWorkflow(StandardWorkflow):
+    """
+    Model created for class of wine recognition. Database - Wine.
+    Model - fully-connected Neural Network with SoftMax loss function with RELU
+    activation.
+    """
+    def create_workflow(self):
+        self.link_downloader(self.start_point)
+        self.link_repeater(self.downloader)
+        self.link_loader(self.repeater)
+        self.link_forwards(("input", "minibatch_data"), self.loader)
+        self.link_evaluator(self.forwards[-1])
+        self.link_decision(self.evaluator)
+        self.link_snapshotter(self.decision)
+        self.link_loop(self.link_gds(self.snapshotter))
+        self.link_end_point(self.gds[0])
+
+
 def run(load, main):
-    load(StandardWorkflow, layers=root.wine_relu.layers,
+    load(WineReluWorkflow, layers=root.wine_relu.layers,
          loader_name=root.wine_relu.loader_name,
          loader_config=root.wine_relu.loader,
+         downloader_config=root.wine_relu.downloader,
          loss_function="softmax")
     main()

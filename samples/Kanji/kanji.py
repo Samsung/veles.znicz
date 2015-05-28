@@ -51,7 +51,8 @@ class KanjiWorkflow(StandardWorkflow):
     Model – fully-connected Neural Network with MSE loss function.
     """
     def create_workflow(self):
-        self.link_repeater(self.start_point)
+        self.link_downloader(self.start_point)
+        self.link_repeater(self.downloader)
         self.link_loader(self.repeater)
         self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
@@ -92,6 +93,7 @@ def run(load, main):
         loader_name=root.kanji.loader_name,
         snapshotter_config=root.kanji.snapshotter,
         layers=root.kanji.layers,
+        downloader_config=root.kanji.downloader,
         weights_plotter_config=root.kanji.weights_plotter,
         image_saver_config=root.kanji.image_saver,
         loss_function=root.kanji.loss_function)

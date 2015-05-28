@@ -38,7 +38,7 @@ from veles.config import root
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
-import veles.znicz.tests.research.MNIST.mnist as mnist_relu
+import veles.znicz.samples.MNIST.mnist as mnist_relu
 
 
 class TestMnistRelu(StandardTest):

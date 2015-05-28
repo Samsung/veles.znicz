@@ -43,6 +43,7 @@ from veles.config import root
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
+from veles.znicz.downloader import Downloader
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
@@ -73,7 +74,13 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         kwargs["layers"] = layers
         super(VideoAEWorkflow, self).__init__(workflow, **kwargs)
 
-        self.repeater.link_from(self.start_point)
+        self.downloader = Downloader(
+            self, url=root.video_ae.downloader.url,
+            directory=root.video_ae.downloader.directory,
+            files=root.video_ae.downloader.files)
+        self.downloader.link_from(self.start_point)
+
+        self.repeater.link_from(self.downloader)
 
         self.loader = VideoAELoader(
             self, **root.video_ae.loader.__content__)

@@ -40,7 +40,6 @@ import os
 from veles.config import root
 
 
-# optional parameters
 train_dir = [os.path.join(root.common.datasets_root, "hands/Training")]
 validation_dir = [os.path.join(root.common.datasets_root, "hands/Testing")]
 
@@ -48,6 +47,11 @@ validation_dir = [os.path.join(root.common.datasets_root, "hands/Testing")]
 root.hands.update({
     "decision": {"fail_iterations": 100, "max_epochs": 10000},
     "loss_function": "softmax",
+    "downloader": {
+        "url":
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/Hands/hands.tar",
+        "directory": root.common.datasets_root,
+        "files": ["hands"]},
     "image_saver": {"do": True,
                     "out_dirs":
                     [os.path.join(root.common.cache_dir, "tmp/test"),

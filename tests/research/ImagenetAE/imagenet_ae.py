@@ -39,6 +39,7 @@ under the License.
 
 import json
 import pickle
+import os
 
 import numpy
 from zope.interface import implementer
@@ -110,10 +111,11 @@ class ImagenetAELoader(loader.Loader):
         self.file_samples = ""
         self.sx = kwargs.get("sx", 216)
         self.sy = kwargs.get("sy", 216)
-        self.names_labels_filename = kwargs["names_labels_filename"]
-        self.count_samples_filename = kwargs["count_samples_filename"]
-        self.matrixes_filename = kwargs["matrixes_filename"]
-        self.samples_filename = kwargs["samples_filename"]
+        self.names_labels_filename = kwargs.get("names_labels_filename", None)
+        self.count_samples_filename = kwargs.get(
+            "count_samples_filename", None)
+        self.matrixes_filename = kwargs.get("matrixes_filename", None)
+        self.samples_filename = kwargs.get("samples_filename", None)
 
     def init_unpickled(self):
         super(ImagenetAELoader, self).init_unpickled()
@@ -133,6 +135,35 @@ class ImagenetAELoader(loader.Loader):
 
     def load_data(self):
         self.original_labels = []
+
+        if (not os.path.exists(self.names_labels_filename) or
+                self.names_labels_filename is None):
+            raise OSError(
+                "names_labels_filename %s does not exist or None."
+                " Please specify path to file with labels. If you don't have "
+                "pickle with labels, generate it with preparation_imagenet.py")
+        if (not os.path.exists(self.count_samples_filename) or
+                self.count_samples_filename is None):
+            raise OSError(
+                "count_samples_filename %s does not exist or None. Please "
+                "specify path to file with count of samples. If you don't "
+                "have json file with count of samples, generate it with "
+                "preparation_imagenet.py")
+        if (not os.path.exists(self.samples_filename) or
+                self.samples_filename is None):
+            raise OSError(
+                "samples_filename %s does not exist or None. Please "
+                "specify path to file with samples. If you don't "
+                "have dat file with samples, generate it with "
+                "preparation_imagenet.py")
+        if (not os.path.exists(self.matrixes_filename) or
+                self.matrixes_filename is None):
+            raise OSError(
+                "matrixes_filename %s does not exist or None. Please "
+                "specify path to file with mean and disp matrixes. If you "
+                "don't have pickle file with mean and disp matrixes, generate"
+                " it with preparation_imagenet.py")
+
         with open(self.names_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
                 self.original_labels.append(int(lbl))

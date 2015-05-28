@@ -49,7 +49,8 @@ class Stl10(StandardWorkflow):
     Workflow for recognition of objects with STL-10 database.
     """
     def create_workflow(self):
-        self.link_repeater(self.start_point)
+        self.link_downloader(self.start_point)
+        self.link_repeater(self.downloader)
         self.link_loader(self.repeater)
         self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
@@ -70,6 +71,7 @@ def run(load, main):
          loss_function=root.stl.loss_function,
          loader_config=root.stl.loader,
          layers=root.stl.layers,
+         downloader_config=root.stl.downloader,
          decision_config=root.stl.decision,
          weights_plotter_config=root.stl.weights_plotter,
          publisher_config=root.stl.publisher)

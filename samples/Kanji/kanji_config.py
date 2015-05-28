@@ -41,14 +41,18 @@ import os
 from veles.config import root
 
 
-train_path = os.path.join(root.common.datasets_root, "new_kanji/train")
-
-target_path = os.path.join(root.common.datasets_root, "new_kanji/target")
+train_path = os.path.join(root.common.datasets_root, "kanji/train")
+target_path = os.path.join(root.common.datasets_root, "kanji/target")
 
 
 root.kanji.update({
     "decision": {"fail_iterations": 1000,
                  "max_epochs": 10000},
+    "downloader": {
+        "url":
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/Kanji/kanji.tar",
+        "directory": root.common.datasets_root,
+        "files": ["kanji"]},
     "loss_function": "mse",
     "loader_name": "full_batch_auto_label_file_image_mse",
     "add_plotters": True,

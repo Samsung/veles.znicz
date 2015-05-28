@@ -37,7 +37,7 @@ under the License.
 from veles.config import root
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
-import veles.znicz.samples.MnistSimple.mnist as mnist
+import veles.znicz.tests.research.MnistSimple.mnist as mnist
 from veles.znicz.tests.functional import StandardTest
 
 

@@ -53,6 +53,12 @@ class TestApproximator(StandardTest):
 
         root.approximator.update({
             "decision": {"fail_iterations": 1000},
+            "downloader": {
+                "url":
+                "https://s3-eu-west-1.amazonaws.com/veles.forge" +
+                "/Approximator/approximator.tar",
+                "directory": root.common.datasets_root,
+                "files": ["approximator"]},
             "snapshotter": {"prefix": "approximator_test"},
             "loader": {"minibatch_size": 100, "train_paths": train_dir,
                        "target_paths": target_dir,

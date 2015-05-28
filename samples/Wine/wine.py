@@ -75,6 +75,7 @@ class WineWorkflow(nn_units.NNWorkflow):
         self.loader = WineLoader(
             self, minibatch_size=root.wine.loader.minibatch_size,
             force_numpy=root.wine.loader.force_numpy,
+            dataset_file=root.wine.loader.dataset_file,
             normalization_type=root.wine.loader.normalization_type)
         self.loader.link_from(self.repeater)
 

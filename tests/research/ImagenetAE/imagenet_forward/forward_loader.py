@@ -44,6 +44,7 @@ import time
 from twisted.internet import reactor
 from zope.interface import implementer
 
+from veles.config import root
 import veles.error as error
 from veles.memory import Array
 from veles.mutable import Bool
@@ -115,6 +116,9 @@ class ImagenetForwardLoaderBbox(AcceleratedUnit, Processor):
         self.max_index = kwargs.get("max_index", 0)
         # entry is the first forward unit
         self.demand("entry_shape", "mean")
+        self.path_to_empty_images = kwargs.get(
+            "path_to_empty_images",
+            os.path.join(root.common.datasets_root, "empty_images.txt"))
 
     def init_unpickled(self):
         super(ImagenetForwardLoaderBbox, self).init_unpickled()
@@ -138,7 +142,7 @@ class ImagenetForwardLoaderBbox(AcceleratedUnit, Processor):
         if ext == ".pickle":
             self.mode = "merge"
             index = 0
-            with open('/data/veles/tmp/empty_images.txt', 'r') as fin:
+            with open(self.path_to_empty_images, 'r') as fin:
                 empty = set(fin.readlines())
             self.info("Will load images in interval [%d, %d)", self.min_index,
                       self.max_index)

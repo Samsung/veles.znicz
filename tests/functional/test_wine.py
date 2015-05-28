@@ -46,17 +46,18 @@ class TestWine(StandardTest):
     @classmethod
     def setUpClass(cls):
         # We must test how snapshotting works, at least one-way
+
+        data_path = os.path.abspath(os.path.dirname(__file__))
         root.wine.update({
             "decision": {"fail_iterations": 200,
                          "snapshot_prefix": "wine"},
             "snapshotter": {"interval": 13, "time_interval": 0},
             "loader": {"minibatch_size": 10,
+                       "dataset_file": os.path.join(data_path, "wine.txt.gz"),
                        "force_numpy": False},
             "learning_rate": 0.3,
             "weights_decay": 0.0,
-            "layers": [8, 3],
-            "data_paths": os.path.join(root.common.veles_dir,
-                                       "znicz/samples/wine/wine.data")})
+            "layers": [8, 3]})
 
     @timeout(300)
     @multi_device(True)

@@ -36,16 +36,21 @@ under the License.
 """
 
 
+import os
 from veles.config import root
 
 
 root.common.update = {"disable.plotting": True}
+
+data_path = os.path.abspath(os.path.dirname(__file__))
+
 
 root.wine.update({
     "decision": {"fail_iterations": 200,
                  "max_epochs": 100},
     "snapshotter": {"prefix": "wine", "interval": 1, "time_interval": 0},
     "loader": {"minibatch_size": 10,
+               "dataset_file": os.path.join(data_path, "wine.txt.gz"),
                "force_numpy": False},
     "learning_rate": 0.3,
     "weights_decay": 0.0,

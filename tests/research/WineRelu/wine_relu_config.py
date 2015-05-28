@@ -37,14 +37,22 @@ under the License.
 """
 
 
+import os
 from veles.config import root
 
 
 root.wine_relu.update({
     "decision": {"fail_iterations": 250, "max_epochs": 100000},
+    "downloader": {
+        "url":
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/WineRelu/wine.tar",
+        "directory": root.common.datasets_root,
+        "files": ["wine"]},
     "snapshotter": {"prefix": "wine_relu", "interval": 1, "time_interval": 0},
     "loader_name": "wine_loader",
-    "loader": {"minibatch_size": 10, "force_numpy": False},
+    "loader": {"minibatch_size": 10, "force_numpy": False,
+               "dataset_file":
+               os.path.join(root.common.datasets_root, "wine/wine.txt.gz")},
     "layers": [{"type": "all2all_relu",
                 "->": {"output_sample_shape": 10},
                 "<-": {"learning_rate": 0.03, "weights_decay": 0.0}},

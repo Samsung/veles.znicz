@@ -53,6 +53,12 @@ class TestChannels(StandardTest):
         root.channels.update({
             "decision": {"fail_iterations": 50,
                          "max_epochs": 3},
+            "downloader": {
+                "url":
+                "https://s3-eu-west-1.amazonaws.com/veles.forge/"
+                "TvChannels/train.tar",
+                "directory": root.common.datasets_root,
+                "files": ["train"]},
             "snapshotter": {"prefix": "test_channels", "interval": 4,
                             "time_interval": 0},
             "image_saver": {"out_dirs": [
@@ -69,13 +75,14 @@ class TestChannels(StandardTest):
                        "add_sobel": True,
                        "file_subtypes": ["png"],
                        "background_image":
-                       "/data/veles/VD/video/dataset/black_4ch.png",
+                       numpy.zeros([256, 256, 4], dtype=numpy.uint8),
                        "mirror": False,
                        "color_space": "HSV",
                        "background_color": (0, 0, 0, 0),
                        "scale": (256, 256),
                        "scale_maintain_aspect_ratio": True,
-                       "train_paths": ["/data/veles/VD/video/dataset/train"]},
+                       "train_paths":
+                       [os.path.join(root.common.datasets_root, "train")]},
             "loss_function": "softmax",
             "loader_name": "full_batch_auto_label_file_image",
             "layers": [{"type": "all2all_tanh",
@@ -98,6 +105,7 @@ class TestChannels(StandardTest):
             snapshotter_config=root.channels.snapshotter,
             image_saver_config=root.channels.image_saver,
             loader_config=root.channels.loader,
+            downloader_config=root.channels.downloader,
             layers=root.channels.layers,
             loader_name=root.channels.loader_name,
             loss_function=root.channels.loss_function)

@@ -52,6 +52,11 @@ class TestCifarAll2All(StandardTest):
         root.cifar.update({
             "decision": {"fail_iterations": 1000, "max_epochs": 2},
             "loader_name": "cifar_loader",
+            "downloader": {
+                "url":
+                "http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz",
+                "directory": root.common.datasets_root,
+                "files": ["cifar-10-batches-py"]},
             "lr_adjuster": {"do": False},
             "loss_function": "softmax",
             "add_plotters": False,
@@ -92,6 +97,7 @@ class TestCifarAll2All(StandardTest):
             snapshotter_config=root.cifar.snapshotter,
             image_saver_config=root.cifar.image_saver,
             layers=root.cifar.layers,
+            downloader_config=root.cifar.downloader,
             loss_function=root.cifar.loss_function,
             loader_name=root.cifar.loader_name,
             loader_config=root.cifar.loader)

@@ -60,7 +60,9 @@ root.imagenet.update({
     "decision": {"fail_iterations": 10000,
                  "max_epochs": 10000000},
     "snapshotter": {"prefix": "imagenet",
-                    "directory": "/data/veles/datasets/AlexNet/snapshots",
+                    "directory":
+                    os.path.join(root.common.datasets_root,
+                                 "AlexNet/snapshots"),
                     "interval": 1, "time_interval": 0},
     "add_plotters": True,
     "lr_adjuster": {"lr_policy_name": "arbitrary_step",

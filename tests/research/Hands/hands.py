@@ -70,7 +70,8 @@ class HandsWorkflow(StandardWorkflow):
     """Sample workflow for Hands dataset.
     """
     def create_workflow(self):
-        self.link_repeater(self.start_point)
+        self.link_downloader(self.start_point)
+        self.link_repeater(self.downloader)
         self.link_loader(self.repeater)
         self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
@@ -89,6 +90,7 @@ def run(load, main):
          snapshotter_config=root.hands.snapshotter,
          loader_config=root.hands.loader,
          layers=root.hands.layers,
+         downloader_config=root.hands.downloader,
          loss_function=root.hands.loss_function,
          loader_name=root.hands.loader_name)
     main()
