@@ -58,10 +58,10 @@ class LinesWorkflow(StandardWorkflow):
                                                       self.link_error_plotter)]
         gd = self.link_gds(*end_units)
         self.link_table_plotter(gd)
-        self.link_weights_plotter(
+        last_weights = self.link_weights_plotter(
             "gradient_weights", self.table_plotter)
         self.link_multi_hist_plotter(
-            "gradient_weights", self.weights_plotter[-1])
+            "gradient_weights", last_weights)
         self.repeater.link_from(self.multi_hist_plotter[-1])
 
         self.link_end_point(gd)
