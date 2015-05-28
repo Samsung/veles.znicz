@@ -10,6 +10,8 @@
 
 Created on Nov 20, 2014
 
+Configuration file for AlexNet topology with LMDB loader.
+
 ███████████████████████████████████████████████████████████████████████████████
 
 Licensed to the Apache Software Foundation (ASF) under one

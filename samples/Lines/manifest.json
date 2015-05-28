@@ -11,6 +11,6 @@
     "workflow": "lines.py",
     "image": "lines.jpg",
     "tags": ["lines", "random", "self-constructing", "convolutional", "softmax"],
-    "files": ["__init__.py"],
+    "files": ["__init__.py", "draw_lines.py"],
     "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/Lines/lines_1.39pt.4.pickle.gz"]
 }

@@ -48,9 +48,9 @@ valid = os.path.join(root.common.datasets_root,
                      "Lines/LINES_10_500_NOISY_min_valid/test")
 """
 train = os.path.join(root.common.datasets_root,
-                     "Lines/lines_min/learn")
+                     "lines_min/learn")
 valid = os.path.join(root.common.datasets_root,
-                     "Lines/lines_min/test")
+                     "lines_min/test")
 
 root.lines.mcdnnic_parameters = {
     "<-": {"learning_rate": 0.03}}
@@ -58,6 +58,11 @@ root.lines.mcdnnic_parameters = {
 root.lines.update({
     "loader_name": "full_batch_auto_label_file_image",
     "loss_function": "softmax",
+    "downloader": {
+        "url":
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/Lines/lines_min.tar",
+        "directory": root.common.datasets_root,
+        "files": ["lines_min"]},
     "mcdnnic_topology": "12x256x256-32C4-MP2-64C4-MP3-32N-4N",
     "decision": {"fail_iterations": 100,
                  "max_epochs": numpy.iinfo(numpy.uint32).max},

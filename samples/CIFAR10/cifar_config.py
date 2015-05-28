@@ -41,12 +41,16 @@ import os
 from veles.config import root
 
 
-train_dir = os.path.join(root.common.datasets_root, "cifar/10")
+train_dir = os.path.join(root.common.datasets_root, "cifar-10-batches-py")
 validation_dir = os.path.join(root.common.datasets_root,
-                              "cifar/10/test_batch")
+                              "cifar-10-batches-py/test_batch")
 
 root.cifar.update({
     "loader_name": "cifar_loader",
+    "downloader": {
+        "url": "http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz",
+        "directory": root.common.datasets_root,
+        "files": ["cifar-10-batches-py"]},
     "decision": {"fail_iterations": 1000, "max_epochs": 1000000000},
     "lr_adjuster": {"do": False},
     "snapshotter": {"prefix": "cifar", "interval": 1},

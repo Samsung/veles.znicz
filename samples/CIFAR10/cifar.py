@@ -74,18 +74,13 @@ class CifarWorkflow(StandardWorkflow):
     """
 
     def create_workflow(self):
-        self.link_repeater(self.start_point)
-
+        self.link_downloader(self.start_point)
+        self.link_repeater(self.downloader)
         self.link_loader(self.repeater)
-
         self.link_forwards(("input", "minibatch_data"), self.loader)
-
         self.link_evaluator(self.forwards[-1])
-
         self.link_decision(self.evaluator)
-
         end_units = [self.link_snapshotter(self.decision)]
-
         if root.cifar.image_saver.do:
             end_units.append(self.link_image_saver(self.decision))
 
@@ -100,7 +95,6 @@ class CifarWorkflow(StandardWorkflow):
             last = self.link_table_plotter(self.gds[0])
         else:
             last = self.link_gds(*end_units)
-
         if root.cifar.lr_adjuster.do:
             last = self.link_lr_adjuster(last)
         self.repeater.link_from(last)
@@ -116,6 +110,7 @@ def run(load, main):
          loader_config=root.cifar.loader,
          similar_weights_plotter_config=root.cifar.similar_weights_plotter,
          layers=root.cifar.layers,
+         downloader_config=root.cifar.downloader,
          loader_name=root.cifar.loader_name,
          loss_function=root.cifar.loss_function,
          weights_plotter_config=root.cifar.weights_plotter,

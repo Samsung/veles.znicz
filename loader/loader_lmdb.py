@@ -145,6 +145,11 @@ class LMDBLoader(ImageLoader):
                       self.cache_hits + self.cache_misses))
 
     def _initialize_cursor(self, index):
+        if self._files == (None, None, None):
+            raise OSError(
+                "Looks like self.files is empty. "
+                "Make sure, that you correctly specify data path to the "
+                "LMDB folder.")
         db_path = self._files[index]
         if not db_path:
             return tuple()

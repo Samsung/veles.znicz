@@ -45,11 +45,9 @@ import os
 from veles.config import root
 
 
-# optional parameters
-
-train_dir = os.path.join(root.common.datasets_root, "cifar/10")
+train_dir = os.path.join(root.common.datasets_root, "cifar-10-batches-py")
 validation_dir = os.path.join(root.common.datasets_root,
-                              "cifar/10/test_batch")
+                              "cifar-10-batches-py/test_batch")
 
 root.common.precision_type = "float"
 root.common.precision_level = 1
@@ -61,6 +59,10 @@ root.cifar.lr_adjuster.bias_lr_parameters = {
 
 root.cifar.update({
     "loader_name": "cifar_loader",
+    "downloader": {
+        "url": "http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz",
+        "directory": root.common.datasets_root,
+        "files": ["cifar-10-batches-py"]},
     "decision": {"fail_iterations": 250, "max_epochs": 1000000000},
     "lr_adjuster": {"do": True, "lr_policy_name": "arbitrary_step",
                     "bias_lr_policy_name": "arbitrary_step"},

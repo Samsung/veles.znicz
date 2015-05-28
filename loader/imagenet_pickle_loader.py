@@ -35,6 +35,7 @@ under the License.
 
 import json
 import pickle
+import os
 
 import cv2
 import numpy
@@ -99,7 +100,26 @@ class ImagenetLoader(loader.Loader):
 
     def load_data(self):
         self.original_labels = []
-
+        if (not os.path.exists(self.original_labels_filename) or
+                self.original_labels_filename is None):
+            raise OSError(
+                "original_labels_filename %s does not exist or None."
+                " Please specify path to file with labels. If you don't have "
+                "pickle with labels, generate it with preparation_imagenet.py")
+        if (not os.path.exists(self.count_samples_filename) or
+                self.count_samples_filename is None):
+            raise OSError(
+                "count_samples_filename %s does not exist or None. Please "
+                "specify path to file with count of samples. If you don't "
+                "have json file with count of samples, generate it with "
+                "preparation_imagenet.py")
+        if (not os.path.exists(self.samples_filename) or
+                self.samples_filename is None):
+            raise OSError(
+                "samples_filename %s does not exist or None. Please "
+                "specify path to file with samples. If you don't "
+                "have dat file with samples, generate it with "
+                "preparation_imagenet.py")
         with open(self.original_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
                 self.original_labels.append(lbl)
