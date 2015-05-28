@@ -11,7 +11,8 @@
 
 Created on Dec 10, 2014
 
-This script to work with Imagenet dataset.
+This script to work with Imagenet dataset. AlexNet workflow works with
+"img" files. ImagenetAE workflow works with "DET" files.
 
 ███████████████████████████████████████████████████████████████████████████████
 
@@ -61,7 +62,7 @@ TRAIN = "train"
 VALIDATION = "val"
 
 root.prep_imagenet.root_name = "imagenet"
-root.prep_imagenet.series = "img"
+root.prep_imagenet.series = "DET"
 root.prep_imagenet.root_path = os.path.join(
     root.common.datasets_root, "AlexNet", root.prep_imagenet.root_name)
 
@@ -104,7 +105,7 @@ root.prep_imagenet.update({
     "get_label": "all_ways",
     # "from_image_name" "from_image_path" "from_xml" "all_ways"
     "get_label_from_txt_label": True,
-    "command_to_run": "test_load_data"
+    "command_to_run": "save_dataset_to_file"
     # "save_dataset_to_file" "init_dataset" "test_load_data"
 })
 
@@ -143,11 +144,14 @@ class Main(Processor):
         self.labels_int_txt = {}
         self.map_items = None
         self.labels = []
-        self.labels_diff = []
+        self.labels_diff = set()
         self.original_labels = []
         self.command_to_run = root.prep_imagenet.command_to_run
         self.count_samples = {TEST: 0, TRAIN: 0, VALIDATION: 0}
         self.matrixes = []
+        self.colorspace = kwargs.get("colorspace", "RGB")
+        self._include_derivative = kwargs.get("derivative", True)
+        self._sobel_kernel_size = kwargs.get("sobel_kernel_size", 5)
 
     def initialize(self):
         self.map_items = root.prep_imagenet.MAPPING[
@@ -297,7 +301,7 @@ class Main(Processor):
     def get_labels_int_txt(self, labels):
         for label in labels:
             if label not in self.labels_diff:
-                self.labels_diff.append(label)
+                self.labels_diff.add(label)
                 self.label_ind += 1
                 self.labels_int_txt[label] = self.label_ind
 
@@ -307,13 +311,15 @@ class Main(Processor):
             self.warning(
                 "File %s does not exist or read permission is denied" % path)
             return
+        self.info(path)
         image_name = os.path.basename(path)
-        if not self.labels:
-            self.labels = self.get_labels(path)
-        if not self.labels:
-            self.k += 1
-        else:
-            self.get_labels_int_txt(self.labels)
+        if self.series == "img":
+            if not self.labels:
+                self.labels = self.get_labels(path)
+            if not self.labels:
+                self.k += 1
+            else:
+                self.get_labels_int_txt(self.labels)
         try:
             shape = Image.open(path).size
         except:
@@ -321,19 +327,73 @@ class Main(Processor):
                 "Failed to determine the size of %s",
                 path)
             return
-        self.images[set_type][image_name] = {
-            "path": path,
-            "label": self.labels,
-            "width": shape[0],
-            "height": shape[1]}
+        if self.series == "img":
+            self.images[set_type][image_name] = {
+                "path": path,
+                "label": self.labels,
+                "width": shape[0],
+                "height": shape[1]}
+        elif self.series == "DET":
+            self.images[set_type][image_name] = {
+                "path": path,
+                "width": shape[0],
+                "height": shape[1],
+                "bbxs": []}
+            self.fill_images_from_xml(path, set_type, image_name)
+        else:
+            raise ValueError("Unsupported series name: %s" % self.series)
+
+    def fill_images_from_xml(self, image_path, set_type, image_name):
+        (dir_images, dir_bboxes) = root.prep_imagenet.MAPPING[
+            self.root_name][self.series][set_type]
+        if image_path.find(dir_images) == -1:
+            raise ValueError(
+                "Image path %s is wrong. Should be in %s folder" %
+                (image_path, dir_images))
+        head, image_tail = image_path.split(dir_images)
+        xml_path = head + dir_bboxes + image_tail.replace(".JPEG", ".xml")
+        if not os.access(xml_path, os.R_OK):
+            self.warning(
+                "File %s does not exist or read permission is denied"
+                % xml_path)
+            return
+        with open(xml_path, "r") as fr:
+            tree = xmltodict.parse(fr.read())
+        if tree["annotation"].get("object") is not None:
+            bboxes = tree["annotation"]["object"]
+            if not isinstance(bboxes, list):
+                bboxes = [bboxes]
+            for bbx in bboxes:
+                bbx_lbl = bbx["name"]
+                bbx_xmax = int(bbx["bndbox"]["xmax"])
+                bbx_xmin = int(bbx["bndbox"]["xmin"])
+                bbx_ymax = int(bbx["bndbox"]["ymax"])
+                bbx_ymin = int(bbx["bndbox"]["ymin"])
+                w = bbx_xmax - bbx_xmin
+                h = bbx_ymax - bbx_ymin
+                x = 0.5 * w + bbx_xmin
+                y = 0.5 * h + bbx_ymin
+                det_label = self.get_det_label_from_label(bbx_lbl)
+                dict_bbx = {"label": det_label,
+                            "width": w,
+                            "height": h,
+                            "x": x,
+                            "y": y}
+                self.images[set_type][image_name]["bbxs"].append(dict_bbx)
+        else:
+            self.warning("Xml %s has no object attribute" % xml_path)
 
     def init_files_det(self):
+        patgh_to_devkit = os.path.join(
+            self.root_path, "ILSVRC2014_devkit/data/det_lists")
+        if not os.path.exists(self.root_path):
+            raise OSError("Path %s does not exist")
+        if not os.path.exists(patgh_to_devkit):
+            raise OSError("Path %s does not exist")
         self.get_images_from_files(
-            os.path.join(
-                self.root_path, "ILSVRC2014_devkit/data/det_lists"),
+            os.path.join(patgh_to_devkit),
             self.root_path)
         self.save_images_to_json(self.images)
-        self.info("Label is None! %s times" % self.k)
 
     def save_images_to_json(self, images):
         for set_type in (TEST, VALIDATION, TRAIN):
@@ -380,18 +440,130 @@ class Main(Processor):
                     {"tail_path": path_tail, "labels": labels})
         return images_from_file
 
+    def get_mean(self, set_type, image_name, image):
+        for bbx in self.images[set_type][image_name]["bbxs"]:
+            x = bbx["x"]
+            y = bbx["y"]
+            h_size = bbx["height"]
+            w_size = bbx["width"]
+            if h_size >= 8 and w_size >= 8 and h_size * w_size >= 256:
+                self.sample_rect(image, x, y, h_size, w_size, None)
+
+    def sample_rect(self, img, x_c, y_c, h_size, w_size, mean):
+        nn_width = self.rect[0]
+        nn_height = self.rect[1]
+        x_min = x_c - w_size / 2
+        y_min = y_c - h_size / 2
+        x_max = x_min + w_size
+        y_max = y_min + h_size
+        img = img[y_min:y_max, x_min:x_max].copy()
+        if img.shape[1] >= img.shape[0]:
+            dst_width = nn_width
+            dst_height = int(numpy.round(
+                float(dst_width) * img.shape[0] / img.shape[1]))
+        else:
+            dst_height = nn_height
+            dst_width = int(numpy.round(
+                float(dst_height) * img.shape[1] / img.shape[0]))
+        assert dst_width <= nn_width and dst_height <= nn_height
+        img = cv2.resize(img, (dst_width, dst_height),
+                         interpolation=cv2.INTER_LANCZOS4)
+        dst_x_min = int(numpy.round(0.5 * (nn_width - dst_width)))
+        dst_y_min = int(numpy.round(0.5 * (nn_height - dst_height)))
+        dst_x_max = dst_x_min + img.shape[1]
+        dst_y_max = dst_y_min + img.shape[0]
+        assert dst_x_max <= nn_width and dst_y_max <= nn_height
+        if mean is not None:
+            sample = mean.copy()
+            sample[dst_y_min:dst_y_max, dst_x_min:dst_x_max] = img
+            return sample
+        self.s_sum[dst_y_min:dst_y_max, dst_x_min:dst_x_max] += img
+        self.s_count[dst_y_min:dst_y_max, dst_x_min:dst_x_max] += 1.0
+        numpy.minimum(self.s_min[dst_y_min:dst_y_max, dst_x_min:dst_x_max],
+                      img,
+                      self.s_min[dst_y_min:dst_y_max, dst_x_min:dst_x_max])
+        numpy.maximum(self.s_max[dst_y_min:dst_y_max, dst_x_min:dst_x_max],
+                      img,
+                      self.s_max[dst_y_min:dst_y_max, dst_x_min:dst_x_max])
+        return None
+
+    def get_dataset_img(self, set_type, image_name, image, mean):
+        sample = self.transformation_image(image)
+        self.get_original_labels_and_data(
+            self.images[set_type][image_name]["label"],
+            sample, set_type)
+        self.s_sum += sample
+        self.s_count += 1.0
+
+    def get_dataset_DET(self, set_type, image_name, image, mean):
+        for bbx in self.images[set_type][image_name]["bbxs"]:
+            x = bbx["x"]
+            y = bbx["y"]
+            h_size = bbx["height"]
+            w_size = bbx["width"]
+            label = bbx["label"]
+            if h_size >= 8 and w_size >= 8 and h_size * w_size >= 256:
+                self.prep_and_save_sample(image, x, y, h_size,
+                                          w_size, mean)
+                path_to_labels_word = os.path.join(
+                    root.prep_imagenet.root_path,
+                    "classes_200_2014_DET.json")
+                with open(path_to_labels_word, 'r') as fp:
+                    int_word_labels = json.load(fp)
+                for (int_label, word_label) in int_word_labels:
+                    if label == word_label:
+                        self.original_labels.append(int_label)
+                self.count_samples[set_type] += 1
+
+    def prep_and_save_sample(self, image, x, y, h, w, mean):
+        sample = self.preprocess_sample(image)
+        sample = self.sample_rect(sample, x, y, h, w, mean)
+        sample.tofile(self.file_samples)
+
+    def preprocess_sample(self, data):
+        if self._include_derivative:
+            deriv_x = cv2.Sobel(
+                cv2.cvtColor(data, cv2.COLOR_RGB2GRAY) if data.shape[-1] > 1
+                else data, cv2.CV_32F, 1, 0, ksize=self._sobel_kernel_size)
+            deriv_y = cv2.Sobel(
+                cv2.cvtColor(data, cv2.COLOR_RGB2GRAY) if data.shape[-1] > 1
+                else data, cv2.CV_32F, 0, 1, ksize=self._sobel_kernel_size)
+            deriv = numpy.sqrt(numpy.square(deriv_x) + numpy.square(deriv_y))
+            deriv -= deriv.min()
+            mx = deriv.max()
+            if mx:
+                deriv *= 255.0 / mx
+            deriv = numpy.clip(deriv, 0, 255).astype(numpy.uint8)
+        if self.colorspace != "RGB" and not (data.shape[-1] == 1 and
+                                             self.colorspace == "GRAY"):
+            cv2.cvtColor(data, getattr(cv2, "COLOR_RGB2" + self.colorspace),
+                         data)
+        if self._include_derivative:
+            shape = list(data.shape)
+            shape[-1] += 1
+            res = numpy.empty(shape, dtype=numpy.uint8)
+            res[:, :, :-1] = data
+            begindex = len(shape)
+            res.ravel()[begindex::(begindex + 1)] = deriv.ravel()
+        else:
+            res = data
+        assert res.dtype == numpy.uint8
+        return res
+
     def save_dataset_to_file(self):
         original_data_dir = root.prep_imagenet.file_original_data
         original_labels_dir = root.prep_imagenet.file_original_labels
         count_samples_dir = root.prep_imagenet.file_count_samples
         self.file_samples = open(original_data_dir, "wb")
-        for set_type in (TEST, VALIDATION, TRAIN):
+        if self.series == "DET":
+            set_type = TRAIN
             images_file_name = os.path.join(
                 self.root_path,
                 IMAGES_JSON % (self.root_name, self.series, set_type))
             try:
                 self.info(
-                    "Loading images info from %s to resize" % images_file_name)
+                    "Loading images info from %s to calculate mean" %
+                    images_file_name)
                 with open(images_file_name, 'r') as fp:
                     self.images[set_type] = json.load(fp)
             except Exception as e:
@@ -400,12 +572,28 @@ class Main(Processor):
             for image_name in sorted(self.images[set_type].keys()):
                 image_fnme = self.images[set_type][image_name]["path"]
                 image = self.decode_image(image_fnme)
-                sample = self.transformation_image(image)
-                self.get_original_labels_and_data(
-                    self.images[set_type][image_name]["label"],
-                    sample, set_type)
-                self.s_sum += sample
-                self.s_count += 1.0
+                self.get_mean(set_type, image_name, image)
+            mean, rdisp = self.transform_matrixes(self.s_sum, self.s_count)
+        else:
+            mean = None
+        for set_type in (TEST, VALIDATION, TRAIN):
+            images_file_name = os.path.join(
+                self.root_path,
+                IMAGES_JSON % (self.root_name, self.series, set_type))
+            try:
+                self.info(
+                    "Loading images info from %s to resize" %
+                    images_file_name)
+                with open(images_file_name, 'r') as fp:
+                    self.images[set_type] = json.load(fp)
+            except Exception as e:
+                self.exception("Failed to load %s", images_file_name)
+                raise from_none(e)
+            for image_name in sorted(self.images[set_type].keys()):
+                image_fnme = self.images[set_type][image_name]["path"]
+                image = self.decode_image(image_fnme)
+                getattr(self, "get_dataset_%s" % self.series)(
+                    set_type, image_name, image, mean)
         with open(original_labels_dir, "wb") as fout:
             self.info("Saving labels of images to %s" %
                       original_labels_dir)
@@ -414,7 +602,9 @@ class Main(Processor):
             logging.info("Saving count of test, validation and train to %s"
                          % count_samples_dir)
             json.dump(self.count_samples, fout)
-        self.transform_and_save_matrixes(self.s_sum, self.s_count)
+        mean, rdisp = self.transform_matrixes(self.s_sum, self.s_count)
+        self.save_matrixes(mean, rdisp)
+
         self.file_samples.close()
 
     def get_original_labels_and_data(self, txt_labels, sample, set_type):
@@ -430,17 +620,37 @@ class Main(Processor):
                 self.original_labels.append(int_label)
                 self.count_samples[set_type] += 1
 
-    def transform_and_save_matrixes(self, s_sum, s_count):
-        matrix_file = root.prep_imagenet.file_matrix
+    def transform_matrixes(self, s_sum, s_count):
         self.s_mean = s_sum / s_count
         mean = numpy.round(self.s_mean)
         numpy.clip(mean, 0, 255, mean)
         mean = mean.astype(opencl_types.dtypes[root.common.precision_type])
+
+        if self._include_derivative:
+            mean = self.to_4ch(mean)
+            mean[:, :, 3:4] = 0
+
         disp = self.s_max - self.s_min
+        if self._include_derivative:
+            disp = self.to_4ch(disp)
+
         rdisp = numpy.ones_like(disp.ravel())
         nz = numpy.nonzero(disp.ravel())
         rdisp[nz] = numpy.reciprocal(disp.ravel()[nz])
         rdisp.shape = disp.shape
+        if self._include_derivative:
+            rdisp[:, :, 3:4] = 1.0 / 128
+        return mean, rdisp
+
+    def to_4ch(self, array):
+        assert len(array.shape) == 3
+        aa = numpy.zeros(
+            [array.shape[0], array.shape[1], 4], dtype=array.dtype)
+        aa[:, :, 0:3] = array[:, :, 0:3]
+        return aa
+
+    def save_matrixes(self, mean, rdisp):
+        matrix_file = root.prep_imagenet.file_matrix
         out_path_mean = os.path.join(
             root.prep_imagenet.root_path, "mean_image.JPEG")
         scipy.misc.imsave(out_path_mean, self.s_mean)
@@ -452,7 +662,13 @@ class Main(Processor):
             pickle.dump(self.matrixes, fout)
 
     def transformation_image(self, image):
-        sample = cv2.resize(image, self.rect, interpolation=cv2.INTER_LANCZOS4)
+        if self.series == "DET":
+            sample = image
+        elif self.series == "img":
+            sample = cv2.resize(
+                image, self.rect, interpolation=cv2.INTER_LANCZOS4)
+        else:
+            raise ValueError("Unsupported series name: %s" % self.series)
         return sample
 
     def test_load_data(self):
@@ -517,14 +733,15 @@ class Main(Processor):
             self.init_files_img()
         else:
             self.error("Unknow series. Please choose DET or img")
-        if len(self.labels_int_txt) != root.prep_imagenet.classes_count:
-            self.error(
-                "Wrong number of classes - %s"
-                % len(self.labels_int_txt))
-        else:
-            fnme = root.prep_imagenet.file_text_to_int_labels
-            with open(fnme, 'w') as fp:
-                json.dump(self.labels_int_txt, fp)
+        if self.series == "img":
+            if len(self.labels_int_txt) != root.prep_imagenet.classes_count:
+                self.error(
+                    "Wrong number of classes - %s"
+                    % len(self.labels_int_txt))
+            else:
+                fnme = root.prep_imagenet.file_text_to_int_labels
+                with open(fnme, 'w') as fp:
+                    json.dump(self.labels_int_txt, fp)
 
     def run(self):
         self.initialize()

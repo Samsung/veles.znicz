@@ -245,7 +245,10 @@ class ImagenetAEWorkflow(StandardWorkflow):
         self.gd_map = {}
         for layer_type, forw_back in (dict(self.layer_map)).items():
             if len(forw_back) > 1:
-                self.gd_map[forw_back[0]] = forw_back[1]
+                if issubclass(forw_back[0], nn_units.ForwardBase):
+                    self.gd_map[forw_back[0]] = forw_back[1]
+                if issubclass(forw_back[1], nn_units.ForwardBase):
+                    self.gd_map[forw_back[1]] = forw_back[0]
 
     def link_evaluator_mse(self, *parents):
         if hasattr(self, "evaluator"):
@@ -447,6 +450,9 @@ class ImagenetAEWorkflow(StandardWorkflow):
     def add_ae_plotters(self, prev, last_conv, last_ae):
         if not self.is_standalone:
             return prev
+        for unit in self.mse_plotter:
+            unit.unlink_all()
+            self.del_ref(unit)
         last_mse = self.link_mse_plotter(prev)
         last_weights = self.link_ae_weights_plotter(
             "weights", last_conv, last_ae, last_mse)
@@ -697,8 +703,9 @@ class ImagenetAEWorkflow(StandardWorkflow):
 
             self.link_image_saver(self.forwards[-1])
             self.evaluator_name = "evaluator_softmax"
+            self.unlink_unit("evaluator")
             self.link_evaluator(self.image_saver)
-            self.config.decision = self.dictify(self.decision_gd_config)
+            self.apply_config(decision_config=self.decision_gd_config)
             self.loss_function = "softmax"
             self.decision_name = "decision_gd"
             self.link_decision(self.evaluator)
@@ -724,6 +731,7 @@ class ImagenetAEWorkflow(StandardWorkflow):
             prev_gd = self.evaluator
             prev = None
             gds = []
+
             for i in range(len(self.forwards) - 1, i_fwd - 1, -1):
                 __, kwargs, _ = self._get_layer_type_kwargs(
                     self.forwards[i].layer)
@@ -767,9 +775,15 @@ class ImagenetAEWorkflow(StandardWorkflow):
             prev = self.rollback
 
             if self.is_standalone:
-                err_plot = self.link_error_plotter(prev)
-                last_input = self.link_weights_plotter("input", err_plot)
-                prev = self.link_weights_plotter("weights", last_input)
+                for unit in self.mse_plotter:
+                    unit.unlink_all()
+                    self.del_ref(unit)
+                for weights_input in ("weights", "input", "output"):
+                    name = "ae_weights_plotter_%s" % weights_input
+                    self.unlink_unit(name)
+                self.unlink_unit("plt_deconv")
+                prev = self.link_error_plotter(prev)
+                # prev = self.link_weights_plotter("weights", err_plot)
 
             self.gds[-1].link_from(prev)
             self.link_lr_adjuster(self.gds[0])
