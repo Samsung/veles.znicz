@@ -38,8 +38,8 @@ from veles.config import root
 
 root.stl.publisher.backends = {"confluence": {
     "server": "http://confluence.rnd.samsung.ru",
-    "username": "al-jenkins", "password": "jenkins",
-    "space": "VEL", "parent": "Veles"}}
+    "username": "user", "password": "password",
+    "space": "SPACE", "parent": "Veles"}}
 
 root.stl.update({
     "loader_name": "full_batch_stl_10",

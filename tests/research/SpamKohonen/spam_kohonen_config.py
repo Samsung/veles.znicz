@@ -38,7 +38,6 @@ under the License.
 import os
 from veles.config import root
 
-# FIXME(v.markovtsev): remove this when Kohonen is ported to CUDA
 root.common.engine.backend = "ocl"
 
 root.spam_kohonen.update({

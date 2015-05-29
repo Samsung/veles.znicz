@@ -53,22 +53,11 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.loader as loader
-import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 
 
 sys.path.append(os.path.dirname(__file__))
 from .loader_mnist import MnistLoader
-
-
-root.mnist7.update({
-    "decision": {"fail_iterations": 25, "max_epochs": 1000000},
-    "snapshotter": {"prefix": "mnist7"},
-    "loader": {"minibatch_size": 60, "force_numpy": False},
-    "weights_plotter": {"limit": 25},
-    "learning_rate": 0.0000016,
-    "weights_decay": 0.00005,
-    "layers": [100, 100, 7]})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -223,18 +212,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
                                        else Bool(False))
         self.plt[0].clear_plot = True
         self.plt[0].gate_block = self.decision.complete
-        # Weights plotter
-        # """
-        self.plt_mx = nn_plotting_units.Weights2D(
-            self, name="First Layer Weights",
-            limit=root.mnist7.weights_plotter.limit)
-        self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
-        self.plt_mx.input_field = "mem"
-        self.plt_mx.link_attrs(self.forwards[0], ("get_shape_from", "input"))
-        self.plt_mx.link_from(self.decision)
-        self.plt_mx.gate_block = \
-            ~self.decision.epoch_ended | self.decision.complete
-        # """
+
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]

@@ -291,10 +291,6 @@ class ImagenetAEWorkflow(StandardWorkflow):
         else:
             self.decision.max_epochs += self.add_epochs
         self.decision.complete <<= False
-        self.generate_graph(
-            filename="/home/lpodoynitsina/Desktop/imagenet5.png",
-            with_data_links=True,
-            background='white')
         self.info("Set decision.max_epochs to %d and complete=False",
                   self.decision.max_epochs)
         super(ImagenetAEWorkflow, self).initialize(device, **kwargs)
@@ -739,9 +735,11 @@ class ImagenetAEWorkflow(StandardWorkflow):
     def add_ae_plotters(self, prev, last_conv, last_ae):
         if not self.is_standalone:
             return prev
-        for unit in self.mse_plotter:
-            unit.unlink_all()
-            self.del_ref(unit)
+        if hasattr(self, "mse_plotter"):
+            for unit in self.mse_plotter:
+                unit.unlink_all()
+                self.del_ref(unit)
+            del self.mse_plotter[:]
         last_mse = self.link_mse_plotter(prev)
         last_weights = self.link_ae_weights_plotter(
             "weights", last_conv, last_ae, last_mse)

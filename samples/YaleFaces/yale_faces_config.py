@@ -45,8 +45,7 @@ root.common.disable.publishing = True
 root.yalefaces.publisher.backends = {"confluence": {
     "server": "http://confluence",
     "username": "user", "password": "password",
-    "space": "SPACE", "parent": "Veles",
-    "path_to_save": os.path.join(root.common.cache_dir, "model_info")}}
+    "space": "SPACE", "parent": "Veles"}}
 
 root.yalefaces.update({
     "downloader": {

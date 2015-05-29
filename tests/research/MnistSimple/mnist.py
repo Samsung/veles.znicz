@@ -161,9 +161,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
             self.gds[i].gate_skip = self.decision.gd_skip
         self.gds[0].need_err_input = False
 
-        """
-        Record gradient statistics.
-
+        # Record gradient statistics.
         from veles.znicz.diff_stats import DiffStats
         self.diff_stats = DiffStats(
             self, arrays={u: ("gradient_weights",) for u in self.gds},
@@ -172,9 +170,6 @@ class MnistWorkflow(nn_units.NNWorkflow):
         self.diff_stats.gate_skip = self.decision.gd_skip
 
         self.repeater.link_from(self.diff_stats)
-        """
-
-        self.repeater.link_from(self.gds[0])
         self.repeater.gate_block = self.decision.complete
 
         self.end_point.link_from(self.gds[0])

@@ -92,7 +92,7 @@ class CifarWorkflow(StandardWorkflow):
                 "weights", self.decision))
 
             self.link_gds(*end_units)
-            last = self.link_table_plotter(self.gds[0])
+            last = self.gds[0]
         else:
             last = self.link_gds(*end_units)
         if root.cifar.lr_adjuster.do:

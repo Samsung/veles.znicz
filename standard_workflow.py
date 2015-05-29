@@ -1587,7 +1587,7 @@ class StandardWorkflow(StandardWorkflowBase):
             self, **self.config.data_saver).link_from(*parents).link_attrs(
             self.loader, "shuffle_limit", "minibatch_class", "minibatch_data",
             "minibatch_labels", "class_lengths", "max_minibatch_size",
-            "minibatch_size")
+            "has_labels", "minibatch_size")
         return self.data_saver
 
     def _check_forwards(self):

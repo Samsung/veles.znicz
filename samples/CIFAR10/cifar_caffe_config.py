@@ -80,7 +80,7 @@ root.cifar.update({
                "shuffle_limit": 2000000000,
                "force_numpy": False},
     "softmax": {"error_function_avr": True},
-    "weights_plotter": {"limit": 64},
+    "weights_plotter": {"limit": 256},
     "similar_weights_plotter": {"form_threshold": 1.1, "peak_threshold": 0.5,
                                 "magnitude_threshold": 0.65},
     "layers": [{"name": "conv1",

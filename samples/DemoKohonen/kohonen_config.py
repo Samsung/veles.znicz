@@ -38,7 +38,7 @@ under the License.
 import os
 from veles.config import root, get
 
-
+root.common.engine.backend = "ocl"
 data_path = os.path.abspath(get(
     root.kohonen.loader.base, os.path.dirname(__file__)))
 

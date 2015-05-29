@@ -56,6 +56,7 @@ root.imagenet.lr_adjuster.bias_lr_parameters = {
     "lrs_with_lengths":
     [(1, 100000), (0.1, 100000), (0.1, 100000), (0.01, 100000000)]}
 
+
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
                  "max_epochs": 10000000},
@@ -65,6 +66,13 @@ root.imagenet.update({
                                  "AlexNet/snapshots"),
                     "interval": 1, "time_interval": 0},
     "add_plotters": True,
+    "image_saver": {"out_dirs":
+                    [os.path.join(root.common.datasets_root,
+                                  "AlexNet/image_saver/test"),
+                     os.path.join(root.common.datasets_root,
+                                  "AlexNet/image_saver/validation"),
+                     os.path.join(root.common.datasets_root,
+                                  "AlexNet/image_saver/train")]},
     "lr_adjuster": {"lr_policy_name": "arbitrary_step",
                     "bias_lr_policy_name": "arbitrary_step"},
     "loss_function": "softmax",

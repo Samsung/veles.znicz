@@ -55,25 +55,6 @@ sys.path.append(os.path.dirname(__file__))
 from .loader_mnist import MnistLoader
 
 
-root.mnist_ae.update({
-    "all2all": {"weights_stddev": 0.05},
-    "decision": {"fail_iterations": 20,
-                 "max_epochs": 1000000000},
-    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compression": ""},
-    "loader": {"minibatch_size": 100, "force_numpy": False,
-               "normalization_type": "linear"},
-    "learning_rate": 0.000001,
-    "weights_decay": 0.00005,
-    "gradient_moment": 0.00001,
-    "weights_plotter": {"limit": 16},
-    "pooling": {"kx": 3, "ky": 3, "sliding": (2, 2)},
-    "include_bias": False,
-    "unsafe_padding": True,
-    "n_kernels": 5,
-    "kx": 5,
-    "ky": 5})
-
-
 class MnistAELoader(MnistLoader):
     def load_data(self):
         super(MnistAELoader, self).load_data()
@@ -149,7 +130,6 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
 
         unit = NNSnapshotter(
             self, prefix=root.mnist_ae.snapshotter.prefix,
-            directory=root.common.snapshot_dir,
             compression=root.mnist_ae.snapshotter.compression,
             time_interval=root.mnist_ae.snapshotter.time_interval,
             interval=root.mnist_ae.snapshotter.interval)
