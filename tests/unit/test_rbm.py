@@ -60,8 +60,10 @@ class TestRBMUnits(AcceleratedTest):
         Raises:
             AssertLess: if unit output is wrong.
         """
-        test_data = scipy.io.loadmat(os.path.join(os.path.dirname(__file__),
-                                     '..', 'data', 'rbm_data', 'test_a2a.mat'))
+        data_path = os.path.join(
+            os.path.dirname(__file__), "..", "research/MnistRBM/rbm_data",
+            "test_a2a.mat")
+        test_data = scipy.io.loadmat(data_path)
         a2a = All2AllSigmoid(self.parent, output_sample_shape=196,
                              weights_stddev=0.05)
         # add initialize and input
@@ -88,9 +90,10 @@ class TestRBMUnits(AcceleratedTest):
         # add initialize and input
         b1.input = Array()
         b1.input.reset()
-        test_data = scipy.io.loadmat(
-            os.path.join(os.path.dirname(__file__),
-                         '..', 'data', 'rbm_data', 'test_bino.mat'))
+        data_path = os.path.join(
+            os.path.dirname(__file__), "..", "research/MnistRBM/rbm_data",
+            "test_bino.mat")
+        test_data = scipy.io.loadmat(data_path)
         v1 = test_data["v1"]
         v1bino = test_data["v1bino"]
         b1.input.mem = v1
@@ -105,9 +108,10 @@ class TestRBMUnits(AcceleratedTest):
 
     def test_EvaluatorRBM(self):
         evl = rbm.EvaluatorRBM(self.parent, bias_shape=196)
-        test_data = scipy.io.loadmat(
-            os.path.join(os.path.dirname(__file__),
-                         '..', 'data', 'rbm_data', 'test_eval.mat'))
+        data_path = os.path.join(
+            os.path.dirname(__file__), "..", "research/MnistRBM/rbm_data",
+            "test_eval.mat")
+        test_data = scipy.io.loadmat(data_path)
         evl.input = Array()
         evl.input.mem = test_data["h"]
         evl.weights = Array()
@@ -131,9 +135,10 @@ class TestRBMUnits(AcceleratedTest):
         gds.weights = Array()
         gds.vbias = Array()
         gds.hbias = Array()
-        grad_data = scipy.io.loadmat(
-            os.path.join(os.path.dirname(__file__),
-                         '..', 'data', 'rbm_data', 'test_grad.mat'))
+        data_path = os.path.join(
+            os.path.dirname(__file__), "..", "research/MnistRBM/rbm_data",
+            "test_grad.mat")
+        grad_data = scipy.io.loadmat(data_path)
         gds.input.reset()
         gds.input.mem = numpy.zeros((128, 1000),
                                     dtype=numpy.float64)
@@ -165,9 +170,10 @@ class TestRBMUnits(AcceleratedTest):
         # will make initialization for crated Arrays and make map_read
         # and map_write
         bw = rbm.BatchWeights(self.parent)
-        test_data = scipy.io.loadmat(
-            os.path.join(os.path.dirname(__file__),
-                         '..', 'data', 'rbm_data', 'test_batchWeights.mat'))
+        data_path = os.path.join(
+            os.path.dirname(__file__), "..", "research/MnistRBM/rbm_data",
+            "test_batchWeights.mat")
+        test_data = scipy.io.loadmat(data_path)
         bw.batch_size = 128
         bw.v = Array()
         bw.h = Array()
@@ -188,9 +194,10 @@ class TestRBMUnits(AcceleratedTest):
         self.assertLess(diff3, 1e-12, " total error  is %0.17f" % diff3)
 
     def test_GradientsCalculator(self):
-        test_data = scipy.io.loadmat(
-            os.path.join(os.path.dirname(__file__),
-                         '..', 'data', 'rbm_data', 'test_makeGrad.mat'))
+        data_path = os.path.join(
+            os.path.dirname(__file__), "..", "research/MnistRBM/rbm_data",
+            "test_makeGrad.mat")
+        test_data = scipy.io.loadmat(data_path)
         mg = rbm.GradientsCalculator(self.parent)
         mg.hbias1 = Array()
         mg.vbias1 = Array()
@@ -216,9 +223,10 @@ class TestRBMUnits(AcceleratedTest):
             self.assertLess(v, 1e-12, " total error  is %0.17f" % v)
 
     def test_UpdateWeights(self):
-        test_data = scipy.io.loadmat(
-            os.path.join(os.path.dirname(__file__),
-                         '..', 'data', 'rbm_data', 'test_updateWeights.mat'))
+        data_path = os.path.join(
+            os.path.dirname(__file__), "..", "research/MnistRBM/rbm_data",
+            "test_updateWeights.mat")
+        test_data = scipy.io.loadmat(data_path)
         uw = rbm.WeightsUpdater(self.parent, learning_rate=0.001)
         uw.weights = Array()
         uw.weights.mem = test_data["W_old"]
