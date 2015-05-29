@@ -124,7 +124,7 @@ class TestChannels(StandardTest):
         file_name = workflow.snapshotter.file_name
 
         err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, 19)
+        self.assertEqual(err, 18)
         self.assertEqual(3, workflow.loader.epoch_number)
 
         # Garbage collection
@@ -154,7 +154,7 @@ class TestChannels(StandardTest):
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
         # PIL Image for python2 and PIL for python3 returns different values
-        self.assertEqual(err, 15 if PY3 else 14)
+        self.assertEqual(err, 11 if PY3 else 11)
         self.assertEqual(4, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 

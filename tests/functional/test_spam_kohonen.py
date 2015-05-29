@@ -47,8 +47,11 @@ root.common.engine.backend = "ocl"
 class TestSpamKohonen(StandardTest):
     @classmethod
     def setUpClass(cls):
+        root.spam_kohonen.loader.validation_ratio = 0.0
         root.spam_kohonen.update({
-            "forward": {"shape": (8, 8)},
+            "forward": {"shape": (8, 8),
+                        "weights_stddev": 0.05,
+                        "weights_filling": "uniform"},
             "decision": {"epochs": 5},
             "downloader": {
                 "url":

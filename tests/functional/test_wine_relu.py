@@ -34,6 +34,8 @@ under the License.
 """
 
 
+import os
+
 from veles.config import root
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
@@ -54,7 +56,10 @@ class TestWineRelu(StandardTest):
             "snapshotter": {"prefix": "wine_relu", "interval": 1,
                             "time_interval": 0},
             "loader_name": "wine_loader",
-            "loader": {"minibatch_size": 10, "force_numpy": False},
+            "loader": {"minibatch_size": 10, "force_numpy": False,
+                       "dataset_file":
+                       os.path.join(root.common.datasets_root,
+                                    "wine/wine.txt.gz")},
             "layers": [{"type": "all2all_relu",
                         "->": {"output_sample_shape": 10},
                         "<-": {"learning_rate": 0.03, "weights_decay": 0.0}},
@@ -77,15 +82,13 @@ class TestWineRelu(StandardTest):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.initialize(
-            learning_rate=root.wine_relu.learning_rate,
-            weights_decay=root.wine_relu.weights_decay,
             device=self.device, snapshot=False)
         workflow.run()
         self.assertIsNone(workflow.thread_pool.failure)
 
         epoch = workflow.decision.epoch_number
         self.info("Converged in %d epochs", epoch)
-        self.assertEqual(epoch, 161)
+        self.assertEqual(epoch, 146)
         self.info("All Ok")
 
 

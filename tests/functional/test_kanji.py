@@ -52,10 +52,10 @@ class TestKanji(StandardTest):
                                         root.common.veles_dir,
                                         dtype=numpy.uint32, count=1024))
         train_path = os.path.join(root.common.datasets_root,
-                                  "new_kanji/train")
+                                  "kanji/train")
 
         target_path = os.path.join(root.common.datasets_root,
-                                   "new_kanji/target")
+                                   "kanji/target")
 
         root.kanji.update({
             "decision": {"fail_iterations": 1000,
