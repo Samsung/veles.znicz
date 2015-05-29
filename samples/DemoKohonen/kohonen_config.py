@@ -39,8 +39,10 @@ import os
 from veles.config import root, get
 
 root.common.engine.backend = "ocl"
-data_path = os.path.abspath(get(
-    root.kohonen.loader.base, os.path.dirname(__file__)))
+data_path = "/usr/share/veles/data"
+if not os.path.exists(data_path):
+    data_path = os.path.abspath(get(
+        root.kohonen.loader.base, os.path.dirname(__file__)))
 
 root.kohonen.update({
     "forward": {"shape": (8, 8),

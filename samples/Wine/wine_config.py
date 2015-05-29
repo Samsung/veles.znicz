@@ -37,12 +37,16 @@ under the License.
 
 
 import os
-from veles.config import root
+from veles.config import root, get
 
 
 root.common.update = {"disable.plotting": True}
 
-data_path = os.path.abspath(os.path.dirname(__file__))
+root.common.engine.backend = "ocl"
+data_path = "/usr/share/veles/data"
+if not os.path.exists(data_path):
+    data_path = os.path.abspath(get(
+        root.wine.loader.base, os.path.dirname(__file__)))
 
 
 root.wine.update({
