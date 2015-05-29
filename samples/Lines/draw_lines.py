@@ -13,7 +13,7 @@ Created on Jun 26, 2014
 This script makes a synthetic dataset with different simple figures
 
 .. argparse::
-   :module: utils.draw_lines
+   :module: veles.znicz.samples.Lines.draw_lines
    :func: create_commandline_parser
    :prog: draw_lines
 
@@ -45,7 +45,7 @@ import cv2
 from enum import IntEnum
 import logging
 from math import sin, cos, pi
-import numpy as np
+import numpy
 from numpy.random import uniform, randint
 import os
 import shutil
@@ -93,9 +93,9 @@ def pick_color():
     saturation = randint(low=10, high=255)
     value = randint(low=10, high=255)
 
-    hsv = np.uint8([[[hue, saturation, value]]])
+    hsv = numpy.uint8([[[hue, saturation, value]]])
     [b, g, r] = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)[0, 0]
-    return np.array([b, g, r])
+    return numpy.array([b, g, r])
 
 
 def draw_line(img, start_point, stop_point, color, thickness):
@@ -219,17 +219,17 @@ def draw_angle(img, thickness, radius, angle, clearance, bgr_color):
     x_center = randint(low=clearance, high=(w - 1) - clearance)
     y_center = randint(low=0 + clearance, high=(h - 1) - clearance)
 
-    start_angle = uniform(low=0, high=2 * np.pi)
+    start_angle = uniform(low=0, high=2 * numpy.pi)
     stop_angle = start_angle + angle
 
-    x_start = int(x_center + radius * np.cos(start_angle))
-    y_start = int(y_center + radius * np.sin(start_angle))
+    x_start = int(x_center + radius * numpy.cos(start_angle))
+    y_start = int(y_center + radius * numpy.sin(start_angle))
 
-    x_stop = int(x_center + radius * np.cos(stop_angle))
-    y_stop = int(y_center + radius * np.sin(stop_angle))
+    x_stop = int(x_center + radius * numpy.cos(stop_angle))
+    y_stop = int(y_center + radius * numpy.sin(stop_angle))
 
-    pts = np.array([[x_start, y_start], [x_center, y_center],
-                    [x_stop, y_stop]], np.int32)
+    pts = numpy.array([[x_start, y_start], [x_center, y_center],
+                       [x_stop, y_stop]], numpy.int32)
 
     cv2.polylines(img, [pts], False, [b, g, r], thickness=thickness)
 
@@ -244,17 +244,17 @@ def draw_triangle(img, thickness, radius, clearance, bgr_color):
     y_center = randint(low=0 + clearance + radius,
                        high=(h - 1) - clearance - radius)
 
-    start_angle = uniform(low=0, high=2 * np.pi)
+    start_angle = uniform(low=0, high=2 * numpy.pi)
     points = []
     for i in range(3):
-        angle = np.pi * 2. / 3. * i
-        x = np.cos(angle)
-        y = np.sin(angle)
+        angle = numpy.pi * 2. / 3. * i
+        x = numpy.cos(angle)
+        y = numpy.sin(angle)
         points.append([x, y])
 
     points = warped_polyline(points, [x_center, y_center], start_angle, 40)
 
-    points = np.array(points, np.int32)
+    points = numpy.array(points, numpy.int32)
 
     cv2.polylines(img, [points], True, [b, g, r], thickness=thickness)
 
@@ -269,15 +269,15 @@ def draw_square(img, thickness, radius, clearance, bgr_color):
     y_center = randint(low=0 + clearance + radius,
                        high=(h - 1) - clearance - radius)
 
-    start_angle = uniform(low=0, high=2 * np.pi)
+    start_angle = uniform(low=0, high=2 * numpy.pi)
     points = []
     for i in range(4):
-        angle = start_angle + np.pi * 2. / 4. * i
-        x = int(x_center + radius * np.cos(angle))
-        y = int(y_center + radius * np.sin(angle))
+        angle = start_angle + numpy.pi * 2. / 4. * i
+        x = int(x_center + radius * numpy.cos(angle))
+        y = int(y_center + radius * numpy.sin(angle))
         points.append([x, y])
 
-    points = np.array(points, np.int32)
+    points = numpy.array(points, numpy.int32)
 
     cv2.polylines(img, [points], True, [b, g, r], thickness=thickness)
 
@@ -299,13 +299,13 @@ def draw_sinusoid(img, thickness, radius, clearance, bgr_color):
     x_center = randint(low=clearance, high=(w - 1) - clearance)
     y_center = randint(low=0 + clearance, high=(h - 1) - clearance)
 
-    start_angle = uniform(low=0, high=2 * np.pi)
+    start_angle = uniform(low=0, high=2 * numpy.pi)
 
-    x_points = np.linspace(-pi / 2, pi / 2, 100)
+    x_points = numpy.linspace(-pi / 2, pi / 2, 100)
     points = [[x / (pi / 2), sin(4 * x)] for x in x_points]
 
     points = warped_polyline(points, [x_center, y_center], start_angle, 40)
-    points = np.array(points, np.int32)
+    points = numpy.array(points, numpy.int32)
 
     cv2.polylines(img, [points], False, [b, g, r], thickness=thickness)
 
@@ -328,7 +328,7 @@ def warped_polyline(points, pos, rot, scale):
         x_new = x_new * scale + pos[0]
         y_new = y_new * scale + pos[1]
         new_points.append([x_new, y_new])
-    return np.array(new_points)
+    return numpy.array(new_points)
 
 
 class ImageGenerator(object):
@@ -371,7 +371,7 @@ class ImageGenerator(object):
         n_lines = 10
         color = pick_color()
 
-        img = np.zeros(shape=(h, w, 3), dtype=np.uint8)
+        img = numpy.zeros(shape=(h, w, 3), dtype=numpy.uint8)
 
         thickness = randint(low=min_line_width, high=max_line_width)
         blur_radius = randint(
@@ -410,10 +410,10 @@ class ImageGenerator(object):
 
         # NOISE
         if self._noise_amp > 0:
-            noise = np.random.normal(loc=0, scale=self._noise_amp,
-                                     size=img.shape)
-            img = np.clip(img.astype(dtype=np.float32) + noise, 0,
-                          255).astype(dtype=np.uint8)
+            noise = numpy.random.normal(loc=0, scale=self._noise_amp,
+                                        size=img.shape)
+            img = numpy.clip(img.astype(dtype=numpy.float32) + noise, 0,
+                             255).astype(dtype=numpy.uint8)
 
         # INVERT
         if self._invert:

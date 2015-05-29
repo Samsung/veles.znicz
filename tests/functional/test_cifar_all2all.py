@@ -40,7 +40,7 @@ from veles.config import root
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
-import veles.znicz.tests.research.CIFAR10.cifar as cifar
+import veles.znicz.samples.CIFAR10.cifar as cifar
 
 
 class TestCifarAll2All(StandardTest):
