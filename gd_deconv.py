@@ -85,7 +85,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._local_size_err_input = None
         self._global_size_weights = None
         self._local_size_weights = None
-        self.reduce_size = 64
+        self.reduce_size = self.REDUCE_SIZE
         self.hits = None
         self.krn_err_output_ = None
         self.krn_err_input_ = None

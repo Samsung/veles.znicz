@@ -300,6 +300,8 @@ class GradientDescentBase(AcceleratedUnit):
     hide_from_registry = True
     MAPPING = set()
 
+    REDUCE_SIZE = 64  # used for updating bias
+
     OP_NONE = 0
     OP_STORE = 1
     OP_ADD = 2

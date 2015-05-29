@@ -92,7 +92,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
 
     def __init__(self, workflow, **kwargs):
         super(GradientDescentConv, self).__init__(workflow, **kwargs)
-        self.reduce_size = 64
+        self.reduce_size = self.REDUCE_SIZE
         self.cl_const = None
         self.krn_err_input_clear_ = None
         self.krn_err_input_ = None

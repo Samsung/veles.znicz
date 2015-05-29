@@ -134,7 +134,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         s = kwargs.get("solvers", set())
         self.solvers = s
 
-        self.reduce_size = 64
+        self.reduce_size = self.REDUCE_SIZE
         self.cl_const = None
         self.krn_err_input_ = None
         self.krn_weights_ = None
