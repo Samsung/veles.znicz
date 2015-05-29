@@ -39,8 +39,11 @@ under the License.
 from collections import namedtuple
 import numpy
 from numpy.linalg import norm
-import scipy.signal
-import scipy.stats
+try:
+    import scipy.signal
+    import scipy.stats
+except ImportError:
+    pass
 
 
 from veles.znicz.nn_plotting_units import Weights2D

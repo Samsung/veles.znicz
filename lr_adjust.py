@@ -39,7 +39,10 @@ from __future__ import division
 
 from math import floor
 import six
-from scipy.interpolate import interp1d
+try:
+    from scipy.interpolate import interp1d
+except ImportError:
+    pass
 from zope.interface import implementer, Interface
 
 from veles.units import IUnit, Unit
