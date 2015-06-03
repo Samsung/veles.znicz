@@ -105,21 +105,22 @@ class ImagenetLoader(loader.Loader):
             raise OSError(
                 "original_labels_filename %s does not exist or None."
                 " Please specify path to file with labels. If you don't have "
-                "pickle with labels, generate it with preparation_imagenet.py")
+                "pickle with labels, generate it with preparation_imagenet.py"
+                % self.original_labels_filename)
         if (not os.path.exists(self.count_samples_filename) or
                 self.count_samples_filename is None):
             raise OSError(
                 "count_samples_filename %s does not exist or None. Please "
                 "specify path to file with count of samples. If you don't "
                 "have json file with count of samples, generate it with "
-                "preparation_imagenet.py")
+                "preparation_imagenet.py" % self.count_samples_filename)
         if (not os.path.exists(self.samples_filename) or
                 self.samples_filename is None):
             raise OSError(
                 "samples_filename %s does not exist or None. Please "
                 "specify path to file with samples. If you don't "
                 "have dat file with samples, generate it with "
-                "preparation_imagenet.py")
+                "preparation_imagenet.py" % self.samples_filename)
         with open(self.original_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
                 self.original_labels.append(lbl)

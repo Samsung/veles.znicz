@@ -141,28 +141,29 @@ class ImagenetAELoader(loader.Loader):
             raise OSError(
                 "names_labels_filename %s does not exist or None."
                 " Please specify path to file with labels. If you don't have "
-                "pickle with labels, generate it with preparation_imagenet.py")
+                "pickle with labels, generate it with preparation_imagenet.py"
+                % self.names_labels_filename)
         if (not os.path.exists(self.count_samples_filename) or
                 self.count_samples_filename is None):
             raise OSError(
                 "count_samples_filename %s does not exist or None. Please "
                 "specify path to file with count of samples. If you don't "
                 "have json file with count of samples, generate it with "
-                "preparation_imagenet.py")
+                "preparation_imagenet.py" % self.count_samples_filename)
         if (not os.path.exists(self.samples_filename) or
                 self.samples_filename is None):
             raise OSError(
                 "samples_filename %s does not exist or None. Please "
                 "specify path to file with samples. If you don't "
                 "have dat file with samples, generate it with "
-                "preparation_imagenet.py")
+                "preparation_imagenet.py" % self.samples_filename)
         if (not os.path.exists(self.matrixes_filename) or
                 self.matrixes_filename is None):
             raise OSError(
                 "matrixes_filename %s does not exist or None. Please "
                 "specify path to file with mean and disp matrixes. If you "
                 "don't have pickle file with mean and disp matrixes, generate"
-                " it with preparation_imagenet.py")
+                " it with preparation_imagenet.py" % self.matrixes_filename)
 
         with open(self.names_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
@@ -174,8 +175,9 @@ class ImagenetAELoader(loader.Loader):
                   len(self.original_labels))
 
         with open(self.count_samples_filename, "r") as fin:
-            for i, n in enumerate(json.load(fin)):
-                self.class_lengths[i] = n
+            for key, value in (json.load(fin)).items():
+                set_type = {"test": 0, "val": 1, "train": 2}
+                self.class_lengths[set_type[key]] = value
         self.info("Class Lengths: %s", str(self.class_lengths))
 
         if self.total_samples != len(self.original_labels):
@@ -197,8 +199,7 @@ class ImagenetAELoader(loader.Loader):
         if self.mean.shape[0] != self.sy or self.mean.shape[1] != self.sx:
             raise ValueError("mean.shape != (%d, %d)" % (self.sy, self.sx))
 
-        self.file_samples = open(self.samples_filename,
-                                 "rb")
+        self.file_samples = open(self.samples_filename, "rb")
         if (self.file_samples.seek(0, 2) // (self.sx * self.sy * 4) !=
                 len(self.original_labels)):
             raise error.Bug("Wrong data file size")

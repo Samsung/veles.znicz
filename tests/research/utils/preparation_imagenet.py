@@ -12,7 +12,16 @@
 Created on Dec 10, 2014
 
 This script to work with Imagenet dataset. AlexNet workflow works with
-"img" files. ImagenetAE workflow works with "DET" files.
+"img" files. ImagenetAE workflow works with "DET" files. First, select the
+challenge in "series" partameter: "DET" for detection imagenet challenge,
+"img" for classification and localization challenge. Second, select folder with
+Imagenet dataset in "root_path" parameter. Please make sure,
+that parameter "rect" is correct. It is (216, 216) for "DET" challenge
+in standard configuration. It is (256, 256) for "img" challenge in standard
+configuration. Then, run "init_dataset" command to save in json all
+information about dataset. Second, run "save_dataset_to_file" command, which
+generates pickles and .dat files for Imagenet Pickle Loader.
+If you want tro check the result, run "test_load_data" command.
 
 ███████████████████████████████████████████████████████████████████████████████
 
@@ -100,12 +109,12 @@ root.prep_imagenet.update({
         root.prep_imagenet.root_path,
         "count_samples_%s_%s.json"
         % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
-    "rect": (256, 256),
+    "rect": (216, 216),
     "channels": 3,
     "get_label": "all_ways",
     # "from_image_name" "from_image_path" "from_xml" "all_ways"
     "get_label_from_txt_label": True,
-    "command_to_run": "save_dataset_to_file"
+    "command_to_run": "test_load_data"
     # "save_dataset_to_file" "init_dataset" "test_load_data"
 })
 
@@ -124,9 +133,22 @@ root.prep_imagenet.MAPPING = {
             "test": ("ILSVRC2013_DET_test", "")}}}
 
 
-class Main(Processor):
+class PreparationImagenet(Processor):
+    """
+    This script to work with Imagenet dataset. AlexNet workflow works with
+"img" files. ImagenetAE workflow works with "DET" files. First, select the
+challenge in "series" partameter: "DET" for detection imagenet challenge,
+"img" for classification and localization challenge. Second, select folder with
+Imagenet dataset in "root_path" parameter. Please make sure,
+that parameter "rect" is correct. It is (216, 216) for "DET" challenge
+in standard configuration. It is (256, 256) for "img" challenge in standard
+configuration. Then, run "init_dataset" command to save in json all
+information about dataset. Second, run "save_dataset_to_file" command, which
+generates pickles and .dat files for Imagenet Pickle Loader.
+If you want tro check the result, run "test_load_data" command.
+    """
     def __init__(self, **kwargs):
-        super(Main, self).__init__(**kwargs)
+        super(PreparationImagenet, self).__init__(**kwargs)
         self.rect = kwargs.get("rect", root.prep_imagenet.rect)
         self.root_name = root.prep_imagenet.root_name
         self.series = root.prep_imagenet.series
@@ -475,6 +497,7 @@ class Main(Processor):
         assert dst_x_max <= nn_width and dst_y_max <= nn_height
         if mean is not None:
             sample = mean.copy()
+            sample = sample.astype(numpy.uint8)
             sample[dst_y_min:dst_y_max, dst_x_min:dst_x_max] = img
             return sample
         self.s_sum[dst_y_min:dst_y_max, dst_x_min:dst_x_max] += img
@@ -503,22 +526,22 @@ class Main(Processor):
             w_size = bbx["width"]
             label = bbx["label"]
             if h_size >= 8 and w_size >= 8 and h_size * w_size >= 256:
-                self.prep_and_save_sample(image, x, y, h_size,
-                                          w_size, mean)
                 path_to_labels_word = os.path.join(
-                    root.prep_imagenet.root_path,
-                    "classes_200_2014_DET.json")
+                    root.prep_imagenet.root_path, "classes_200_2014_DET.json")
                 with open(path_to_labels_word, 'r') as fp:
                     int_word_labels = json.load(fp)
                 for (int_label, word_label) in int_word_labels:
                     if label == word_label:
                         self.original_labels.append(int_label)
+                sample = self.prep_and_save_sample(
+                    image, x, y, h_size, w_size, mean)
+                sample.tofile(self.file_samples)
                 self.count_samples[set_type] += 1
 
     def prep_and_save_sample(self, image, x, y, h, w, mean):
         sample = self.preprocess_sample(image)
         sample = self.sample_rect(sample, x, y, h, w, mean)
-        sample.tofile(self.file_samples)
+        return sample
 
     def preprocess_sample(self, data):
         if self._include_derivative:
@@ -554,6 +577,15 @@ class Main(Processor):
         original_data_dir = root.prep_imagenet.file_original_data
         original_labels_dir = root.prep_imagenet.file_original_labels
         count_samples_dir = root.prep_imagenet.file_count_samples
+        self.info(
+            "Will remove old files:\n %s\n %s\n %s\n" %
+            (original_data_dir, original_labels_dir, count_samples_dir))
+        if os.path.exists(original_data_dir):
+            os.remove(original_data_dir)
+        if os.path.exists(original_labels_dir):
+            os.remove(original_labels_dir)
+        if os.path.exists(count_samples_dir):
+            os.remove(count_samples_dir)
         self.file_samples = open(original_data_dir, "wb")
         if self.series == "DET":
             set_type = TRAIN
@@ -576,6 +608,7 @@ class Main(Processor):
             mean, rdisp = self.transform_matrixes(self.s_sum, self.s_count)
         else:
             mean = None
+        self.info("Mean image was calculated")
         for set_type in (TEST, VALIDATION, TRAIN):
             images_file_name = os.path.join(
                 self.root_path,
@@ -720,7 +753,10 @@ class Main(Processor):
                 label_word = word
         self.info("categories %s" % label_word)
         self.file_samples = open(path_data, "rb")
-        sample = numpy.zeros([256, 256, 3], dtype=numpy.uint8)
+        if self.series == "DET":
+            sample = numpy.zeros([216, 216, 4], dtype=numpy.uint8)
+        if self.series == "img":
+            sample = numpy.zeros([256, 256, 3], dtype=numpy.uint8)
         self.file_samples.seek(i * sample.nbytes)
         self.file_samples.readinto(sample)
         plt.imshow(sample[:, :, 0:3].copy(), interpolation="nearest")
@@ -750,4 +786,4 @@ class Main(Processor):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    sys.exit(Main().run())
+    sys.exit(PreparationImagenet().run())

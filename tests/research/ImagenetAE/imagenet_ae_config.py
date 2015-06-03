@@ -77,10 +77,10 @@ root.imagenet_ae.update({
     "lr_adjuster": {"lr_policy_name": "arbitrary_step",
                     "bias_lr_policy_name": "arbitrary_step"},
     "weights_plotter": {"limit": 256, "split_channels": False},
-    "loader": {"year": "2014",
+    "loader": {"year": "imagenet",
                "series": "DET",
                "minibatch_size": 120,
-               "path": "/export/home/imagenet",
+               "path": os.path.join(root.common.datasets_root, "AlexNet"),
                "sx": 216,
                "sy": 216},
     "image_saver": {"out_dirs":
@@ -207,14 +207,14 @@ root.imagenet_ae.snapshotter.prefix = (
 imagenet_data_path = os.path.join(
     imagenet_base_path, str(root.imagenet_ae.loader.year))
 root.imagenet_ae.loader.names_labels_filename = os.path.join(
-    imagenet_data_path, "original_labels_%s_%s_0.pickle" %
+    imagenet_data_path, "original_labels_%s_%s.pickle" %
     (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
 root.imagenet_ae.loader.count_samples_filename = os.path.join(
-    imagenet_data_path, "count_samples_%s_%s_0.json" %
+    imagenet_data_path, "count_samples_%s_%s.json" %
     (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
 root.imagenet_ae.loader.samples_filename = os.path.join(
-    imagenet_data_path, "original_data_%s_%s_0.dat" %
+    imagenet_data_path, "original_data_%s_%s.dat" %
     (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
 root.imagenet_ae.loader.matrixes_filename = os.path.join(
-    imagenet_data_path, "matrixes_%s_%s_0.pickle" %
+    imagenet_data_path, "matrixes_%s_%s.pickle" %
     (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
