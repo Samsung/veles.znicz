@@ -53,7 +53,7 @@ valid = os.path.join(root.common.datasets_root,
                      "lines_min/test")
 
 root.lines.mcdnnic_parameters = {
-    "<-": {"learning_rate": 0.03}}
+    "<-": {"learning_rate": 0.01}}
 
 root.lines.update({
     "loader_name": "full_batch_auto_label_file_image",

@@ -58,9 +58,9 @@ class LinesWorkflow(StandardWorkflow):
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
         end_units = [link(self.decision) for link in (self.link_snapshotter,
-                                                      self.link_image_saver,
                                                       self.link_error_plotter)]
-        gd = self.link_gds(*end_units)
+        self.link_image_saver(*end_units)
+        gd = self.link_gds(self.image_saver)
         self.link_table_plotter(gd)
         last_weights = self.link_weights_plotter(
             "gradient_weights", self.table_plotter)
