@@ -48,7 +48,8 @@ root.stl.update({
         "url": "http://ai.stanford.edu/~acoates/stl10/stl10_binary.tar.gz",
         "directory": root.common.datasets_root,
         "files": ["stl10_binary"]},
-    "decision": {"fail_iterations": 20, "max_epochs": 100},
+    "snapshotter": {"prefix": "stl10", "interval": 1, "time_interval": 0},
+    "decision": {"fail_iterations": 200, "max_epochs": 10000},
     "loader": {"directory":
                os.path.join(root.common.datasets_root, "stl10_binary"),
                "minibatch_size": 50,

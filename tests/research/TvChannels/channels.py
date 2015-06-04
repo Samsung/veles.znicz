@@ -1,3 +1,4 @@
+# -*-coding: utf-8 -*-
 """
 .. invisible:
      _   _ _____ _     _____ _____
@@ -7,9 +8,12 @@
     \ \_/ / |___| |___| |___/\__/ /
      \___/\____/\_____|____/\____/
 
-Created on May 12, 2015
+Created on Nov 14, 2014
 
-Workflow for recognition of objects with STL-10 database.
+Model created for object recognition (logotypes of TV channels).
+Dataset - Channels. Self-constructing Model. It means that Model can change for
+any Model (Convolutional, Fully connected, different parameters)
+in configuration file.
 
 ███████████████████████████████████████████████████████████████████████████████
 
@@ -34,19 +38,16 @@ under the License.
 """
 
 
-import os
-import sys
-
 from veles.config import root
 from veles.znicz.standard_workflow import StandardWorkflow
 
-sys.path.append(os.path.dirname(__file__))
-from .loader_stl import STL10FullBatchLoader  # pylint: disable=W0611
 
-
-class Stl10(StandardWorkflow):
+class ChannelsWorkflow(StandardWorkflow):
     """
-    Workflow for recognition of objects with STL-10 database.
+    Model created for object recognition (logotypes of TV channels).
+Dataset - Channels. Self-constructing Model. It means that Model can change for
+any Model (Convolutional, Fully connected, different parameters)
+in configuration file.
     """
     def create_workflow(self):
         self.link_downloader(self.start_point)
@@ -55,25 +56,23 @@ class Stl10(StandardWorkflow):
         self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
-        end_units = [link(self.decision) for link in
-                     (self.link_snapshotter, self.link_error_plotter,
-                      self.link_conf_matrix_plotter)]
-        end_units.append(self.link_weights_plotter("weights", self.decision))
-        self.link_gds(*end_units)
-        self.link_loop(self.gds[0])
-        self.link_publisher(self.gds[0])
-        self.link_end_point(self.publisher)
+        end_units = [link(self.decision) for link in (
+            self.link_snapshotter, self.link_error_plotter,
+            self.link_conf_matrix_plotter)]
+        self.link_image_saver(*end_units)
+        last_gd = self.link_gds(self.image_saver)
+        self.link_loop(last_gd)
+        self.link_end_point(last_gd)
 
 
 def run(load, main):
-    load(Stl10,
-         loader_name=root.stl.loader_name,
-         loss_function=root.stl.loss_function,
-         loader_config=root.stl.loader,
-         layers=root.stl.layers,
-         downloader_config=root.stl.downloader,
-         snapshotter_config=root.stl.snapshotter,
-         decision_config=root.stl.decision,
-         weights_plotter_config=root.stl.weights_plotter,
-         publisher_config=root.stl.publisher)
+    load(ChannelsWorkflow,
+         decision_config=root.channels.decision,
+         snapshotter_config=root.channels.snapshotter,
+         image_saver_config=root.channels.image_saver,
+         loader_config=root.channels.loader,
+         downloader_config=root.channels.downloader,
+         layers=root.channels.layers,
+         loader_name=root.channels.loader_name,
+         loss_function=root.channels.loss_function)
     main()

@@ -1,4 +1,4 @@
-# -*-coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 .. invisible:
      _   _ _____ _     _____ _____
@@ -8,9 +8,7 @@
     \ \_/ / |___| |___| |___/\__/ /
      \___/\____/\_____|____/\____/
 
-Created on Mar 20, 2013
-
-Config for Model for digits recognition. Database - MNIST. Model - autoencoder.
+Created on Dec 8, 2014
 
 ███████████████████████████████████████████████████████████████████████████████
 
@@ -33,26 +31,3 @@ under the License.
 
 ███████████████████████████████████████████████████████████████████████████████
 """
-
-
-from veles.config import root
-
-
-root.mnist_ae.update({
-    "all2all": {"weights_stddev": 0.05},
-    "decision": {"fail_iterations": 20,
-                 "max_epochs": 1000000000},
-    "snapshotter": {"prefix": "mnist_ae", "time_interval": 0,
-                    "compression": "", "interval": 1},
-    "loader": {"minibatch_size": 100, "force_numpy": False,
-               "normalization_type": "linear"},
-    "learning_rate": 0.000001,
-    "weights_decay": 0.00005,
-    "gradient_moment": 0.00001,
-    "weights_plotter": {"limit": 16},
-    "pooling": {"kx": 3, "ky": 3, "sliding": (2, 2)},
-    "include_bias": False,
-    "unsafe_padding": True,
-    "n_kernels": 5,
-    "kx": 5,
-    "ky": 5})

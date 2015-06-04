@@ -1,0 +1,16 @@
+{
+    "author": "VELES team",
+    "configuration": "channels_config.py",
+    "long_description": "Model created for object recognition (logotypes of TV channels). Dataset - Channels. Self-constructing Model. It means that Model can change for any Model (Convolutional, Fully connected, different parameters) in configuration file. You can find boxer, which automaticly find logotypes and generate dataset, in external file",
+    "name": "TvChannels",
+    "requires": [
+        "veles >= 0.8.2",
+        "veles.znicz >= 0.7.1"
+    ],
+    "short_description": "Model created for object recognition (logotypes of TV channels)",
+    "workflow": "channels.py",
+    "image": "channels.png",
+    "tags": ["channels", "self-constructing", "softmax", "fully-connected", "automaticly", "generating_dataset"],
+    "files": ["__init__.py"],
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/TvChannels/channels_0.92pt.4.pickle.gz"]
+}

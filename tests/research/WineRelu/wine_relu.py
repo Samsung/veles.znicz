@@ -64,6 +64,7 @@ def run(load, main):
     load(WineReluWorkflow, layers=root.wine_relu.layers,
          loader_name=root.wine_relu.loader_name,
          loader_config=root.wine_relu.loader,
+         snapshotter_config=root.wine_relu.snapshotter,
          downloader_config=root.wine_relu.downloader,
          loss_function="softmax")
     main()
