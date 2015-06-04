@@ -72,6 +72,9 @@ class LearningRateAdjust(Unit):
         self.lr_parameters = kwargs.get("lr_parameters", {})
         self.bias_lr_parameters = kwargs.get("bias_lr_parameters", {})
         self.notified = False
+        self.already_get_base_lr = False
+        self.base_lr = {}
+        self.base_lr_bias = {}
 
     def add_gd_unit(self, gd_unit):
         """
@@ -116,15 +119,20 @@ class LearningRateAdjust(Unit):
         if self.is_slave:
             return
 
+        if not self.already_get_base_lr:
+            for gd_unit in self._gd_units:
+                self.base_lr[gd_unit] = gd_unit.learning_rate
+                self.base_lr_bias[gd_unit] = gd_unit.learning_rate_bias
+            self.already_get_base_lr = True
         self.notified = False
 
         for gd_unit in self._gd_units:
             lr = self.adjust_learning_rate(
-                gd_unit.learning_rate, self.lr_policy_name, self.lr_parameters)
+                self.base_lr[gd_unit], self.lr_policy_name, self.lr_parameters)
             if lr is not None:
                 gd_unit.learning_rate = lr
             lr_bias = self.adjust_learning_rate(
-                gd_unit.learning_rate_bias, self.bias_lr_policy_name,
+                self.base_lr_bias[gd_unit], self.bias_lr_policy_name,
                 self.bias_lr_parameters)
             if lr_bias is not None:
                 gd_unit.learning_rate_bias = lr_bias
