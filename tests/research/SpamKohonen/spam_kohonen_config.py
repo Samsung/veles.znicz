@@ -54,7 +54,8 @@ root.spam_kohonen.update({
                "force_numpy": True,
                "ids": True,
                "classes": False,
-               "file": os.path.join(root.common.datasets_root, "spam/hist")},
+               "file":
+               os.path.join(root.common.datasets_root, "spam/spam.txt.xz")},
     "train": {"gradient_decay": lambda t: 0.002 / (1.0 + t * 0.00002),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00002)},
     "exporter": {"file": "classified_fast4.txt"}})
