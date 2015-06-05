@@ -11,5 +11,6 @@
     "tags": ["stl", "softmax", "fully-connected", "convolutional", "image"],
     "short_description": "Model for object recognition with STL10 database.",
     "workflow": "stl10.py",
-    "files": ["loader_stl.py"]
+    "files": ["loader_stl.py"],
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Stl10/stl10_37.59pt.4.pickle.gz"]
 }

@@ -12,5 +12,5 @@
     "image": "channels.png",
     "tags": ["channels", "self-constructing", "softmax", "fully-connected", "automaticly", "generating_dataset"],
     "files": ["__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/TvChannels/channels_0.92pt.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/TvChannels/channels_1.29pt.4.pickle.gz"]
 }

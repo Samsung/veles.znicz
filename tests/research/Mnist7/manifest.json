@@ -12,5 +12,5 @@
     "image": "mnist.png",
     "tags": ["mnist", "mse"],
     "files": ["loader_mnist.py", "__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/Mnist7/mnist7_0.134736_3.16pt.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Mnist7/mnist7_0.135155_2.97pt.4.pickle.gz"]
 }

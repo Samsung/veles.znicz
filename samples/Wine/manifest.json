@@ -12,6 +12,6 @@
     "image": "wine.jpg",
     "tags": ["wine", "fully-connected", "softmax"],
     "files": ["wine.txt.gz", "loader_wine.py", "__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/Wine/wine_0.00pt.4.pickle"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Wine/wine_0.56pt.4.pickle.gz"]
 
 }

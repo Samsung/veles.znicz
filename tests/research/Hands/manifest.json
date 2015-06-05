@@ -12,5 +12,5 @@
     "image": "hands.jpeg",
     "tags": ["hands", "fully-connected", "softmax"],
     "files": ["__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/Hands/hands_8.30pt.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Hands/hands_8.67pt.4.pickle.gz"]
 }

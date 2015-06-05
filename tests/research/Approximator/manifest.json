@@ -12,5 +12,5 @@
     "image": "approximator.png",
     "tags": ["approximator", "mse", "fully-connected"],
     "files": ["__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/Approximator/approximator_0.051293.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Approximator/approximator_0.051057.4.pickle.gz"]
 }

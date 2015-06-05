@@ -11,5 +11,6 @@
     "workflow": "kanji.py",
     "image": "kanji.png",
     "tags": ["kanji", "self-constructing", "mse", "fully-connected"],
-    "files": ["generate_kanji.py", "__init__.py"]
+    "files": ["generate_kanji.py", "__init__.py"],
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Kanji/kanji_0.058968_2.70pt.4.pickle.gz"]
 }

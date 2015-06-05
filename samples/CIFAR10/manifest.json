@@ -12,5 +12,5 @@
     "image": "cifar10.png",
     "tags": ["cifar", "self-constructing", "softmax", "convolutional", "fully-connected", "caffe"],
     "files": ["cifar_config.py", "__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/CIFAR10/cifar_44.20pt.4.pickle.gz", "https://s3-eu-west-1.amazonaws.com/veles-forge/CIFAR10/cifar_caffe_17.28pt.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/CIFAR10/cifar_44.05pt.4.pickle.gz", "https://s3-eu-west-1.amazonaws.com/veles.forge/CIFAR10/cifar_caffe_17.19pt.4.pickle.gz"]
 }
