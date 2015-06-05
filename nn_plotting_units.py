@@ -406,7 +406,7 @@ class KohonenGridBase(plotter.Plotter):
         col.set_transform(axes.transData)
         axes.add_collection(col)
         axes.set_xlim(-1.0, self.width + 0.5)
-        axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.) / 2.))
+        axes.set_ylim(-1.0, self.height * numpy.sqrt(3.) / 2.)
         axes.set_xticks([])
         axes.set_yticks([])
 
