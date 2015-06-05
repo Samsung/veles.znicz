@@ -46,7 +46,10 @@ root.mnistr.update({
                  "max_epochs": 1000000000},
     "loss_function": "softmax",
     "loader_name": "mnist_loader",
-    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compression": ""},
+    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compression": "gz",
+                    # "odbc": "DRIVER={MySQL};SERVER=localhost;DATABASE=test;"
+                    #         "UID=test;PWD=test",
+                    },
     "loader": {"minibatch_size": Range(60, 1, 1000), "force_numpy": False,
                "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},

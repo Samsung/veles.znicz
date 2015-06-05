@@ -941,8 +941,8 @@ class NNSnapshotter(Snapshotter):
                 self.info(*args)
             logged.add(id(mem))
 
-    def export(self):
-        super(NNSnapshotter, self).export()
+    def run(self):
+        super(NNSnapshotter, self).run()
         logged = set()
         for u in self.workflow.start_point.dependent_units():
             for attr in ("input", "weights", "bias", "output",

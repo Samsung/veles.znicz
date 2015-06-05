@@ -132,7 +132,7 @@ class TestLines(StandardTest):
         # Test loading from snapshot
         self.info("Will load workflow from %s", file_name)
 
-        workflow_from_snapshot = Snapshotter.import_(file_name)
+        workflow_from_snapshot = Snapshotter.import_file(file_name)
         workflow_from_snapshot.workflow = self.parent
         self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
         workflow_from_snapshot.decision.max_epochs = 4

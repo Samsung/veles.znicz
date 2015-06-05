@@ -239,7 +239,8 @@ class ImagenetForward(AcceleratedWorkflow):
         super(ImagenetForward, self).__init__(workflow, **kwargs)
         sys.path.append(os.path.dirname(__file__))
         self.info("Importing %s...", root.imagenet_forward.trained_workflow)
-        train_wf = Snapshotter.import_(root.imagenet_forward.trained_workflow)
+        train_wf = Snapshotter.import_file(
+            root.imagenet_forward.trained_workflow)
         self.info("Loaded workflow %s" % train_wf)
         gc.collect()
         units_to_remove = []
