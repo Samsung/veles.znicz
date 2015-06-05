@@ -10,7 +10,7 @@
 
 Created on Nov 20, 2014
 
-Configuration file with VGG (a) topology for Imagenet with pickle loader
+Configuration file with VGG 16 layers topology for Imagenet with pickle loader
 
 ███████████████████████████████████████████████████████████████████████████████
 
@@ -65,7 +65,7 @@ root.imagenet.loader.update({
     "mirror": True,
     "channels": 3,
     "color_space": "RGB",
-    "minibatch_size": 256,
+    "minibatch_size": 50,
     "normalization_type": "none",
     "shuffle_limit": 10000000,
     "original_labels_filename":
@@ -109,67 +109,109 @@ root.imagenet.update({
     "weights_plotter": {"limit": 256, "split_channels": False},
     "layers": [{"type": "conv_str",
                 "->": {"n_kernels": 64, "kx": 3, "ky": 3,
-                       "padding": (1, 1, 1, 1), "sliding": (1, 1),
+                       "padding": (1, 1, 1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
                        "bias_filling": "constant", "bias_stddev": 0},
                 "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
+               {"type": "conv_str",
+                "->": {"n_kernels": 64, "kx": 3, "ky": 3,
+                       "padding": (1, 1, 1, 1),
+                       "weights_filling": "gaussian", "weights_stddev": 0.01,
+                       "bias_filling": "constant", "bias_stddev": 0},
+                "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
                {"type": "max_pooling",
                 "->": {"kx": 2, "ky": 2, "sliding": (2, 2)}},
 
                {"type": "conv_str",
                 "->": {"n_kernels": 128, "kx": 3, "ky": 3,
-                       "padding": (1, 1, 1, 1), "sliding": (1, 1),
+                       "padding": (1, 1, 1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
                        "bias_filling": "constant", "bias_stddev": 0},
                 "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
+               {"type": "conv_str",
+                "->": {"n_kernels": 128, "kx": 3, "ky": 3,
+                       "padding": (1, 1, 1, 1),
+                       "weights_filling": "gaussian", "weights_stddev": 0.01,
+                       "bias_filling": "constant", "bias_stddev": 0},
+                "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
                {"type": "max_pooling",
                 "->": {"kx": 2, "ky": 2, "sliding": (2, 2)}},
+
 
                {"type": "conv_str",
                 "->": {"n_kernels": 256, "kx": 3, "ky": 3,
-                       "padding": (1, 1, 1, 1), "sliding": (1, 1),
+                       "padding": (1, 1, 1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
                        "bias_filling": "constant", "bias_stddev": 0},
                 "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
 
                {"type": "conv_str",
                 "->": {"n_kernels": 256, "kx": 3, "ky": 3,
-                       "padding": (1, 1, 1, 1), "sliding": (1, 1),
+                       "padding": (1, 1, 1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
                        "bias_filling": "constant", "bias_stddev": 0},
                 "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
+               {"type": "conv_str",
+                "->": {"n_kernels": 256, "kx": 3, "ky": 3,
+                       "padding": (1, 1, 1, 1),
+                       "weights_filling": "gaussian", "weights_stddev": 0.01,
+                       "bias_filling": "constant", "bias_stddev": 0},
+                "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
+
                {"type": "max_pooling",
                 "->": {"kx": 2, "ky": 2, "sliding": (2, 2)}},
 
                {"type": "conv_str",
                 "->": {"n_kernels": 512, "kx": 3, "ky": 3,
-                       "padding": (1, 1, 1, 1), "sliding": (1, 1),
+                       "padding": (1, 1, 1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
                        "bias_filling": "constant", "bias_stddev": 0},
                 "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
 
                {"type": "conv_str",
                 "->": {"n_kernels": 512, "kx": 3, "ky": 3,
-                       "padding": (1, 1, 1, 1), "sliding": (1, 1),
+                       "padding": (1, 1, 1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
                        "bias_filling": "constant", "bias_stddev": 0},
                 "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
+               {"type": "conv_str",
+                "->": {"n_kernels": 512, "kx": 3, "ky": 3,
+                       "padding": (1, 1, 1, 1),
+                       "weights_filling": "gaussian", "weights_stddev": 0.01,
+                       "bias_filling": "constant", "bias_stddev": 0},
+                "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
                {"type": "max_pooling",
                 "->": {"kx": 2, "ky": 2, "sliding": (2, 2)}},
 
                {"type": "conv_str",
                 "->": {"n_kernels": 512, "kx": 3, "ky": 3,
-                       "padding": (1, 1, 1, 1), "sliding": (1, 1),
+                       "padding": (1, 1, 1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
                        "bias_filling": "constant", "bias_stddev": 0},
                 "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
 
                {"type": "conv_str",
                 "->": {"n_kernels": 512, "kx": 3, "ky": 3,
-                       "padding": (1, 1, 1, 1), "sliding": (1, 1),
+                       "padding": (1, 1, 1, 1),
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
                        "bias_filling": "constant", "bias_stddev": 0},
                 "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
+               {"type": "conv_str",
+                "->": {"n_kernels": 512, "kx": 3, "ky": 3,
+                       "padding": (1, 1, 1, 1),
+                       "weights_filling": "gaussian", "weights_stddev": 0.01,
+                       "bias_filling": "constant", "bias_stddev": 0},
+                "<-": {"learning_rate": 0.01, "learning_rate_bias": 0.02}},
+
                {"type": "max_pooling",
                 "->": {"kx": 2, "ky": 2, "sliding": (2, 2)}},
 
