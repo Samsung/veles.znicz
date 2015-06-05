@@ -447,6 +447,9 @@ class KohonenHits(KohonenGridBase):
         self._color_text = value
 
     def redraw(self):
+        if len(self.input) == 0:
+            self.warning("Empty input")
+            return
         fast_redraw = self.name in self.pp.get_figlabels()
         fig = self.pp.figure(self.name)
         axes = fig.add_subplot(111)
@@ -631,6 +634,9 @@ class KohonenNeighborMap(plotter.Plotter):
         self._color_scheme = value
 
     def redraw(self):
+        if len(self.input) == 0:
+            self.warning("Empty input")
+            return
         self._scheme = getattr(self.cm, self.color_scheme)
 
         fast_redraw = self.name in self.pp.get_figlabels()
@@ -800,6 +806,9 @@ class KohonenValidationResults(KohonenGridBase):
         self._cmap = value
 
     def redraw(self):
+        if len(self.input) == 0:
+            self.warning("Empty input")
+            return
         fast_redraw = self.name in self.pp.get_figlabels()
         fig = self.pp.figure(self.name)
         axes = fig.add_subplot(111)
@@ -878,9 +887,9 @@ class KohonenValidationResults(KohonenGridBase):
             legend = axes.get_legend()
             if legend is not None:
                 legend.set_title("Fitness: %.2f" % self.fitness)
-            for index, text in enumerate(legend.get_texts()):
-                text.set_text("%d - %.2f" %
-                              (index, self.fitness_by_label[index]))
+                for index, text in enumerate(legend.get_texts()):
+                    text.set_text("%d - %.2f" %
+                                  (index, self.fitness_by_label[index]))
         self.show_figure(fig)
         fig.canvas.draw()
         return fig

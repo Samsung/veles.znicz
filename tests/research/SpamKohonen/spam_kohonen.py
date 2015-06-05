@@ -10,7 +10,7 @@
 
 Created on May 12, 2014
 
-Kohonen Spam detection on Lee Man Ha dataset.
+Kohonen Spam detection on lemmas dataset.
 
 ███████████████████████████████████████████████████████████████████████████████
 

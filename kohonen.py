@@ -38,6 +38,7 @@ under the License.
 from __future__ import division
 import numpy
 import opencl4py as cl
+import threading
 from zope.interface import implementer
 
 from veles.units import Unit, IUnit
@@ -597,25 +598,30 @@ class KohonenValidator(Unit):
     def __init__(self, workflow, **kwargs):
         super(KohonenValidator, self).__init__(workflow, **kwargs)
         self.demand("input", "minibatch_indices", "minibatch_size",
-                    "samples_by_label", "shape")
+                    "samples_by_label", "labels_mapping",
+                    "reversed_labels_mapping", "shape")
         self.accumulated_input = []
         self._fitness = 0
-        self._fitness_by_label = []
+        self._fitness_by_label = {}
         self._fitness_by_neuron = []
-        self._result = []
+        self._result = {}
         self._need_validate = False
 
+    def init_unpickled(self):
+        super(KohonenValidator, self).init_unpickled()
+        self._lock_ = threading.Lock()
+
     def initialize(self, **kwargs):
-        self.accumulated_input.clear()
+        del self.accumulated_input[:]
         self.accumulated_input.extend([
             set() for _ in range(self.neurons_count)])
         self._fitness = 0
-        self._result.clear()
-        self._result.extend([set() for _ in range(len(self.samples_by_label))])
-        self._fitness_by_label.extend([
-            0 for _ in range(len(self.samples_by_label))])
-        self._fitness_by_neuron.extend([0 for _ in range(self.neurons_count)])
-        self._overall = sum([len(m) for m in self.samples_by_label])
+        self._reset_result()
+        self._fitness_by_label.clear()
+        self._fitness_by_label.update(
+            {label: 0 for label in self.samples_by_label})
+        self._fitness_by_neuron.extend((0,) * self.neurons_count)
+        self._overall = sum(len(m) for m in self.samples_by_label.values())
         assert self._overall > 0
         assert self.neurons_count >= len(self.samples_by_label)
         self._need_validate = True
@@ -629,10 +635,10 @@ class KohonenValidator(Unit):
         self.input.map_read()
         self.minibatch_indices.map_read()
 
+        self.reset()
         for i in range(self.minibatch_size):
             self.accumulated_input[self.input[i]].add(
                 self.minibatch_indices[i])
-        self._need_validate = True
 
     @property
     def neurons_count(self):
@@ -658,7 +664,15 @@ class KohonenValidator(Unit):
         self._validate()
         return self._fitness_by_neuron
 
+    def _reset_result(self):
+        self._result.clear()
+        self._result.update({label: set() for label in self.samples_by_label})
+
     def _validate(self):
+        with self._lock_:
+            self._validate_locked()
+
+    def _validate_locked(self):
         """
         We have the matrix of intersection sizes, rows represent neurons and
         columns represent labels. The problem is to take the numbers from our
@@ -673,36 +687,37 @@ class KohonenValidator(Unit):
             return
         intersections = []
         for neuron in range(self.neurons_count):
-            for label, members in enumerate(self.samples_by_label):
+            for label, members in self.samples_by_label.items():
                 intersections.append((
                     len(self.accumulated_input[neuron].intersection(members)),
-                    neuron, label))
+                    neuron, self.labels_mapping[label]))
         intersections.sort(reverse=True)
-        self._result.clear()
-        self._result.extend([set() for _ in range(len(self.samples_by_label))])
+        self._reset_result()
         fitted = 0
-        fitted_by_label = [0 for _ in range(len(self.samples_by_label))]
-        fitted_by_neuron = [0 for _ in range(self.neurons_count)]
+        fitted_by_label = {label: 0 for label in self.samples_by_label}
+        fitted_by_neuron = [0] * self.neurons_count
         pos = 0
         banned_neurons = set()
         while (intersections[pos][0] > 0 and
                len(banned_neurons) < self.neurons_count):
-            while (intersections[pos][1] in banned_neurons):
+            while intersections[pos][1] in banned_neurons:
                 pos += 1
             fit, neuron, label = intersections[pos]
+            label = self.reversed_labels_mapping[label]
             fitted += fit
             fitted_by_label[label] += fit
             fitted_by_neuron[neuron] = fit
             self._result[label].add(neuron)
             banned_neurons.add(neuron)
         self._fitness = fitted / self._overall
-        for label, members in enumerate(self.samples_by_label):
-            self._fitness_by_label[label] = fitted_by_label[label] / \
-                len(members)
+        assert self._fitness <= 1
+        for label, members in self.samples_by_label.items():
+            self._fitness_by_label[label] = \
+                fitted_by_label[label] / len(members)
         for neuron, wins in enumerate(self.accumulated_input):
             self._fitness_by_neuron[neuron] = \
                 fitted_by_neuron[neuron] / len(wins) if len(wins) > 0 else 0
         self.reset()
         self._need_validate = False
         self.info("Fitness: %.2f", self._fitness)
-        self.info("Neurons mapping: %s", dict(enumerate(self._result)))
+        self.info("Neurons mapping: %s", self._result)
