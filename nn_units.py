@@ -188,9 +188,13 @@ class Forward(ForwardBase):
         if self.weights:
             self.weights.map_invalidate()
             numpy.copyto(self.weights.mem, data[0])
+        else:
+            self.weights.reset(data[0])
         if self.bias:
             self.bias.map_invalidate()
             numpy.copyto(self.bias.mem, data[1])
+        else:
+            self.bias.reset(data[1])
 
     def apply_data_from_slave(self, data, slave):
         pass
