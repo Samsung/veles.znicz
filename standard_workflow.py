@@ -926,9 +926,7 @@ class StandardWorkflow(StandardWorkflowBase):
                         "epoch_number")
         if self.decision_name == "decision_mse":
             self.decision.link_attrs(self.loader, "minibatch_offset")
-        self.decision.link_attrs(
-            self.evaluator,
-            ("minibatch_n_err", "n_err"))
+        self.decision.link_attrs(self.evaluator, ("minibatch_n_err", "n_err"))
         if self.decision_name == "decision_gd":
             self.decision.link_attrs(
                 self.evaluator,
@@ -1439,7 +1437,7 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         prev = parents
         self.mse_plotter = []
-        styles = ["", "", "k-"]
+        styles = ["", "b-", "k-"]
         for i, style in enumerate(styles):
             if len(style) == 0:
                 continue
@@ -1450,6 +1448,7 @@ class StandardWorkflow(StandardWorkflowBase):
             plotter.input_field = i
             self.mse_plotter.append(plotter)
             prev = plotter,
+        self.mse_plotter[-1].redraw_plot = True
         self.mse_plotter[0].clear_plot = True
         return prev[0]
 

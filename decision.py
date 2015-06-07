@@ -47,7 +47,7 @@ from veles.distributable import IDistributable
 from veles.mutable import Bool
 from veles.units import Unit, IUnit
 from veles.workflow import NoMoreJobs
-from veles.loader import CLASS_NAME, TRAIN
+from veles.loader import CLASS_NAME, TRAIN, VALID
 from veles.unit_registry import MappedUnitRegistry
 
 
@@ -237,10 +237,9 @@ class DecisionBase(Unit):
         if self.epoch_ended:
             self.train_improved <<= self.train_improve_condition()
             self.improved <<= self.improve_condition()
-            if self.improved:
-                suffixes = []
-                self.fill_snapshot_suffixes(suffixes)
-                self.snapshot_suffix = '_'.join(suffixes)
+            suffixes = []
+            self.fill_snapshot_suffixes(suffixes)
+            self.snapshot_suffix = '_'.join(suffixes)
             self.complete <<= self._stop_condition()
 
         # Training set processed
@@ -490,6 +489,7 @@ class DecisionMSE(DecisionGD):
 
     MAPPING = "decision_mse"
     LOSS = "mse"
+    BIGNUM = 1.0e30
 
     """Rules the gradient descent mean square error (MSE) learning process.
 
@@ -499,19 +499,18 @@ class DecisionMSE(DecisionGD):
     """
     def __init__(self, workflow, **kwargs):
         super(DecisionMSE, self).__init__(workflow, **kwargs)
-        self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
-        self.min_validation_mse = 1.0e30
+        self.epoch_min_mse = [self.BIGNUM, self.BIGNUM, self.BIGNUM]
+        self.min_validation_mse = self.BIGNUM
         self.min_validation_mse_epoch_number = -1
-        self.min_train_validation_mse = 1.0e30
-        self.min_train_mse = 1.0e30
+        self.min_train_validation_mse = self.BIGNUM
+        self.min_train_mse = self.BIGNUM
         self.min_train_mse_epoch_number = -1
         self.epoch_metrics = [None, None, None]
-        self.minibatch_metrics = None
         self.demand("minibatch_metrics")
 
     def initialize(self, **kwargs):
         super(DecisionMSE, self).initialize(**kwargs)
-        self.epoch_min_mse[:] = [1.0e30, 1.0e30, 1.0e30]
+        self.epoch_min_mse[:] = [self.BIGNUM, self.BIGNUM, self.BIGNUM]
         self.initialize_arrays(self.minibatch_metrics, self.epoch_metrics)
 
     def on_last_minibatch(self):
@@ -528,6 +527,8 @@ class DecisionMSE(DecisionGD):
         self.epoch_metrics[minibatch_class][0] = (
             self.epoch_metrics[minibatch_class][0] /
             self.class_lengths[minibatch_class])
+        if self.epoch_number == 0:
+            self.epoch_metrics[TRAIN][:] = self.epoch_metrics[VALID][:]
 
     def improve_condition(self):
         minibatch_class = self.minibatch_class
@@ -550,7 +551,7 @@ class DecisionMSE(DecisionGD):
 
     def on_generate_data_for_master(self, data):
         super(DecisionMSE, self).on_generate_data_for_master(data)
-        for attr in ["minibatch_metrics"]:
+        for attr in ("minibatch_metrics",):
             attrval = getattr(self, attr)
             if attrval is not None:
                 attrval.map_read()
@@ -574,7 +575,8 @@ class DecisionMSE(DecisionGD):
 
     def fill_snapshot_suffixes(self, ss):
         if self.minibatch_metrics is not None:
-            ss.append("%.6f" % (self.epoch_metrics[self.minibatch_class][0]))
+            for mc in VALID, TRAIN:
+                ss.append("%.4f" % self.epoch_metrics[mc][0])
         super(DecisionMSE, self).fill_snapshot_suffixes(ss)
 
     def fill_statistics(self, ss):
@@ -593,7 +595,6 @@ class DecisionMSE(DecisionGD):
                 self.minibatch_metrics.mem is not None):
             self.minibatch_metrics.map_invalidate()
             self.minibatch_metrics.mem[:] = 0
-            self.minibatch_metrics[2] = 1.0e30
 
     def stop_condition(self):
         if self.min_validation_mse <= 0:

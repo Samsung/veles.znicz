@@ -278,13 +278,13 @@ class ArbitraryStepPolicy(PolicyBase):
         cur_iter = 0
 
         for coeff, length in lrs_with_lengths:
-            assert coeff*base_lr >= 0
+            assert coeff * base_lr >= 0
             assert length > 0
             self.x_array.append(cur_iter)
-            self.y_array.append(coeff*base_lr)
+            self.y_array.append(coeff * base_lr)
             if length > 1:
                 self.x_array.append(cur_iter + length - 1)
-                self.y_array.append(coeff*base_lr)
+                self.y_array.append(coeff * base_lr)
             cur_iter += length
 
         self.out_function = interp1d(

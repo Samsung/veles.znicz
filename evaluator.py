@@ -278,9 +278,9 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
                  [2] - min of sample's mse.
         mse: array of mse for each sample in minibatch.
         krn_constants_i_: numpy array for constant arguments to kernel.
-        labels: labels for a Batch (may be None).
+        labels: labels for a batch (may be None).
         class_targets: target for each class (may be None).
-        n_err: number of wrong recognized samples
+        n_err: number of wrongly recognized samples
             (if labels and class_targets is not None).
     """
     def __init__(self, workflow, **kwargs):
