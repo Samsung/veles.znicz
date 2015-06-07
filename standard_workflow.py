@@ -718,12 +718,12 @@ class StandardWorkflow(StandardWorkflowBase):
                                   loader_name=loader_name,
                                   loader_config=loader_config,
                                   layers=self.layers)
-        wf.config.loader["loader"] = self.loader
         if cyclic:
             start_unit = wf.link_repeater(wf.start_point)
         else:
             start_unit = wf.start_point
         wf.link_loader(start_unit)
+        wf.loader.derive_from(self.loader)
         if cyclic:
             assert hasattr(wf.loader, "complete"), \
                 "The specified loader does not have \"complete\" flag."
@@ -735,6 +735,8 @@ class StandardWorkflow(StandardWorkflowBase):
         result_unit.link_attrs(wf.forwards[-1], ("input", "output"))
         result_unit.link_attrs(
             wf.loader, ("labels_mapping", "reversed_labels_mapping"))
+        if self.loss_function == "mse":
+            result_unit.link_attrs(wf.loader, "target_normalizer")
         if cyclic:
             wf.repeater.link_from(result_unit)
         else:
