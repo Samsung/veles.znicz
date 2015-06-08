@@ -712,8 +712,15 @@ class StandardWorkflow(StandardWorkflowBase):
         # Add gradient descent units
         last_gd = self.link_gds(self.snapshotter)
 
+        # Add error or mse plotter unit
+        if self.loss_function == "mse":
+            last_err = self.link_mse_plotter(last_gd)
+        else:
+            last_err = self.link_min_max_plotter(
+                self.link_error_plotter(last_gd))
+
         # Loop the workflow
-        self.link_loop(last_gd)
+        self.link_loop(last_err)
 
         # Add end_point unit
         self.link_end_point(last_gd)
@@ -739,16 +746,16 @@ class StandardWorkflow(StandardWorkflowBase):
         wf.link_forwards(("input", "minibatch_data"), wf.loader)
         if cyclic:
             wf.forwards[0].gate_block = wf.loader.complete
-        result_unit = result_unit_factory(wf).link_from(wf.forwards[-1])
-        result_unit.link_attrs(wf.forwards[-1], ("input", "output"))
-        result_unit.link_attrs(
+        wf.result_unit = result_unit_factory(wf).link_from(wf.forwards[-1])
+        wf.result_unit.link_attrs(wf.forwards[-1], ("input", "output"))
+        wf.result_unit.link_attrs(
             wf.loader, ("labels_mapping", "reversed_labels_mapping"))
         if self.loss_function == "mse":
-            result_unit.link_attrs(wf.loader, "target_normalizer")
+            wf.result_unit.link_attrs(wf.loader, "target_normalizer")
         if cyclic:
-            wf.repeater.link_from(result_unit)
+            wf.repeater.link_from(wf.result_unit)
         else:
-            wf.link_end_point(result_unit)
+            wf.link_end_point(wf.result_unit)
         self.debug("Importing forwards...")
         for fwd_exp, fwd_imp in zip(self.forwards, wf.forwards):
             fwd_imp.apply_data_from_master(
@@ -862,14 +869,15 @@ class StandardWorkflow(StandardWorkflowBase):
         :return: The linked :class:`veles.avatar.Avatar` unit.
         """
         self.loader.ignores_gate <<= True
-        avatar = Avatar(self)
-        avatar.reals[self.loader] = self.loader.exports + extra_attrs
-        avatar.clone()
-        avatar.link_from(self.loader)
-        self.loader.link_from(avatar)
-        avatar.link_from(self.repeater).gate_block = self.loader.gate_block
-        self.loader = avatar
-        return avatar
+        self.avatar = Avatar(self)
+        self.avatar.reals[self.loader] = self.loader.exports + extra_attrs
+        self.avatar.clone()
+        self.avatar.link_from(self.loader)
+        self.loader.link_from(self.avatar)
+        self.avatar.link_from(
+            self.repeater).gate_block = self.loader.gate_block
+        self.loader = self.avatar
+        return self.avatar
 
     @StandardWorkflowBase.reset_unit
     def link_downloader(self, *parents):
@@ -1570,13 +1578,13 @@ class StandardWorkflow(StandardWorkflowBase):
         Returns instance of
         :class:`veles.znicz.standard_workflow.ForwardWorkflowExtractor`.
         """
-        res_unit = self.ForwardWorkflowExtractor(
+        self.result_unit = self.ForwardWorkflowExtractor(
             self, loader_name=self.result_loader_name,
             loader_config=self.config.result_loader,
             result_unit_factory=self.result_unit_factory)
-        self.decision.link_from(res_unit)
-        res_unit.gate_block = ~self.decision.complete
-        return res_unit
+        self.decision.link_from(self.result_unit)
+        self.result_unit.gate_block = ~self.decision.complete
+        return self.result_unit
 
     @StandardWorkflowBase.reset_unit
     def link_data_saver(self, *parents):
