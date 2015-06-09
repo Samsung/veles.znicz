@@ -163,14 +163,6 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                                   self.input.shape[0])
         self._kernel_size = self.kx * self.ky * self.channels_number
 
-        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
-                        self._kernel_size)
-        if not self.unpack_data:
-            self.unpack_data.reset(numpy.zeros(unpack_shape, self._dtype))
-        else:
-            assert self.unpack_data.shape == unpack_shape
-        self.unpack_data.initialize(self.device)
-
     def _gpu_init(self, blas_class):
         self.sources_["conv/forward"] = {}
         self.sources_["deconv/gradient_descent/weights_update"] = {
@@ -248,7 +240,9 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._const_i = numpy.zeros(1, dtype=numpy.int64)
 
         self.assign_kernel("Unpack1D")
-        self.set_arg(1, self.unpack_data)
+        unpack_bytes = (self._kernel_app_per_image * self.unpack_size *
+                        self._kernel_size * self.err_output.itemsize)
+        self.device.request_temp_buffer(unpack_bytes)
 
     def ocl_init(self):
         ocl_blas.OCLBLAS.attach_to_device(self.device)
@@ -311,19 +305,21 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         # Update err_input and simultaneousely accumulate gradient
         self.unmap_vectors(self.err_input, self.weights, self.err_output,
-                           self.unpack_data, self.gradient_weights)
+                           self.gradient_weights)
+        unpack_data = self.device.get_temp_buffer()
         for i in range(0, self._batch_size, self.unpack_size):
-            self._process_subblock(i, min(self._batch_size - i,
-                                          self.unpack_size))
+            self._process_subblock(
+                i, min(self._batch_size - i, self.unpack_size), unpack_data)
 
         # Update weights
         self.gpu_weights_update()
 
-    def _cuda_process_subblock(self, start_image, image_count):
+    def _cuda_process_subblock(self, start_image, image_count, unpack_data):
         self._kernel_.set_arg(
             0, int(self.err_output.devmem) +
             start_image * self.err_output.sample_size *
             self.err_output.itemsize)
+        self._kernel_.set_arg(1, unpack_data)
         unpack_side = self._kernel_app_per_image * image_count
         limit = unpack_side * self._kernel_size
         self._const_i[0] = limit
@@ -339,7 +335,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.device.blas, cublas.CUBLAS_OP_N if self.weights_transposed
                 else cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
                 self.weights_shape[0], unpack_side, self._kernel_size,
-                self.np_one, self.weights.devmem, self.unpack_data.devmem,
+                self.np_one, self.weights.devmem, unpack_data,
                 self.np_zero, int(self.err_input.devmem) + output_offs)
 
         # Accumulate gradient
@@ -348,19 +344,18 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.device.blas, cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_T,
                 self.n_kernels, self._kernel_size, unpack_side,
                 self.np_one, int(self.input.devmem) + output_offs,
-                self.unpack_data.devmem,
-                self.np_one if start_image else self.np_zero,
+                unpack_data, self.np_one if start_image else self.np_zero,
                 self.gradient_weights.devmem)
         else:
             self.gemm_(
                 self.device.blas, cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_T,
-                self._kernel_size, self.n_kernels, unpack_side,
-                self.np_one, self.unpack_data.devmem,
-                int(self.input.devmem) + output_offs,
+                self._kernel_size, self.n_kernels, unpack_side, self.np_one,
+                unpack_data, int(self.input.devmem) + output_offs,
                 self.np_one if start_image else self.np_zero,
                 self.gradient_weights.devmem)
 
-    def _ocl_process_subblock(self, start_image, image_count):
+    def _ocl_process_subblock(self, start_image, image_count, unpack_data):
+        self._kernel_.set_arg(1, unpack_data)
         self._const_i[0] = start_image * self.err_output.sample_size
         self._kernel_.set_arg(2, self._const_i)
         unpack_side = self._kernel_app_per_image * image_count
@@ -375,7 +370,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.device.blas, cublas.CUBLAS_OP_N if self.weights_transposed
                 else cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
                 self.weights_shape[0], unpack_side, self._kernel_size,
-                self.np_one, self.weights.devmem, self.unpack_data.devmem,
+                self.np_one, self.weights.devmem, unpack_data,
                 self.np_zero, self.err_input.devmem, offsetC=output_offs)
 
         # Accumulate gradient
@@ -384,15 +379,13 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.device.blas, cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_T,
                 self.n_kernels, self._kernel_size, unpack_side,
                 self.np_one, self.input.devmem,
-                self.unpack_data.devmem,
-                self.np_one if start_image else self.np_zero,
+                unpack_data, self.np_one if start_image else self.np_zero,
                 self.gradient_weights.devmem, offsetA=output_offs)
         else:
             self.gemm_(
                 self.device.blas, cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_T,
                 self._kernel_size, self.n_kernels, unpack_side,
-                self.np_one, self.unpack_data.devmem,
-                self.input.devmem,
+                self.np_one, unpack_data, self.input.devmem,
                 self.np_one if start_image else self.np_zero,
                 self.gradient_weights.devmem, offsetB=output_offs)
 

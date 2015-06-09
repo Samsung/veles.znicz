@@ -180,15 +180,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self._kernel_app_total = (self._kernel_app_per_image *
                                   self.input.shape[0])
 
-        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
-                        self._kernel_size)
-        if not self.unpack_data:
-            self.unpack_data.reset(numpy.zeros(unpack_shape, self._dtype))
-        else:
-            assert self.unpack_data.shape == unpack_shape
-
-        self.init_vectors(self.input, self.weights, self.output, self.hits,
-                          self.unpack_data)
+        self.init_vectors(self.input, self.weights, self.output, self.hits)
 
     def _create_hits(self, output_shape):
         if not self.hits:
@@ -228,7 +220,9 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
                 self.kx, self.ky, self.n_kernels), dtype=self._dtype)
 
         self.krn_pack_ = self.get_kernel("DirectPack")
-        self.krn_pack_.set_arg(0, self.unpack_data.devmem)
+        unpack_bytes = (self._kernel_app_per_image * self.unpack_size *
+                        self._kernel_size * self.input.itemsize)
+        self.device.request_temp_buffer(unpack_bytes)
 
         if self.hits:
             self.krn_pack_.set_arg(3, self.hits.devmem)
@@ -295,18 +289,20 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
 
     def gpu_run(self):
         self.unmap_vectors(self.output, self.input, self.weights)
+        unpack_data = self.device.get_temp_buffer()
         self._clear_output()
         if self.hits:
             self.hits.unmap()
             self._clear_hits()
         batch_size = self.output.shape[0]
         for i in range(0, batch_size, self.unpack_size):
-            self._process_subblock(i, min(batch_size - i, self.unpack_size))
+            self._process_subblock(i, min(batch_size - i, self.unpack_size),
+                                   unpack_data)
         if self.hits:
             self.execute_kernel(self._global_size_hits, self._local_size_hits,
                                 self.krn_apply_hits_)
 
-    def _cuda_process_subblock(self, start_image, image_count):
+    def _cuda_process_subblock(self, start_image, image_count, unpack_data):
         output_offs = (start_image * self.input.sample_size *
                        self.input.itemsize)
         unpack_side = self._kernel_app_per_image * image_count
@@ -317,8 +313,9 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             self._kernel_size, unpack_side, self.weights_shape[0],
             self.np_one, self.weights.devmem,
             int(self.input.devmem) + output_offs,
-            self.np_zero, self.unpack_data.devmem)
+            self.np_zero, unpack_data)
 
+        self.krn_pack_.set_arg(0, unpack_data)
         self.krn_pack_.set_arg(
             1, int(self.output.devmem) +
             start_image * self.output.sample_size * self.output.itemsize)
@@ -328,7 +325,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self.execute_kernel(self._global_size_pack(limit),
                             self._local_size_pack, self.krn_pack_)
 
-    def _ocl_process_subblock(self, start_image, image_count):
+    def _ocl_process_subblock(self, start_image, image_count, unpack_data):
         output_offs = start_image * self.input.sample_size
         unpack_side = self._kernel_app_per_image * image_count
 
@@ -338,8 +335,9 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             self._kernel_size, unpack_side, self.weights_shape[0],
             self.np_one, self.weights.devmem,
             self.input.devmem,
-            self.np_zero, self.unpack_data.devmem, offsetB=output_offs)
+            self.np_zero, unpack_data, offsetB=output_offs)
 
+        self.krn_pack_.set_arg(0, unpack_data)
         self._const_i[0] = start_image * self.output.sample_size
         self.krn_pack_.set_arg(2, self._const_i)
         limit = unpack_side * self._kernel_size
