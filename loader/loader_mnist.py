@@ -49,7 +49,7 @@ import veles.loader as loader
 mnist_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "MNIST"))
 if not os.access(mnist_dir, os.W_OK):
     # Fall back to ~/.veles/MNIST
-    mnist_dir = os.path.join(root.common.veles_user_dir, "MNIST")
+    mnist_dir = os.path.join(root.common.datasets_root, "MNIST")
 test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
 test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
