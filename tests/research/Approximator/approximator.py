@@ -208,6 +208,7 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
+                                  ("normalizer", "target_normalizer"),
                                   ("target", "minibatch_targets"))
 
         # Add decision unit

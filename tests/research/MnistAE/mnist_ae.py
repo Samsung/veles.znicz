@@ -39,6 +39,7 @@ import os
 import sys
 
 from veles.config import root
+from veles.normalization import NoneNormalizer
 import veles.plotting_units as plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 import veles.znicz.nn_units as nn_units
@@ -56,6 +57,10 @@ from .loader_mnist import MnistLoader
 
 
 class MnistAELoader(MnistLoader):
+    def __init__(self, workflow, **kwargs):
+        super(MnistAELoader, self).__init__(workflow, **kwargs)
+        self.target_normalizer = NoneNormalizer
+
     def load_data(self):
         super(MnistAELoader, self).load_data()
         self.original_data.mem.shape = [70000, 28, 28, 1]
@@ -114,6 +119,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         unit.link_attrs(self.deconv, "output")
         unit.link_attrs(self.loader,
                         ("batch_size", "minibatch_size"),
+                        ("normalizer", "target_normalizer"),
                         ("target", "minibatch_data"))
 
         # Add decision unit

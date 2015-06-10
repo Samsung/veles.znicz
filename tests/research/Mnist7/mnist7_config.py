@@ -43,8 +43,11 @@ root.mnist7.update({
     "decision": {"fail_iterations": 25, "max_epochs": 1000000},
     "snapshotter": {"prefix": "mnist7", "time_interval": 0, "interval": 1},
     "loader": {"minibatch_size": 60, "force_numpy": False,
-               "normalization_type": "linear"},
+               "normalization_type": "linear",
+               "target_normalization_type": "none"},
     "weights_plotter": {"limit": 25},
     "learning_rate": 0.0001,
     "weights_decay": 0.00005,
     "layers": [100, 100, 7]})
+
+root.mnist7.loader.target_normalization_parameters = {}

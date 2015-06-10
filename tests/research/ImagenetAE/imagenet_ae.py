@@ -52,6 +52,7 @@ import veles.opencl_types as opencl_types
 import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
 import veles.loader as loader
+from veles.normalization import NoneNormalizer
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
 import veles.znicz.image_saver as image_saver
@@ -116,6 +117,7 @@ class ImagenetAELoader(loader.Loader):
             "count_samples_filename", None)
         self.matrixes_filename = kwargs.get("matrixes_filename", None)
         self.samples_filename = kwargs.get("samples_filename", None)
+        self.target_normalizer = NoneNormalizer
 
     def init_unpickled(self):
         super(ImagenetAELoader, self).init_unpickled()
@@ -568,7 +570,8 @@ class ImagenetAEWorkflow(StandardWorkflow):
         self.evaluator.link_from(*parents)
         self.evaluator.link_attrs(self.forwards[-1], "output")
         self.evaluator.link_attrs(
-            self.loader, ("batch_size", "minibatch_size"))
+            self.loader, ("batch_size", "minibatch_size"),
+            ("normalizer", "target_normalizer"))
         self.evaluator.link_attrs(self.meandispnorm, ("target", "output"))
         return self.evaluator
 

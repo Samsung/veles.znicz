@@ -40,6 +40,7 @@ import logging
 from zope.interface import implementer
 
 from veles.config import root
+from veles.normalization import NoneNormalizer
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -64,6 +65,7 @@ class VideoAELoader(loader.FullBatchAutoLabelFileImageLoader):
         super(VideoAELoader, self).__init__(
             workflow, label_regexp="(\\d+)\\.\\w+$",
             file_subtypes="png", **kwargs)
+        self.target_normalizer = NoneNormalizer
 
 
 class VideoAEWorkflow(nn_units.NNWorkflow):
@@ -117,6 +119,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.forwards[-1], "output")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
+                                  ("normalizer", "target_normalizer"),
                                   ("target", "minibatch_data"))
 
         # Add decision unit

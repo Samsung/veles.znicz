@@ -203,6 +203,7 @@ class Mnist784Workflow(nn_units.NNWorkflow):
                                   ("max_samples_per_epoch", "total_samples"),
                                   ("target", "minibatch_targets"),
                                   ("labels", "minibatch_labels"),
+                                  ("normalizer", "target_normalizer"),
                                   "class_targets")
         self.evaluator.link_attrs(self.forwards[-1], "output")
 

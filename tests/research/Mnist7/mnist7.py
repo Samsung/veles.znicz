@@ -102,9 +102,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Mnist7Loader(
-            self, minibatch_size=root.mnist7.loader.minibatch_size,
-            normalization_type=root.mnist7.loader.normalization_type,
-            force_numpy=root.mnist7.loader.force_numpy)
+            self, **root.mnist7.loader.__content__)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -129,6 +127,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
                                   ("max_samples_per_epoch", "total_samples"),
                                   ("target", "minibatch_targets"),
                                   ("labels", "minibatch_labels"),
+                                  ("normalizer", "target_normalizer"),
                                   "class_targets")
         self.evaluator.link_attrs(self.forwards[-1], "output")
 
