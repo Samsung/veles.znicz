@@ -1,1 +1,0 @@
-../../../loader/loader_mnist.py
