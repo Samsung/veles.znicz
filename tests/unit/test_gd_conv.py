@@ -196,7 +196,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
                               self.info, self.assertLess,
-                              error_function_averaged=False)
+                              mean=False)
 
     def _numdiff_init_forward(self, forward, inp, weights, bias, err_output):
         forward.input = Array()
@@ -315,7 +315,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
                               self.info, self.assertLess,
-                              error_function_averaged=False)
+                              mean=False)
 
     def test_random_numeric_gpu(self):
         self._test_random_numeric(self.device, conv.Conv,
@@ -430,7 +430,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
                               self.info, self.assertLess,
-                              error_function_averaged=False)
+                              mean=False)
 
 
 @assign_backend("ocl")

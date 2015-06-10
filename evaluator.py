@@ -47,6 +47,7 @@ import veles.error as error
 from veles.memory import assert_addr, ravel, Array
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
     INumpyUnit
+from veles.normalization import NoneNormalizer
 from veles.opencl_types import numpy_dtype_to_opencl
 from veles.unit_registry import MappedUnitRegistry
 from veles.units import Unit, UnitCommandLineArgumentsRegistry
@@ -73,12 +74,24 @@ class EvaluatorBase(AcceleratedUnit):
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "EVALUATOR")
         super(EvaluatorBase, self).__init__(workflow, **kwargs)
-        self.error_function_averaged = kwargs.get(
-            "error_function_averaged", True)
+        self.mean = kwargs.get("mean", True)
         self.err_output = Array()
         self.krn_constants_i_ = None
         self.krn_constants_f_ = None
         self.demand("output", "batch_size")
+
+    @property
+    def mean(self):
+        """
+        :return: True if the error function averages values. Default is True.
+        """
+        return self._mean
+
+    @mean.setter
+    def mean(self, value):
+        if not isinstance(value, bool):
+            raise TypeError("mean must be boolean (got %s)" % type(value))
+        self._mean = value
 
     def initialize(self, device, **kwargs):
         super(EvaluatorBase, self).initialize(device, **kwargs)
@@ -157,20 +170,17 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
     def _gpu_init(self):
         dtype = self.output.dtype
         block_size = min(self.err_output.shape[0], 256)
-        defines = {
-            "BLOCK_SIZE": block_size,
-            "BATCH": self.err_output.shape[0],
-            "Y": self.err_output.sample_size
-        }
-        self.build_program(defines, "%s_%d_%d" %
-                           (self.__class__.__name__,
-                            self.output.shape[0],
-                            self.output.sample_size),
-                           dtype=dtype)
-        self.assign_kernel("ev_sm")
+        self.build_program(
+            cache_file_name="%s_%d_%d" % (self.__class__.__name__,
+                                          self.output.shape[0],
+                                          self.output.sample_size),
+            dtype=dtype, block_size=block_size,
+            max_batch_size=self.err_output.shape[0],
+            output_size=self.err_output.sample_size)
+        self.assign_kernel("evaluate_softmax")
         self.set_args(self.output, self.max_idx, self.labels,
-                      self.err_output, self.n_err, self.confusion_matrix,
-                      self.max_err_output_sum)
+                      self.skip_args(2), self.n_err, self.confusion_matrix,
+                      self.max_err_output_sum, self.err_output)
         return block_size
 
     def ocl_init(self):
@@ -189,10 +199,9 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
             self.n_err, self.confusion_matrix, self.max_err_output_sum)
 
         self.krn_constants_i_[0] = self.batch_size
-        self.set_arg(7, self.krn_constants_i_[0:1])
-        self.krn_constants_f_[0] = (
-            1.0 / self.batch_size if self.error_function_averaged else 1.0)
-        self.set_arg(8, self.krn_constants_f_[0:1])
+        self.set_arg(3, self.krn_constants_i_[0:1])
+        self.krn_constants_f_[0] = 1.0 / self.batch_size if self.mean else 1.0
+        self.set_arg(4, self.krn_constants_f_[0:1])
 
         self.execute_kernel(self._global_size, self._local_size)
 
@@ -214,7 +223,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         confusion_matrix = self.confusion_matrix.mem
 
         n_ok = 0
-        multiplier = 1.0 / batch_size if self.error_function_averaged else 1.0
+        multiplier = 1.0 / batch_size if self.mean else 1.0
         for i in range(batch_size):  # loop by batch
             if labels[i] < 0:
                 self.err_output.mem[i] = 0.0
@@ -290,8 +299,22 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self.labels = None
         self.class_targets = None
         self.n_err = Array()
-        self.squared_mse = kwargs.get("squared_mse", False)
-        self.demand("target")
+        self.root = kwargs.get("root", True)
+        self.demand("target", "normalizer")
+
+    @property
+    def root(self):
+        """
+        :return: True if error metric is RMSE, otherwise, MSE (mean sum of
+        squares). Default is True.
+        """
+        return self._root
+
+    @root.setter
+    def root(self, value):
+        if not isinstance(value, bool):
+            raise TypeError("root must be boolean (got %s)" % type(value))
+        self._root = value
 
     def initialize(self, device, **kwargs):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
@@ -316,29 +339,24 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
     def _gpu_init(self):
         dtype = self.output.dtype
         block_size = min(self.err_output.shape[0], 128)
-        defines = {
-            'BLOCK_SIZE': block_size,
-            'BATCH': self.err_output.shape[0],
-            'Y': self.err_output.sample_size,
-            'SAMPLE_SIZE': 'Y',
-            'SQUARED_MSE': int(self.squared_mse)
-        }
         if self.class_targets:
-            self.sources_["mse_find_closest"] = {}
-            defines.update({
-                'N_TARGETS': self.class_targets.shape[0],
-                'target_dtype': numpy_dtype_to_opencl(self.class_targets.dtype)
-            })
+            self.sources_["mse_find_closest"] = {
+                "target_dtype": numpy_dtype_to_opencl(self.class_targets.dtype)
+            }
 
-        self.build_program(defines, "%s_%d_%d" %
-                           (self.__class__.__name__,
-                            self.output.shape[0],
-                            self.output.sample_size),
-                           dtype=dtype)
+        self.build_program(
+            cache_file_name="%s_%d_%d" % (self.__class__.__name__,
+                                          self.output.shape[0],
+                                          self.output.sample_size),
+            dtype=dtype, max_batch_size=self.err_output.shape[0],
+            block_size=block_size, output_size=self.err_output.sample_size,
+            root=self.root, normalization=self.normalizer.MAPPING,
+            targets_number=self.class_targets.shape[0] if self.class_targets
+            else None, normalizer_state=self.normalizer.state)
 
-        self.assign_kernel("ev_mse")
-        self.set_args(self.output, self.target, self.err_output,
-                      self.metrics, self.mse.devmem)
+        self.assign_kernel("evaluate_mse")
+        self.set_args(self.output, self.target, self.skip_args(2),
+                      self.metrics, self.mse.devmem, self.err_output)
 
         if self.labels and self.class_targets:
             assert(self.labels.dtype == self.n_err.dtype == numpy.int32)
@@ -371,10 +389,9 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
 
         batch_size = self.batch_size
         self.krn_constants_i_[0] = batch_size
-        self.set_arg(5, self.krn_constants_i_[0:1])
-        self.krn_constants_f_[0] = (
-            1.0 / self.batch_size if self.error_function_averaged else 1.0)
-        self.set_arg(6, self.krn_constants_f_[0:1])
+        self.set_arg(2, self.krn_constants_i_[0:1])
+        self.krn_constants_f_[0] = 1.0 / self.batch_size if self.mean else 1.0
+        self.set_arg(3, self.krn_constants_f_[0:1])
 
         self.execute_kernel(self._global_size, self._local_size)
 
@@ -409,11 +426,20 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         assert_addr(mse, self.mse.mem)
 
         err_output[:] = output - target
+        if not isinstance(self.normalizer, NoneNormalizer):
+            output_copy = output.copy()
+            target_copy = target.copy()
+            self.normalizer.denormalize(output_copy)
+            self.normalizer.denormalize(target_copy)
+            denormed_err_output = output_copy - target_copy
+        else:
+            denormed_err_output = err_output
         self.err_output.mem[batch_size:] = 0
-        mse[:] = numpy.square(err_output).sum(axis=1) / err_output.shape[1]
-        if self.error_function_averaged:
-            err_output *= 1.0 / batch_size
-        if not self.squared_mse:
+        mse[:] = numpy.square(denormed_err_output).sum(axis=1) / \
+            denormed_err_output.shape[1]
+        if self.mean:
+            err_output /= batch_size
+        if self.root:
             numpy.sqrt(mse, mse)
         self.mse.mem[batch_size:] = 0
 

@@ -912,9 +912,9 @@ class StandardWorkflow(StandardWorkflowBase):
         if self.evaluator_name == "evaluator_softmax":
             self.evaluator.link_attrs(self.forwards[-1], "max_idx")
         elif self.evaluator_name == "evaluator_mse":
-            self.evaluator.link_attrs(self.loader,
-                                      ("target", "minibatch_targets"),
-                                      "class_targets")
+            self.evaluator.link_attrs(
+                self.loader, ("target", "minibatch_targets"),
+                "class_targets", "normalizer")
         return self.evaluator
 
     @StandardWorkflowBase.reset_unit

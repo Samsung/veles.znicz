@@ -37,6 +37,7 @@ import numpy
 
 from veles.config import root
 from veles.memory import Array
+from veles.normalization import NoneNormalizer
 import veles.opencl_types as opencl_types
 import veles.prng as random_generator
 from veles.tests import AcceleratedTest, assign_backend
@@ -66,6 +67,8 @@ class TestEvaluator(AcceleratedTest):
         gold_err_output = (output - target) / (batch_size - 5)
         gold_err_output[ev.batch_size:] = 0
 
+        ev.normalizer = NoneNormalizer()
+        ev.normalizer.analyze(None)
         ev.initialize(device=self.device)
         ev.err_output.map_invalidate()
         ev.err_output.mem[:] = 1.0e30

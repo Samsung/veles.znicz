@@ -1,12 +1,12 @@
-#include "defines.cu"
-#include "highlight.cu"
+#include "defines.cl"
+#include "highlight.cl"
 
 /* TODO(a.kazantsev): implement properly.
 /// @brief For each sample, outputs the distances to the targets.
 /// @param y matrix of samples
 /// @param t matrix of targets
 /// @param distances matrix of distances
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
+__kernel __attribute__((reqd_work_group_size({{ block_size }}, {{ block_size }}, 1)))
 void mse_find_distances(__global dtype *y, __global dtype *t,
                         __global dtype *distances) {
 }
@@ -26,16 +26,17 @@ void mse_find_closest(__global dtype *distances,
 /// @param y matrix of samples
 /// @param t matrix of targets
 /// @param n_err number of errors.
-extern "C"
-__global__ void mse_find_closest(const dtype *y, const target_dtype *t, const int *labels, int *n_err) {
-  int i_sample = blockIdx.x * blockDim.x + threadIdx.x;
-  int y_offs = SAMPLE_SIZE * i_sample;
+__kernel
+void mse_find_closest(__global const dtype *y, __global const target_dtype *t,
+                      __global const int *labels, __global volatile int *n_err) {
+  int i_sample = get_global_id(0);
+  int y_offs = {{ output_size }} * i_sample;
   int t_offs = 0;
-  dtype d_min = FLT_MAX;
+  dtype d_min = MAXFLOAT;
   int i_min = 0;
-  for (int i = 0; i < N_TARGETS; i++, t_offs += SAMPLE_SIZE) {
+  for (int i = 0; i < {{ targets_number }}; i++, t_offs += {{ output_size }}) {
     dtype smm = 0;
-    for (int j = 0; j < SAMPLE_SIZE; j++) {
+    for (int j = 0; j < {{ output_size }}; j++) {
       dtype vle = y[y_offs + j] - t[t_offs + j];
       smm += vle * vle;
     }
@@ -45,6 +46,6 @@ __global__ void mse_find_closest(const dtype *y, const target_dtype *t, const in
     }
   }
   if (labels[i_sample] != i_min) {
-    atomicAdd(n_err, 1);
+  	atomic_inc(n_err);
   }
 }

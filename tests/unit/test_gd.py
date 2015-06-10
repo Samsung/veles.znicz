@@ -147,7 +147,7 @@ class TestGD(AcceleratedTest, GDNumDiff):
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
                               self.info, self.assertLess,
-                              error_function_averaged=False)
+                              mean=False)
 
         return c.err_input.mem.copy(), c.weights.mem.copy(), c.bias.mem.copy()
 

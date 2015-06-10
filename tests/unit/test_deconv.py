@@ -162,7 +162,7 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         self.numdiff_check_gd(forward, inp, weights, None, target,
                               err_input, weights_derivative, None,
                               self.info, self.assertLess,
-                              error_function_averaged=False,
+                              mean=False,
                               threshold=1.0e-3)
 
     def _test_deconv(self, device, forward, weights_transposed):

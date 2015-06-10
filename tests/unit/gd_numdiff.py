@@ -121,12 +121,11 @@ class GDNumDiff(object):
 
     def numdiff_check_gd(self, forward, inp, weights, bias, target,
                          err_input, weights_derivative, bias_derivative,
-                         logging_info, assertLess,
-                         error_function_averaged=True,
+                         logging_info, assertLess, mean=True,
                          limit=None, threshold=1.0e-5):
         """Tests all derivatives for a typical gradient descent unit.
         """
-        if error_function_averaged:
+        if mean:
             ef = (
                 GDNumDiff.cross_entropy_mean
                 if isinstance(forward, all2all.All2AllSoftmax)

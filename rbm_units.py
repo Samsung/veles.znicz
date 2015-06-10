@@ -526,8 +526,7 @@ class EvaluatorRBM(Workflow):
             weights_transposed=True)
         self.rec.link_from(self.binarization)
         self.rec.link_attrs(self.binarization, ("input", "output"))
-        self.mse = EvaluatorMSE(self, squared_mse=True,
-                                error_function_averaged=False)
+        self.mse = EvaluatorMSE(self, root=False, mean=False)
         self.mse.link_from(self.rec)
         self.mse.link_attrs(self.rec, "output")
         self.mse.link_attrs(self.rec, ("output", "output"))

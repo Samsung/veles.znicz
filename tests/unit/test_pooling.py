@@ -341,7 +341,7 @@ class TestGDAvgPooling(AcceleratedTest, GDNumDiff):
         self.numdiff_check_gd(forward, inp, None, None, target,
                               err_input, None, None,
                               self.info, self.assertLess,
-                              error_function_averaged=False)
+                              mean=False)
 
 
 class TestStochasticPoolingDepooling(AcceleratedTest):
