@@ -324,7 +324,8 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
                 "target.size != output.size (%s != %s)" %
                 (self.target.size, self.output.size))
 
-        self.sources_["evaluator"] = {}
+        self.sources_["evaluator_mse"] = {}
+        self.sources_["denormalization"] = {}
 
         dtype = self.output.dtype
 
@@ -352,7 +353,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             block_size=block_size, output_size=self.err_output.sample_size,
             root=self.root, normalization=self.normalizer.MAPPING,
             targets_number=self.class_targets.shape[0] if self.class_targets
-            else None, normalizer_state=self.normalizer.state)
+            else None, coeffs=self.normalizer.coefficients)
 
         self.assign_kernel("evaluate_mse")
         self.set_args(self.output, self.target, self.skip_args(2),

@@ -914,7 +914,7 @@ class StandardWorkflow(StandardWorkflowBase):
         elif self.evaluator_name == "evaluator_mse":
             self.evaluator.link_attrs(
                 self.loader, ("target", "minibatch_targets"),
-                "class_targets", "normalizer")
+                "class_targets", ("normalizer", "target_normalizer"))
         return self.evaluator
 
     @StandardWorkflowBase.reset_unit
@@ -1455,7 +1455,7 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         prev = parents
         self.mse_plotter = []
-        styles = ["", "b-", "k-"]
+        styles = ["r-", "b-", "k-"]
         for i, style in enumerate(styles):
             if len(style) == 0:
                 continue

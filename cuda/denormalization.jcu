@@ -1,0 +1,19 @@
+{% if normalization == "pointwise" %}
+  __device__ __constant__ const dtype mul[] = {{ "{" + coeffs[0] | join(", ") + "}" }};
+  __device__ __constant__ const dtype add[] = {{ "{" + coeffs[1] | join(", ") + "}" }};
+{% elif normalization == "mean_disp" %}
+  __device__ __constant__ const dtype mean[] = {{ "{" + coeffs[0] | join(", ") + "}" }};
+  __device__ __constant__ const dtype disp[] = {{ "{" + coeffs[1] | join(", ") + "}" }};
+{% endif %}
+
+
+__device__ dtype denormalize(dtype src, int index) {
+  {% if normalization == "pointwise" %}
+    return (src - add[index]) / mul[index];
+  {% elif normalization == "mean_disp" %}
+    return src * disp[index] + mean[index];
+  {% elif normalization == "none" %}
+    return src;
+  {% endif %}
+  // compilation error
+}
