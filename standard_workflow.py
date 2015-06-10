@@ -682,6 +682,14 @@ class StandardWorkflow(StandardWorkflowBase):
         self._set_name_of_unit(
             value, "evaluator", EvaluatorsRegistry.loss_mapping)
 
+    def link_forwards(self, init_attrs, *parents):
+        last_fwd = super(StandardWorkflow, self).link_forwards(
+            init_attrs, *parents)
+        if self.loss_function == "mse" and \
+                isinstance(last_fwd, All2AllSoftmax):
+            raise NotImplementedError(
+                "Softmax last layer does not currently support MSE.")
+
     def create_workflow(self):
         # Add repeater unit
         self.link_repeater(self.start_point)
