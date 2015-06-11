@@ -249,9 +249,41 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.mcdnnic_topology = kwargs.get("mcdnnic_topology", None)
         self.mcdnnic_parameters = kwargs.get("mcdnnic_parameters", None)
         self.layers = kwargs.get("layers", [{}])
-        self.loader_name = kwargs["loader_name"]
+        self._loader_name = None
         self._loader = None
         self.apply_config(**kwargs)
+        if "loader_name" in kwargs:
+            self.loader_name = kwargs["loader_name"]
+        else:
+            self.loader_factory = kwargs["loader_factory"]
+
+    @property
+    def loader_name(self):
+        return self._loader_name
+
+    @loader_name.setter
+    def loader_name(self, value):
+        if value is None:
+            self._loader_name = value
+            return
+        loader_kwargs = self.dictify(self.config.loader)
+        if self.mcdnnic_topology is not None:
+            loader_kwargs = self._update_loader_kwargs_from_mcdnnic(
+                loader_kwargs, self.mcdnnic_topology)
+        self.loader_factory = UserLoaderRegistry.get_factory(
+            value, **loader_kwargs)
+        self._loader_name = value
+
+    @property
+    def loader_factory(self):
+        return self._loader_factory
+
+    @loader_factory.setter
+    def loader_factory(self, value):
+        if not callable(value):
+            raise TypeError("loader_factory must be callable")
+        self.loader_name = None
+        self._loader_factory = value
 
     def reset_unit(fn):
         def wrapped(self, *args, **kwargs):
@@ -502,17 +534,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         Arguments:
             parents: units to link this one from.
         """
-        kwargs = self.dictify(self.config.loader)
-        if self.mcdnnic_topology is not None:
-            kwargs = self._update_loader_kwargs_from_mcdnnic(
-                kwargs, self.mcdnnic_topology)
-        if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
-            raise AttributeError(
-                "Set the loader_name. Full list of names is %s. Or redefine"
-                " link_loader() function, if you want to create you own Loader"
-                % list(UserLoaderRegistry.loaders.keys()))
-        self.loader = UserLoaderRegistry.loaders[self.loader_name](
-            self, **kwargs).link_from(*parents)
+        self.loader = self.loader_factory(self)  # pylint: disable=E1102
+        self.loader.link_from(*parents)
         # Save this loader, since it can be later replaced with an Avatar
         self.real_loader = self.loader
         return self.loader
@@ -725,14 +748,41 @@ class StandardWorkflow(StandardWorkflowBase):
         # Add end_point unit
         self.link_end_point(last_gd)
 
-    def extract_forward_workflow(self, loader_name, loader_config,
-                                 result_unit_factory, cyclic):
+    def extract_forward_workflow(self, loader_unit_factory=None,
+                                 loader_name=None, loader_config=None,
+                                 result_unit_factory=None,
+                                 result_unit_config=None, cyclic=True):
+        """
+        Generates a separate forward propagation workflow from this one,
+        taking the trained weights, settings, etc.
+        :param loader_unit_factory: callable(workflow) which returns the
+        loader unit.
+        :param loader_name: Alternative to loader_unit_factory, loader name in
+          UserLoaderRegistry.
+        :param loader_config: Used in pair with loader_name to configure the
+        loader. May be a dictionary or an instance of veles.config.Config.
+        :param result_unit_factory: callable(workflow) which returns the result
+        output unit.
+        :param result_unit_config: Passed into result_unit_factory as keyword
+        arguments. May be a dictionary or an instance of veles.config.Config.
+        :param cyclic: True if the loader decides whether to stop the workflow;
+        otherwise, False => the extracted workflow is going to do a single
+        iteration.
+        :return: veles.znicz.standard_workflow.StandardWorkflowBase instance.
+        """
         self.debug("Constructing the new workflow...")
-        wf = StandardWorkflowBase(self.workflow,
-                                  name="Forwards@%s" % self.name,
-                                  loader_name=loader_name,
-                                  loader_config=loader_config,
-                                  layers=self.layers)
+        if loader_unit_factory is not None:
+            assert loader_name is None and loader_config is None
+            wf = StandardWorkflowBase(self.workflow,
+                                      name="Forwards@%s" % self.name,
+                                      loader_factory=loader_unit_factory,
+                                      layers=self.layers)
+        else:
+            wf = StandardWorkflowBase(self.workflow,
+                                      name="Forwards@%s" % self.name,
+                                      loader_name=loader_name,
+                                      loader_config=loader_config,
+                                      layers=self.layers)
         if cyclic:
             start_unit = wf.link_repeater(wf.start_point)
         else:
@@ -746,7 +796,9 @@ class StandardWorkflow(StandardWorkflowBase):
         wf.link_forwards(("input", "minibatch_data"), wf.loader)
         if cyclic:
             wf.forwards[0].gate_block = wf.loader.complete
-        wf.result_unit = result_unit_factory(wf).link_from(wf.forwards[-1])
+        result_unit_config = self.config2kwargs(result_unit_config)
+        wf.result_unit = result_unit_factory(wf, **result_unit_config) \
+            .link_from(wf.forwards[-1])
         wf.result_unit.link_attrs(wf.forwards[-1], ("input", "output"))
         wf.result_unit.link_attrs(
             wf.loader, ("labels_mapping", "reversed_labels_mapping"))
@@ -1167,7 +1219,6 @@ class StandardWorkflow(StandardWorkflowBase):
             plotter.gate_skip = ~self.decision.epoch_ended
             self.error_plotters.append(plotter)
             prev = plotter,
-        self.error_plotters[0].clear_plot = True
         self.error_plotters[-1].redraw_plot = True
         return prev[0]
 
@@ -1456,18 +1507,15 @@ class StandardWorkflow(StandardWorkflowBase):
         prev = parents
         self.mse_plotter = []
         styles = ["r-", "b-", "k-"]
-        for i, style in enumerate(styles):
-            if len(style) == 0:
-                continue
+        for i in 1, 2:
             plotter = plotting_units.AccumulatingPlotter(
-                self, name="mse", plot_style=style).link_from(*prev) \
+                self, name="mse", plot_style=styles[i]).link_from(*prev) \
                 .link_attrs(self.decision, ("input", "epoch_metrics"))
             plotter.gate_skip = ~self.decision.epoch_ended
             plotter.input_field = i
             self.mse_plotter.append(plotter)
             prev = plotter,
         self.mse_plotter[-1].redraw_plot = True
-        self.mse_plotter[0].clear_plot = True
         return prev[0]
 
     def link_min_max_plotter(self, is_min, *parents):
