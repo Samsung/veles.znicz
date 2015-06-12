@@ -1,4 +1,4 @@
-__init__.py filter=package
+__init__.py filter=vars
 .gitattributes export-ignore
 .gitmodules export-ignore
 .gitignore export-ignore
