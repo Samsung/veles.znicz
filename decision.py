@@ -36,11 +36,10 @@ under the License.
 
 
 from __future__ import division
-
-import six
 import time
 
 import numpy
+import six
 from zope.interface import implementer, Interface
 
 from veles.distributable import IDistributable
@@ -48,6 +47,7 @@ from veles.mutable import Bool
 from veles.units import Unit, IUnit
 from veles.workflow import NoMoreJobs
 from veles.loader import CLASS_NAME, TRAIN, VALID
+from veles.result_provider import IResultProvider
 from veles.unit_registry import MappedUnitRegistry
 
 
@@ -303,7 +303,7 @@ class TrivialDecision(DecisionBase):
         return False
 
 
-@implementer(IDecision)
+@implementer(IDecision, IResultProvider)
 class DecisionGD(DecisionBase):
 
     MAPPING = "decision_gd"
@@ -324,41 +324,58 @@ class DecisionGD(DecisionBase):
                                  for a minibatch.
         max_err_y_sums: maximums of backpropagated gradient.
     """
+
+    BIGNUM = 1.0e30
+
     def __init__(self, workflow, **kwargs):
         super(DecisionGD, self).__init__(workflow, **kwargs)
         self.fail_iterations = kwargs.get("fail_iterations", 100)
         self.gd_skip = Bool(False)
-        self.epoch_n_err = [1.0e30, 1.0e30, 1.0e30]
-        self.epoch_n_err_pt = [100.0, 100.0, 100.0]
-        self.best_n_err_pt = [100.0, 100.0, 100.0]
+        self.epoch_n_err = [self.BIGNUM] * 3
+        self.epoch_n_err_pt = [100.0] * 3
+        self.best_n_err_pt = [100.0] * 3
         self.minibatch_n_err = None  # memory.Array()
 
         # minimum validation error and its epoch number
-        self.min_validation_n_err = 1.0e30
+        self.min_validation_n_err = self.BIGNUM
         self.min_validation_n_err_epoch_number = -1
 
-        # train error when validation was minimum last time
-        self.min_train_validation_n_err = 1.0e30
+        # train error when validation was minimal
+        self.min_train_validation_n_err = self.BIGNUM
 
         # minimum train error and its epoch number
-        self.min_train_n_err = 1.0e30
+        self.min_train_n_err = self.BIGNUM
         self.min_train_n_err_epoch_number = -1
+        self.prev_train_err = self.BIGNUM
 
-        self.confusion_matrixes = [None, None, None]
+        self.confusion_matrixes = [None] * 3
         self.minibatch_confusion_matrix = None  # memory.Array()
-        self.max_err_y_sums = [0, 0, 0]
+        self.max_err_y_sums = [0] * 3
         self.minibatch_max_err_y_sum = None  # memory.Array()
-        self.prev_train_err = 1.0e30
         self.demand("minibatch_size")
 
     def initialize(self, **kwargs):
         super(DecisionGD, self).initialize(**kwargs)
         # Reset errors
-        self.epoch_n_err[:] = [1.0e30, 1.0e30, 1.0e30]
+        self.epoch_n_err[:] = [self.BIGNUM, self.BIGNUM, self.BIGNUM]
         self.epoch_n_err_pt[:] = [100.0, 100.0, 100.0]
         map(self.reset_statistics, range(3))
         self.initialize_arrays(self.minibatch_confusion_matrix,
                                self.confusion_matrixes)
+
+    def get_metric_names(self):
+        return {"min_errors_number", "best_accuracy_%", "best_epoch"}
+
+    def get_metric_values(self):
+        tstr = CLASS_NAME[TRAIN]
+        vstr = CLASS_NAME[VALID]
+        return {"Min errors number": {
+            tstr: self.min_train_n_err, vstr: self.min_validation_n_err},
+            "Accuracy": {
+                tstr: "%.2f%%" % (100 - self.best_n_err_pt[TRAIN]),
+                vstr: "%.2f%%" % (100 - self.best_n_err_pt[VALID])},
+            "Best epoch": {tstr: self.min_train_n_err_epoch_number,
+                           vstr: self.min_validation_n_err_epoch_number}}
 
     def on_run(self):
         # Check skip gradient descent or not
@@ -402,10 +419,6 @@ class DecisionGD(DecisionBase):
             self.min_validation_n_err = self.epoch_n_err[minibatch_class]
             self.min_train_validation_n_err = self.epoch_n_err[TRAIN]
             self.min_validation_n_err_epoch_number = self.epoch_number
-            self.workflow.fitness = (
-                100.0 - 100.0 * self.epoch_n_err[minibatch_class] /
-                (self.class_lengths[minibatch_class] if not self.is_slave
-                 else self.minibatch_size))
             return True
         return False
 
@@ -489,7 +502,6 @@ class DecisionMSE(DecisionGD):
 
     MAPPING = "decision_mse"
     LOSS = "mse"
-    BIGNUM = 1.0e30
 
     """Rules the gradient descent mean square error (MSE) learning process.
 
@@ -499,27 +511,49 @@ class DecisionMSE(DecisionGD):
     """
     def __init__(self, workflow, **kwargs):
         super(DecisionMSE, self).__init__(workflow, **kwargs)
-        self.epoch_min_mse = [self.BIGNUM, self.BIGNUM, self.BIGNUM]
         self.min_validation_mse = self.BIGNUM
         self.min_validation_mse_epoch_number = -1
-        self.min_train_validation_mse = self.BIGNUM
+        self.train_mse_on_min_validation_mse = self.BIGNUM
         self.min_train_mse = self.BIGNUM
         self.min_train_mse_epoch_number = -1
-        self.epoch_metrics = [None, None, None]
-        self.demand("minibatch_metrics")
+        self.epoch_metrics = [None] * 3
+        self.epoch_min_mse = [self.BIGNUM] * 3
+        self.demand("minibatch_metrics", "minibatch_class", "class_lengths",
+                    "root")
 
     def initialize(self, **kwargs):
         super(DecisionMSE, self).initialize(**kwargs)
-        self.epoch_min_mse[:] = [self.BIGNUM, self.BIGNUM, self.BIGNUM]
+        self.epoch_min_mse[:] = (self.BIGNUM,) * 3
         self.initialize_arrays(self.minibatch_metrics, self.epoch_metrics)
+
+    def get_metric_names(self):
+        mstr = "rmse" if self.root else "mse"
+        tstr = CLASS_NAME[TRAIN]
+        vstr = CLASS_NAME[VALID]
+        return {"min_" + mstr, "min_%s_epoch_number" % mstr,
+                "%s_%s_on_min_%s_%s" % (tstr, mstr, vstr, mstr)}
+
+    def get_metric_values(self):
+        mstr = "rmse" if self.root else "mse"
+        tstr = CLASS_NAME[TRAIN]
+        vstr = CLASS_NAME[VALID]
+        return {mstr: {tstr: "%.3f" % self.min_train_mse,
+                       vstr: "%.3f" % self.min_validation_mse},
+                "Min %s epochs number" % mstr: {
+                    tstr: self.min_validation_mse_epoch_number,
+                    vstr: self.min_train_mse_epoch_number},
+                "%s %s on min %s %s" % (tstr, mstr, vstr, mstr):
+                self.train_mse_on_min_validation_mse}
 
     def on_last_minibatch(self):
         super(DecisionMSE, self).on_last_minibatch()
 
+        # minibatch_metrics: [(R)MSE, min error, max ]
+
         minibatch_class = self.minibatch_class
         self.minibatch_metrics.map_read()
-        self.epoch_min_mse[minibatch_class] = (
-            self.minibatch_metrics[0] / self.class_lengths[minibatch_class])
+        self.epoch_min_mse[minibatch_class] = \
+            self.minibatch_metrics[0] / self.class_lengths[minibatch_class]
         # Copy metrics
         self.epoch_metrics[minibatch_class][:] = (
             self.minibatch_metrics.mem[:])
@@ -531,14 +565,12 @@ class DecisionMSE(DecisionGD):
             self.epoch_metrics[TRAIN][:] = self.epoch_metrics[VALID][:]
 
     def improve_condition(self):
-        minibatch_class = self.minibatch_class
-        if (self.epoch_min_mse[minibatch_class] < self.min_validation_mse or
-                (self.epoch_min_mse[minibatch_class] == self.min_validation_mse
+        if (self.epoch_min_mse[VALID] < self.min_validation_mse or
+                (self.epoch_min_mse[VALID] == self.min_validation_mse
                  and self.epoch_min_mse[TRAIN] < self.min_train_mse)):
-            self.min_validation_mse = self.epoch_min_mse[minibatch_class]
+            self.min_validation_mse = self.epoch_min_mse[VALID]
             self.min_validation_mse_epoch_number = self.epoch_number
-            self.min_train_validation_mse = self.epoch_min_mse[TRAIN]
-            self.workflow.fitness = 1.0 - self.epoch_min_mse[minibatch_class]
+            self.train_mse_on_min_validation_mse = self.epoch_min_mse[TRAIN]
             return True
         return super(DecisionMSE, self).improve_condition()
 
@@ -582,10 +614,9 @@ class DecisionMSE(DecisionGD):
     def fill_statistics(self, ss):
         minibatch_class = self.minibatch_class
         if self.epoch_metrics[minibatch_class] is not None:
-            ss.append("AvgMSE %.6f MaxMSE %.6f "
-                      "MinMSE %.3e" % (self.epoch_metrics[minibatch_class][0],
-                                       self.epoch_metrics[minibatch_class][1],
-                                       self.epoch_metrics[minibatch_class][2]))
+            ss.append("%s %.6f (max %.6f; min %.3e)" %
+                      (("RMSE" if self.root else "MSE",) +
+                       tuple(self.epoch_metrics[minibatch_class])))
         super(DecisionMSE, self).fill_statistics(ss)
 
     def reset_statistics(self, minibatch_class):

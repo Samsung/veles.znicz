@@ -46,7 +46,7 @@ from veles.pickle2 import best_protocol
 from veles.plumbing import FireStarter
 from veles.units import Unit, IUnit
 from veles.znicz.diff_stats import DiffStats
-from veles.znicz.nnpublisher import NNPublisher
+from veles.publisher import Publisher
 
 if six.PY3:
     from collections import UserDict
@@ -1180,9 +1180,9 @@ class StandardWorkflow(StandardWorkflowBase):
 
     @StandardWorkflowBase.reset_unit
     def link_publisher(self, *parents):
-        self.publisher = NNPublisher(self, **self.config.publisher) \
-            .link_from(*parents) \
-            .link_attrs(self.decision, ("errors_pt", "best_n_err_pt"))
+        self.publisher = Publisher(self, **self.config.publisher) \
+            .link_from(*parents)
+        self.publisher.result_providers.add(self.decision)
         self.publisher.loader_unit = self.real_loader
         self.publisher.gate_skip = ~self.decision.complete
         return self.publisher
