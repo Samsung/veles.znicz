@@ -931,6 +931,7 @@ class NNSnapshotter(Snapshotter):
         mem = getattr(val, "mem", None)
         if mem is None:
             return
+        val.map_read()
         if id(mem) not in logged:
             self.has_invalid_values <<= bool(
                 numpy.count_nonzero(numpy.isnan(mem)) or
