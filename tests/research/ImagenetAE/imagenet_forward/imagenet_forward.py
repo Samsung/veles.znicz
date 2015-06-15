@@ -46,7 +46,7 @@ from veles.config import root
 from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.accelerated_units import AcceleratedWorkflow
 from veles.pickle2 import pickle, best_protocol
-from veles.snapshotter import Snapshotter
+from veles.snapshotter import SnapshotterToFile
 from veles.znicz.nn_units import Forward
 from veles.units import Unit, IUnit
 from veles.workflow import Repeater
@@ -239,7 +239,7 @@ class ImagenetForward(AcceleratedWorkflow):
         super(ImagenetForward, self).__init__(workflow, **kwargs)
         sys.path.append(os.path.dirname(__file__))
         self.info("Importing %s...", root.imagenet_forward.trained_workflow)
-        train_wf = Snapshotter.import_file(
+        train_wf = SnapshotterToFile.import_(
             root.imagenet_forward.trained_workflow)
         self.info("Loaded workflow %s" % train_wf)
         gc.collect()

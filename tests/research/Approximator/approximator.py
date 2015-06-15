@@ -54,7 +54,7 @@ from veles.znicz.downloader import Downloader
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.loader as loader
-from veles.znicz.nn_units import NNSnapshotter
+from veles.znicz.nn_units import NNSnapshotterToFile
 
 
 target_dir = [os.path.join(root.common.datasets_root,
@@ -229,7 +229,7 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
             ("minibatch_mse", "mse"),
             ("minibatch_metrics", "metrics"))
 
-        self.snapshotter = NNSnapshotter(
+        self.snapshotter = NNSnapshotterToFile(
             self, prefix=root.approximator.snapshotter.prefix,
             directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)

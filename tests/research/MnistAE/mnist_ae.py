@@ -41,7 +41,7 @@ import sys
 from veles.config import root
 from veles.normalization import NoneNormalizer
 import veles.plotting_units as plotting_units
-from veles.znicz.nn_units import NNSnapshotter
+from veles.znicz.nn_units import NNSnapshotterToFile
 import veles.znicz.nn_units as nn_units
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.conv as conv
@@ -134,7 +134,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
                         "epoch_number")
         unit.link_attrs(self.evaluator, ("minibatch_metrics", "metrics"))
 
-        unit = NNSnapshotter(
+        unit = NNSnapshotterToFile(
             self, prefix=root.mnist_ae.snapshotter.prefix,
             compression=root.mnist_ae.snapshotter.compression,
             time_interval=root.mnist_ae.snapshotter.time_interval,

@@ -40,7 +40,7 @@ from six import PY3
 from veles.backends import CUDADevice
 from veles.config import root
 from veles.memory import Array
-from veles.snapshotter import Snapshotter
+from veles.snapshotter import SnapshotterToFile
 from veles.tests import timeout, multi_device
 import veles.znicz.samples.Lines.lines as lines
 from veles.znicz.tests.functional import StandardTest
@@ -132,7 +132,7 @@ class TestLines(StandardTest):
         # Test loading from snapshot
         self.info("Will load workflow from %s", file_name)
 
-        workflow_from_snapshot = Snapshotter.import_file(file_name)
+        workflow_from_snapshot = SnapshotterToFile.import_(file_name)
         workflow_from_snapshot.workflow = self.parent
         self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
         workflow_from_snapshot.decision.max_epochs = 4

@@ -44,6 +44,7 @@ from veles.avatar import Avatar
 from veles.distributable import IDistributable, TriviallyDistributable
 from veles.pickle2 import best_protocol
 from veles.plumbing import FireStarter
+from veles.snapshotter import SnapshotterRegistry
 from veles.units import Unit, IUnit
 from veles.znicz.diff_stats import DiffStats
 from veles.publisher import Publisher
@@ -648,7 +649,8 @@ class StandardWorkflow(StandardWorkflowBase):
         result_unit_factory: The results' publishing unit factory.
     """
     WorkflowConfig = StandardWorkflowConfig
-    CONFIGURABLE_UNIT_NAMES = "result_loader", "decision", "evaluator"
+    CONFIGURABLE_UNIT_NAMES = "result_loader", "decision", "evaluator", \
+                              "snapshotter"
     KWATTRS = {"%s_config" % f for f in WorkflowConfig._fields}.union(
         {"%s_name" % n for n in CONFIGURABLE_UNIT_NAMES})
 
@@ -1028,8 +1030,9 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.snapshotter.SnapshotterBase` descendant unit
         """
-        self.snapshotter = \
-            nn_units.NNSnapshotter(self, **self.config.snapshotter) \
+        snapshotter_name = self.snapshotter_name or "nnfile"
+        self.snapshotter = SnapshotterRegistry.snapshotters[snapshotter_name](
+            self, **self.config.snapshotter) \
             .link_from(*parents) \
             .link_attrs(self.decision, ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = ~self.decision.epoch_ended

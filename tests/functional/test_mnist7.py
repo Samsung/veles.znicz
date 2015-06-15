@@ -34,7 +34,7 @@ under the License.
 """
 
 from veles.config import root
-from veles.snapshotter import Snapshotter
+from veles.snapshotter import SnapshotterToFile
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.Mnist7.mnist7 as mnist7
@@ -79,7 +79,7 @@ class TestMnist7(StandardTest):
         self.assertEqual(2, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
-        workflow_from_snapshot = Snapshotter.import_file(file_name)
+        workflow_from_snapshot = SnapshotterToFile.import_(file_name)
         workflow_from_snapshot.workflow = self.parent
         self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
         workflow_from_snapshot.decision.max_epochs = 5

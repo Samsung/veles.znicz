@@ -52,7 +52,7 @@ if not os.path.exists(data_path):
 root.wine.update({
     "decision": {"fail_iterations": 200,
                  "max_epochs": 100},
-    "snapshotter": {"prefix": "wine", "interval": 1, "time_interval": 0},
+    "snapshotter": {"prefix": "wine", "interval": 10, "time_interval": 0},
     "loader": {"minibatch_size": 10,
                "dataset_file": os.path.join(data_path, "wine.txt.gz"),
                "force_numpy": False},

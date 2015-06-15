@@ -40,7 +40,7 @@ import os
 import sys
 
 from veles.config import root
-from veles.znicz.nn_units import NNSnapshotter
+from veles.znicz.nn_units import NNSnapshotterToFile
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -120,9 +120,9 @@ class WineWorkflow(nn_units.NNWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
-        self.snapshotter = NNSnapshotter(
+        self.snapshotter = NNSnapshotterToFile(
             self, prefix=root.wine.snapshotter.prefix,
-            directory=root.common.snapshot_dir, compress="",
+            directory=root.common.snapshot_dir, compression="",
             interval=root.wine.snapshotter.interval,
             time_interval=root.wine.snapshotter.time_interval)
         self.snapshotter.link_from(self.decision)

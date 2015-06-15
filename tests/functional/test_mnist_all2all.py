@@ -36,7 +36,7 @@ under the License.
 
 from veles.config import root
 from veles.genetics import Range, fix_config
-from veles.snapshotter import Snapshotter
+from veles.snapshotter import SnapshotterToFile
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.samples.MNIST.mnist as mnist_all2all
@@ -113,7 +113,7 @@ class TestMnistAll2All(StandardTest):
         self.assertEqual(3, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
-        workflow_from_snapshot = Snapshotter.import_file(file_name)
+        workflow_from_snapshot = SnapshotterToFile.import_(file_name)
         workflow_from_snapshot.workflow = self.parent
         self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
         workflow_from_snapshot.decision.max_epochs = 6

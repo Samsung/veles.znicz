@@ -50,7 +50,7 @@ import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
-from veles.znicz.nn_units import NNSnapshotter
+from veles.znicz.nn_units import NNSnapshotterToFile
 import veles.plotting_units as plotting_units
 
 
@@ -139,7 +139,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
             self.evaluator,
             ("minibatch_metrics", "metrics"))
 
-        self.snapshotter = NNSnapshotter(
+        self.snapshotter = NNSnapshotterToFile(
             self, prefix=root.video_ae.snapshotter.prefix,
             directory=root.common.snapshot_dir, compress="")
         self.snapshotter.link_from(self.decision)

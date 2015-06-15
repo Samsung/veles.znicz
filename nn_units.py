@@ -41,9 +41,7 @@ import gc
 import numpy
 import logging
 import time
-import os
 import six
-import sys
 import tarfile
 from zope.interface import implementer
 from veles.avatar import Avatar
@@ -57,8 +55,8 @@ from veles.accelerated_units import AcceleratedUnit, AcceleratedWorkflow
 import veles.prng as prng
 from veles.units import UnitCommandLineArgumentsRegistry
 from veles.workflow import Repeater
-from veles.snapshotter import SnapshotterBase, Snapshotter, SnappyFile
-from veles.error import MasterSlaveCommunicationError
+from veles.snapshotter import SnapshotterBase, SnapshotterToFile, \
+    SnapshotterToDB
 from veles.timeit2 import timeit
 from veles.znicz.decision import DecisionBase
 from veles.znicz.evaluator import EvaluatorBase
@@ -779,30 +777,6 @@ class NNWorkflow(AcceleratedWorkflow):
                 "(got %s)." % type(value))
         self._evaluator = value
 
-    def validate_history(self):
-        """Raises error.MasterSlaveCommunicationError if apply-generate
-        history is invalid.
-        """
-        if not self.is_master:
-            return
-
-        self.debug("Checking the history...")
-        async = self.workflow.args.async
-        job_stack = defaultdict(int)
-        for index, record in enumerate(self.history):
-            sid = record[2]
-            if record[0] == "generate":
-                job_stack[sid] += 1
-            elif record[0] == "apply":
-                job_stack[sid] -= 1
-            if async and job_stack[sid] == 0:
-                raise MasterSlaveCommunicationError(
-                    "Apply-generate balance becomes zero at index %d" % index)
-            if not async and job_stack[sid] == 2:
-                raise MasterSlaveCommunicationError(
-                    "Apply-generate balance becomes 2 at index %d" % index)
-        self.info("History validation's been completed. Everything is OK.")
-
     def export(self, file_name):
         """Exports workflow for use on DTV.
         """
@@ -858,70 +832,9 @@ class NNWorkflow(AcceleratedWorkflow):
             self.exception("Failed to export to %s", file_name)
 
 
-class ForwardExporter(SnapshotterBase):
-    """Saves weights and biases from Forward units.
-
-    Defines:
-        file_name - the file name of the last export.
-        time - the time of the last export
-
-    Must be defined before initialize():
-        suffix - the file name suffix where to export weights and biases
-        forwards - the list of Forward units to take weights and biases from
-
-    Attributes:
-        compression - the compression applied to pickles:  None or '', snappy,
-                      gz, bz2, xz
-        compression_level - the compression level in [0..9]
-        interval - take only one snapshot within this run() invocation number
-        time_interval - take no more than one snapshot within this time window
-    """
-
-    CODECS = {
-        None: lambda n, l: tarfile.TarFile.open(n, "w"),
-        "": lambda n, l: tarfile.TarFile.open(n, "w"),
-        "snappy": lambda n, _: SnappyFile(n, "wb"),
-        "gz": lambda n, l: tarfile.TarFile.gzopen(n, "w", compresslevel=l),
-        "bz2": lambda n, l: tarfile.TarFile.bz2open(n, "w", compresslevel=l),
-        "xz": lambda n, l: tarfile.TarFile.xzopen(n, "w", preset=l)
-    }
-
+class NNSnapshotterBase(SnapshotterBase):
     def __init__(self, workflow, **kwargs):
-        super(ForwardExporter, self).__init__(workflow, **kwargs)
-        self.forwards = []
-
-    def export(self):
-        ext = ("." + self.compression) if self.compression else ""
-        rel_file_name = "%s_%s_wb.%d.tar%s" % (
-            self.prefix, self.suffix, sys.version_info[0], ext)
-        self.file_name = os.path.join(self.directory, rel_file_name)
-        self.debug("Writing %s...", self.file_name)
-        with self._open_file() as tar:
-            for index, fwd in enumerate(self.forwards):
-                weights, bias = fwd.generate_data_for_slave(None)
-                fileobj = six.BytesIO()
-                numpy.savez(fileobj, weights=weights, bias=bias)
-                ti = tarfile.TarInfo("%03d_%s.npz" % (index + 1, fwd.name))
-                ti.size = fileobj.tell()
-                ti.mode = int("666", 8)
-                fileobj.seek(0)
-                tar.addfile(ti, fileobj=fileobj)
-        self.info("Wrote %s" % self.file_name)
-        file_name_link = os.path.join(
-            self.directory, "%s_current_wb.%d.tar%s" % (
-                self.prefix, sys.version_info[0], ext))
-        if os.path.exists(file_name_link):
-            os.remove(file_name_link)
-        os.symlink(rel_file_name, file_name_link)
-
-    def _open_file(self):
-        return ForwardExporter.CODECS[self.compression](
-            self.file_name, self.compression_level)
-
-
-class NNSnapshotter(Snapshotter):
-    def __init__(self, workflow, **kwargs):
-        super(NNSnapshotter, self).__init__(workflow, **kwargs)
+        super(NNSnapshotterBase, self).__init__(workflow, **kwargs)
         self.has_invalid_values = Bool(False)
 
     def _log_attr(self, unit, attr, logged):
@@ -947,7 +860,7 @@ class NNSnapshotter(Snapshotter):
             logged.add(id(mem))
 
     def run(self):
-        super(NNSnapshotter, self).run()
+        super(NNSnapshotterBase, self).run()
         logged = set()
         for u in self.workflow.start_point.dependent_units():
             for attr in ("input", "weights", "bias", "output",
@@ -957,3 +870,11 @@ class NNSnapshotter(Snapshotter):
         _, dt = timeit(gc.collect)
         if dt > 1.0:
             self.warning("gc.collect() took %.1f sec", dt)
+
+
+class NNSnapshotterToFile(NNSnapshotterBase, SnapshotterToFile):
+    MAPPING = "nnfile"
+
+
+class NNSnapshotterToDB(NNSnapshotterBase, SnapshotterToDB):
+    MAPPING = "nnodbc"

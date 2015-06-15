@@ -34,20 +34,14 @@ under the License.
 
 
 import logging
-import numpy
-import os
-import sys
-import tarfile
-import time
 import unittest
 from zope.interface import implementer
 
-from veles import memory, prng
+from veles import prng
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
-from veles.backends import NumpyDevice
 from veles.dummy import DummyWorkflow
 from veles.znicz.gd import GradientDescent
-from veles.znicz.nn_units import Forward, ForwardExporter
+from veles.znicz.nn_units import Forward, NNSnapshotterToFile
 
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
@@ -88,39 +82,11 @@ class Test(unittest.TestCase):
             self.assertTrue(u.ocl_set_const_args)
             self.assertEqual(getattr(u, attr), vle)
 
-    def testForwardExporter(self):
-        workflow = self.parent
-        fe = ForwardExporter(workflow, prefix="testp", time_interval=0)
-        fe.link_from(workflow.start_point)
-        fe.suffix = "tests"
-        for _ in range(3):
-            fwd = TrivialForward(workflow, name="forward")
-            fwd.weights.mem = numpy.ones(1000)
-            fwd.bias.mem = numpy.ones(10)
-            fwd.input = memory.Array()
-            fe.forwards.append(fwd)
-            fwd.initialize(NumpyDevice())
-        workflow.initialize(snapshot=False)
-        fe.run()
-        self.assertTrue(fe.file_name)
-        self.assertTrue(os.path.exists(fe.file_name))
-        self.assertTrue(os.path.exists(os.path.join(
-            os.path.dirname(fe.file_name), "testp_current_wb.%d.tar.gz" %
-            (sys.version_info[0]))))
-        self.assertLess(fe.time, time.time())
-        self.assertEqual("testp_tests_wb.%d.tar.gz" % (sys.version_info[0]),
-                         os.path.basename(fe.file_name))
-        with tarfile.open(fe.file_name, "r:gz") as tar:
-            for index in ("001", "002", "003"):
-                try:
-                    # On Python 2.7, TarFile does not have __exit__()
-                    fileobj = tar.extractfile("%s_forward.npz" % index)
-                    with numpy.load(fileobj) as npz:
-                        weights, bias = npz["weights"], npz["bias"]
-                    self.assertTrue(all(weights == 1))
-                    self.assertTrue(all(bias == 1))
-                finally:
-                    fileobj.close()
+    def test_nnsnapshotter(self):
+        nns = NNSnapshotterToFile(self.parent)
+        nns.suffix = "suffix"
+        nns.initialize()
+        nns.run()
 
 
 if __name__ == "__main__":

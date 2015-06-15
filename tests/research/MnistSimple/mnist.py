@@ -41,7 +41,7 @@ import sys
 
 from veles.config import root
 import veles.plotting_units as plotting_units
-from veles.znicz.nn_units import NNSnapshotter
+from veles.znicz.nn_units import NNSnapshotterToFile
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -124,7 +124,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
-        self.snapshotter = NNSnapshotter(
+        self.snapshotter = NNSnapshotterToFile(
             self, prefix=root.mnist.snapshotter.prefix,
             directory=root.common.snapshot_dir,
             time_interval=root.mnist.snapshotter.time_interval)

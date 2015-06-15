@@ -527,14 +527,14 @@ class DecisionMSE(DecisionGD):
         self.initialize_arrays(self.minibatch_metrics, self.epoch_metrics)
 
     def get_metric_names(self):
-        mstr = "rmse" if self.root else "mse"
+        mstr = "RMSE" if self.root else "MSE"
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
-        return {"min_" + mstr, "min_%s_epoch_number" % mstr,
-                "%s_%s_on_min_%s_%s" % (tstr, mstr, vstr, mstr)}
+        return {mstr, "Min %s epochs number" % mstr,
+                "%s %s on min %s %s" % (tstr, mstr, vstr, mstr)}
 
     def get_metric_values(self):
-        mstr = "rmse" if self.root else "mse"
+        mstr = "RMSE" if self.root else "MSE"
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
         return {mstr: {tstr: "%.3f" % self.min_train_mse,

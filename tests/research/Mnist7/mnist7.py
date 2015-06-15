@@ -53,7 +53,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.loader as loader
-from veles.znicz.nn_units import NNSnapshotter
+from veles.znicz.nn_units import NNSnapshotterToFile
 
 
 sys.path.append(os.path.dirname(__file__))
@@ -147,7 +147,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
             ("minibatch_metrics", "metrics"),
             ("minibatch_mse", "mse"))
 
-        self.snapshotter = NNSnapshotter(
+        self.snapshotter = NNSnapshotterToFile(
             self, prefix=root.mnist7.snapshotter.prefix,
             directory=root.common.snapshot_dir,
             interval=root.mnist7.snapshotter.interval,

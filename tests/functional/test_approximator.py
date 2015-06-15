@@ -38,7 +38,7 @@ import os
 
 from veles.znicz.tests.functional import StandardTest
 from veles.config import root
-from veles.snapshotter import Snapshotter
+from veles.snapshotter import SnapshotterToFile
 from veles.tests import timeout, multi_device
 import veles.znicz.tests.research.Approximator.approximator as approximator
 
@@ -95,7 +95,7 @@ class TestApproximator(StandardTest):
         self.assertEqual(3, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
-        workflow_from_snapshot = Snapshotter.import_file(file_name)
+        workflow_from_snapshot = SnapshotterToFile.import_(file_name)
         self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
         workflow_from_snapshot.workflow = self.parent
         workflow_from_snapshot.decision.max_epochs = 5
