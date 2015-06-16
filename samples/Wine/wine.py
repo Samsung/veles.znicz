@@ -103,7 +103,8 @@ class WineWorkflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
-                                  ("labels", "minibatch_labels"))
+                                  ("labels", "minibatch_labels"),
+                                  ("offset", "global_offset"), "class_lengths")
 
         # Add decision unit
         self.decision = decision.DecisionGD(
@@ -130,14 +131,12 @@ class WineWorkflow(nn_units.NNWorkflow):
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = ~self.loader.epoch_ended
         self.snapshotter.skip = ~self.decision.improved
-        self.snapshotter.gate_block = self.decision.complete
 
-        self.end_point.link_from(self.decision)
+        self.end_point.link_from(self.snapshotter)
         self.end_point.gate_block = ~self.decision.complete
 
         # Add gradient descent units
-        del self.gds[:]
-        self.gds.extend(None for i in range(len(self.forwards)))
+        self.gds[:] = (None,) * len(self.forwards)
         self.gds[-1] = gd.GDSoftmax(self) \
             .link_from(self.snapshotter) \
             .link_attrs(self.evaluator, "err_output") \
@@ -145,6 +144,7 @@ class WineWorkflow(nn_units.NNWorkflow):
                         "weights", "bias") \
             .link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
+        self.gds[-1].gate_block = self.decision.complete
         for i in range(len(self.forwards) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(self) \
                 .link_from(self.gds[i + 1]) \

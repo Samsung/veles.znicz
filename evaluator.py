@@ -42,13 +42,15 @@ import numpy
 import six
 from zope.interface import implementer
 
-from veles.distributable import TriviallyDistributable
+from veles.distributable import TriviallyDistributable, IDistributable
 import veles.error as error
+from veles.loader import TEST
 from veles.memory import assert_addr, ravel, Array
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
     INumpyUnit
 from veles.normalization import NoneNormalizer
 from veles.opencl_types import numpy_dtype_to_opencl
+from veles.result_provider import IResultProvider
 from veles.unit_registry import MappedUnitRegistry
 from veles.units import Unit, UnitCommandLineArgumentsRegistry
 
@@ -61,13 +63,14 @@ class EvaluatorsRegistry(UnitCommandLineArgumentsRegistry,
 
     def __init__(cls, name, bases, clsdict):
         super(EvaluatorsRegistry, cls).__init__(name, bases, clsdict)
-        if ("LOSS" in clsdict and "MAPPING" in clsdict):
+        if "LOSS" in clsdict and "MAPPING" in clsdict:
             EvaluatorsRegistry.loss_mapping[clsdict[
                 "LOSS"]] = clsdict["MAPPING"]
 
 
+@implementer(IResultProvider, IDistributable)
 @six.add_metaclass(EvaluatorsRegistry)
-class EvaluatorBase(AcceleratedUnit):
+class EvaluatorBase(AcceleratedUnit, TriviallyDistributable):
     hide_from_registry = True
     """Base class for evaluators.
     """
@@ -76,9 +79,12 @@ class EvaluatorBase(AcceleratedUnit):
         super(EvaluatorBase, self).__init__(workflow, **kwargs)
         self.mean = kwargs.get("mean", True)
         self.err_output = Array()
+        self._merged_output = Array()
         self.krn_constants_i_ = None
         self.krn_constants_f_ = None
         self.demand("output", "batch_size")
+        if self.testing:
+            self.demand("class_lengths", "offset")
 
     @property
     def mean(self):
@@ -93,10 +99,19 @@ class EvaluatorBase(AcceleratedUnit):
             raise TypeError("mean must be boolean (got %s)" % type(value))
         self._mean = value
 
+    @property
+    def merged_output(self):
+        assert self.testing
+        return self._merged_output.mem
+
     def initialize(self, device, **kwargs):
         super(EvaluatorBase, self).initialize(device, **kwargs)
-
         dtype = self.output.dtype
+        if self.testing:
+            self._merged_output.reset(numpy.zeros(
+                (self.class_lengths[TEST],) + self.output.shape[1:], dtype))
+            return
+
         self.krn_constants_i_ = numpy.zeros(1, numpy.int32)
         self.krn_constants_f_ = numpy.zeros(1, dtype)
         self.err_output.reset(numpy.zeros_like(self.output.mem, dtype))
@@ -104,9 +119,27 @@ class EvaluatorBase(AcceleratedUnit):
         for vec in self.output, self.err_output:
             vec.initialize(self.device)
 
+    def run(self):
+        if self.testing:
+            self.output.map_read()
+            self.merged_output[self.offset - self.batch_size:self.offset] = \
+                self.output[:self.batch_size]
+            return
+        return super(EvaluatorBase, self).run()
+
+    def get_metric_names(self):
+        if self.testing:
+            return {"Output"}
+        return set()
+
+    def get_metric_values(self):
+        if self.testing:
+            return {"Output": self.merged_output}
+        return {}
+
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
-class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
+class EvaluatorSoftmax(EvaluatorBase):
 
     MAPPING = "evaluator_softmax"
     LOSS = "softmax"
@@ -152,6 +185,8 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
+        if self.testing:
+            return
         self.sources_["evaluator"] = {}
 
         dtype = self.output.dtype
@@ -184,11 +219,15 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         return block_size
 
     def ocl_init(self):
+        if self.testing:
+            return
         block_size = self._gpu_init()
         self._global_size = [block_size]
         self._local_size = [block_size]
 
     def cuda_init(self):
+        if self.testing:
+            return
         block_size = self._gpu_init()
         self._global_size = (1, 1, 1)
         self._local_size = (block_size, 1, 1)
@@ -253,7 +292,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
-class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
+class EvaluatorMSE(EvaluatorBase):
 
     MAPPING = "evaluator_mse"
     LOSS = "mse"
@@ -318,6 +357,8 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
 
     def initialize(self, device, **kwargs):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
+        if self.testing:
+            return
 
         if self.target.size != self.output.size:
             raise error.BadFormatError(
@@ -371,6 +412,8 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         return block_size
 
     def ocl_init(self):
+        if self.testing:
+            return
         block_size = self._gpu_init()
         self._local_size = [block_size]
         self._global_size = self._local_size
@@ -378,6 +421,8 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self._local_size_find_closest = None
 
     def cuda_init(self):
+        if self.testing:
+            return
         block_size = self._gpu_init()
         self._local_size = (block_size, 1, 1)
         self._global_size = (1, 1, 1)

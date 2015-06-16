@@ -176,6 +176,8 @@ class DecisionBase(Unit):
     def initialize(self, **kwargs):
         if self.max_epochs is not None:
             self.info("Will allow max %d epochs", self.max_epochs)
+        if self.testing:
+            self.complete <<= False
 
     def run(self):
         if self.epoch_timestamp is False:
@@ -249,6 +251,8 @@ class DecisionBase(Unit):
         self._print_statistics()
 
     def _stop_condition(self):
+        if self.testing:
+            return True
         # stop if max epoch number was reached or earlier
         return self.stop_condition() or (self.max_epochs is not None and
                                          self.epoch_number >= self.max_epochs)
@@ -330,7 +334,7 @@ class DecisionGD(DecisionBase):
     def __init__(self, workflow, **kwargs):
         super(DecisionGD, self).__init__(workflow, **kwargs)
         self.fail_iterations = kwargs.get("fail_iterations", 100)
-        self.gd_skip = Bool(False)
+        self.gd_skip = Bool()
         self.epoch_n_err = [self.BIGNUM] * 3
         self.epoch_n_err_pt = [100.0] * 3
         self.best_n_err_pt = [100.0] * 3
@@ -364,9 +368,13 @@ class DecisionGD(DecisionBase):
                                self.confusion_matrixes)
 
     def get_metric_names(self):
-        return {"min_errors_number", "best_accuracy_%", "best_epoch"}
+        if not self.testing:
+            return {"min_errors_number", "best_accuracy_%", "best_epoch"}
+        return set()
 
     def get_metric_values(self):
+        if self.testing:
+            return {}
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
         return {"Min errors number": {
@@ -527,6 +535,8 @@ class DecisionMSE(DecisionGD):
         self.initialize_arrays(self.minibatch_metrics, self.epoch_metrics)
 
     def get_metric_names(self):
+        if self.testing:
+            return set()
         mstr = "RMSE" if self.root else "MSE"
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
@@ -534,6 +544,8 @@ class DecisionMSE(DecisionGD):
                 "%s %s on min %s %s" % (tstr, mstr, vstr, mstr)}
 
     def get_metric_values(self):
+        if self.testing:
+            return {}
         mstr = "RMSE" if self.root else "MSE"
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]

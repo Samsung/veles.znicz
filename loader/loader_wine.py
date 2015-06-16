@@ -34,14 +34,15 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
+
 import numpy
 from zope.interface import implementer
 
-import veles.loader as loader
+from veles.loader import VALID, TEST, IFullBatchLoader, FullBatchLoader, TRAIN
 
 
-@implementer(loader.IFullBatchLoader)
-class WineLoader(loader.FullBatchLoader):
+@implementer(IFullBatchLoader)
+class WineLoader(FullBatchLoader):
     """Loads Wine dataset.
     """
     MAPPING = "wine_loader"
@@ -57,5 +58,9 @@ class WineLoader(loader.FullBatchLoader):
         self.original_data.mem = arr[:, 1:]
         self.original_labels[:] = arr[:, 0].ravel().astype(numpy.int32) - 1
 
-        self.class_lengths[0] = self.class_lengths[1] = 0
-        self.class_lengths[2] = self.original_data.shape[0]
+        if not self.testing:
+            self.class_lengths[TEST] = self.class_lengths[VALID] = 0
+            self.class_lengths[TRAIN] = self.original_data.shape[0]
+        else:
+            self.class_lengths[TEST] = self.original_data.shape[0]
+            self.class_lengths[VALID] = self.class_lengths[TRAIN] = 0
