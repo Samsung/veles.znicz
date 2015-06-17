@@ -122,10 +122,13 @@ class EvaluatorBase(AcceleratedUnit, TriviallyDistributable):
     def run(self):
         if self.testing:
             self.output.map_read()
-            self.merged_output[self.offset - self.batch_size:self.offset] = \
-                self.output[:self.batch_size]
+            self.merge_output()
             return
         return super(EvaluatorBase, self).run()
+
+    def merge_output(self):
+        self.merged_output[self.offset - self.batch_size:self.offset] = \
+            self.output[:self.batch_size]
 
     def get_metric_names(self):
         if self.testing:
@@ -504,3 +507,11 @@ class EvaluatorMSE(EvaluatorBase):
                                         axis=1).argmin()
                 if lbl != labels[i]:
                     self.n_err.mem[0] += 1
+
+    def merge_output(self):
+        if not isinstance(self.normalizer, NoneNormalizer):
+            output = self.output[:self.batch_size].copy()
+            self.normalizer.denormalize(output)
+        else:
+            output = self.output.mem
+        self.merged_output[self.offset - self.batch_size:self.offset] = output
