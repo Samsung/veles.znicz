@@ -382,6 +382,7 @@ class DecisionGD(DecisionBase):
             "Accuracy": {
                 tstr: "%.2f%%" % (100 - self.best_n_err_pt[TRAIN]),
                 vstr: "%.2f%%" % (100 - self.best_n_err_pt[VALID])},
+            "EvaluationFitness": 1 - self.best_n_err_pt[VALID] / 100,
             "Best epoch": {tstr: self.min_train_n_err_epoch_number,
                            vstr: self.min_validation_n_err_epoch_number}}
 
@@ -551,6 +552,7 @@ class DecisionMSE(DecisionGD):
         vstr = CLASS_NAME[VALID]
         return {mstr: {tstr: "%.3f" % self.min_train_mse,
                        vstr: "%.3f" % self.min_validation_mse},
+                "EvaluationFitness": -self.min_validation_mse,
                 "Min %s epochs number" % mstr: {
                     tstr: self.min_validation_mse_epoch_number,
                     vstr: self.min_train_mse_epoch_number},

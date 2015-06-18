@@ -1223,6 +1223,7 @@ class StandardWorkflow(StandardWorkflowBase):
             plotter.gate_skip = ~self.decision.epoch_ended
             self.error_plotters.append(plotter)
             prev = plotter,
+        self.error_plotters[0].clear_plot = True
         self.error_plotters[-1].redraw_plot = True
         return prev[0]
 
@@ -1519,6 +1520,7 @@ class StandardWorkflow(StandardWorkflowBase):
             plotter.input_field = i
             self.mse_plotter.append(plotter)
             prev = plotter,
+        self.mse_plotter[0].clear_plot = True
         self.mse_plotter[-1].redraw_plot = True
         return prev[0]
 

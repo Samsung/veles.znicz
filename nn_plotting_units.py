@@ -104,7 +104,7 @@ class Weights2D(plotter.Plotter):
                     self.warning("Auto-search of an image shape has failed, "
                                  "will not draw")
                     return None, None, None
-                self.warning("Auto-set image shape to [%d, %d]", sy, sx)
+                self.debug("Auto-set image shape to [%d, %d]", sy, sx)
             else:
                 sx = get_shape_from.shape[2]
                 sy = get_shape_from.shape[1]
@@ -178,10 +178,9 @@ class Weights2D(plotter.Plotter):
         else:
             aa[:] = 127.5
         aa = aa.astype(numpy.uint8)
-        if (colorspace != "RGB" and len(aa.shape) == 3 and aa.shape[2] == 3):
+        if colorspace != "RGB" and len(aa.shape) == 3 and aa.shape[2] == 3:
             import cv2
-            aa = cv2.cvtColor(
-                aa, getattr(cv2, "COLOR_" + colorspace + "2RGB"))
+            aa = cv2.cvtColor(aa, getattr(cv2, "COLOR_" + colorspace + "2RGB"))
         return aa
 
     def redraw(self):
