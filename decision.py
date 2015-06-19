@@ -42,6 +42,7 @@ import numpy
 import six
 from zope.interface import implementer, Interface
 
+from veles.config import root
 from veles.distributable import IDistributable
 from veles.mutable import Bool
 from veles.units import Unit, IUnit
@@ -377,12 +378,14 @@ class DecisionGD(DecisionBase):
             return {}
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
+        evalfun = root.common.genetics.evaluation_transform
         return {"Min errors number": {
             tstr: self.min_train_n_err, vstr: self.min_validation_n_err},
             "Accuracy": {
                 tstr: "%.2f%%" % (100 - self.best_n_err_pt[TRAIN]),
                 vstr: "%.2f%%" % (100 - self.best_n_err_pt[VALID])},
-            "EvaluationFitness": 1 - self.best_n_err_pt[VALID] / 100,
+            "EvaluationFitness": evalfun(1 - self.best_n_err_pt[VALID] / 100,
+                                         1 - self.best_n_err_pt[TRAIN] / 100),
             "Best epoch": {tstr: self.min_train_n_err_epoch_number,
                            vstr: self.min_validation_n_err_epoch_number}}
 
@@ -550,9 +553,11 @@ class DecisionMSE(DecisionGD):
         mstr = "RMSE" if self.root else "MSE"
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
+        evalfun = root.common.genetics.evaluation_transform
         return {mstr: {tstr: "%.3f" % self.min_train_mse,
                        vstr: "%.3f" % self.min_validation_mse},
-                "EvaluationFitness": -self.min_validation_mse,
+                "EvaluationFitness": evalfun(-self.min_validation_mse,
+                                             -self.min_train_mse),
                 "Min %s epochs number" % mstr: {
                     tstr: self.min_validation_mse_epoch_number,
                     vstr: self.min_train_mse_epoch_number},
