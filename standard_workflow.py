@@ -1654,11 +1654,21 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.loader.saver.MinibatchesSaver` unit.
         """
-        self.data_saver = MinibatchesSaver(
-            self, **self.config.data_saver).link_from(*parents).link_attrs(
+        if self.loss_function == "softmax":
+            self.data_saver = MinibatchesSaver(
+                self, **self.config.data_saver).link_from(*parents)
+        else:
+            raise NotImplementedError(
+                "MinibatchSaverMSE's not been written yet")
+        self.data_saver.link_attrs(
             self.loader, "shuffle_limit", "minibatch_class", "minibatch_data",
             "minibatch_labels", "class_lengths", "max_minibatch_size",
-            "has_labels", "minibatch_size")
+            "has_labels", "labels_mapping", "minibatch_size")
+        if self.loss_function == "mse":
+            self.data_saver.link_attrs(
+                self.loader, "target_normalization_type",
+                "target_normalization_parameters", "target_normalizer",
+                "minibatch_targets")
         return self.data_saver
 
     def _check_forwards(self):
