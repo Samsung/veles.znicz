@@ -378,7 +378,7 @@ class DecisionGD(DecisionBase):
             return {}
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
-        evalfun = root.common.genetics.evaluation_transform
+        evalfun = root.common.evaluation_transform
         return {"Min errors number": {
             tstr: self.min_train_n_err, vstr: self.min_validation_n_err},
             "Accuracy": {
@@ -553,7 +553,7 @@ class DecisionMSE(DecisionGD):
         mstr = "RMSE" if self.root else "MSE"
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
-        evalfun = root.common.genetics.evaluation_transform
+        evalfun = root.common.evaluation_transform
         return {mstr: {tstr: "%.3f" % self.min_train_mse,
                        vstr: "%.3f" % self.min_validation_mse},
                 "EvaluationFitness": evalfun(-self.min_validation_mse,
