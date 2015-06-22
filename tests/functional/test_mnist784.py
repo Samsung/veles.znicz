@@ -86,7 +86,7 @@ class TestMnist784(StandardTest):
         workflow = self.init_and_run(self.device, False)
         self.check_write_error_rate(workflow, *self.mse[0])
 
-        file_name = workflow.snapshotter.file_name
+        file_name = workflow.snapshotter.destination
 
         # Test loading from snapshot
         self.info("Will load workflow from snapshot: %s" % file_name)

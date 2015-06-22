@@ -122,7 +122,7 @@ class TestLines(StandardTest):
         workflow.run()
         self.check_write_error_rate(workflow, 47)
 
-        file_name = workflow.snapshotter.file_name
+        file_name = workflow.snapshotter.destination
         del workflow
         if PY3:
             Array.reset_all()

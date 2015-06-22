@@ -532,8 +532,8 @@ class DecisionMSE(DecisionGD):
         self.min_train_mse_epoch_number = -1
         self.epoch_metrics = [None] * 3
         self.epoch_min_mse = [self.BIGNUM] * 3
-        self.demand("minibatch_metrics", "minibatch_class", "class_lengths",
-                    "root")
+        self.root = kwargs.get("root", True)
+        self.demand("minibatch_metrics", "minibatch_class", "class_lengths")
 
     def initialize(self, **kwargs):
         super(DecisionMSE, self).initialize(**kwargs)

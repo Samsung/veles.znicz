@@ -98,7 +98,7 @@ class TestMnistRelu(StandardTest):
                          workflow.loader.minibatch_labels)
         workflow.run()
         self.assertIsNone(workflow.thread_pool.failure)
-        file_name = workflow.snapshotter.file_name
+        file_name = workflow.snapshotter.destination
 
         err = workflow.decision.epoch_n_err[1]
         self.assertEqual(err, 840)

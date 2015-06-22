@@ -88,7 +88,7 @@ class TestApproximator(StandardTest):
             snapshot=False)
         workflow.run()
         self.assertIsNone(workflow.thread_pool.failure)
-        file_name = workflow.snapshotter.file_name
+        file_name = workflow.snapshotter.destination
 
         avg_mse = workflow.decision.epoch_metrics[2][0]
         self.assertAlmostEqual(avg_mse, self.mse[0], places=5)

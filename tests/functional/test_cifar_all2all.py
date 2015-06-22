@@ -110,7 +110,7 @@ class TestCifarAll2All(StandardTest):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.run()
-        file_name = workflow.snapshotter.file_name
+        file_name = workflow.snapshotter.destination
 
         err = workflow.decision.epoch_n_err[1]
         self.assertEqual(err, 7373)

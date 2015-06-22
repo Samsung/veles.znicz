@@ -137,7 +137,7 @@ class TestYaleFaces(StandardTest):
             self.assertEqual(len(fwd_wf.forwards), 2)
 
         self.parent.workflow = None
-        file_name = workflow.snapshotter.file_name
+        file_name = workflow.snapshotter.destination
 
         # Test loading from snapshot
         self.info("Will load workflow from snapshot: %s", file_name)
