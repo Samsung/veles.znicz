@@ -104,7 +104,8 @@ class WineWorkflow(nn_units.NNWorkflow):
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
                                   ("labels", "minibatch_labels"),
-                                  ("offset", "global_offset"), "class_lengths")
+                                  ("offset", "minibatch_offset"),
+                                  "class_lengths")
 
         # Add decision unit
         self.decision = decision.DecisionGD(

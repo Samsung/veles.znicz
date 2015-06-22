@@ -43,7 +43,7 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-import veles.loader as loader
+from veles.loader import FullBatchLoader, IFullBatchLoader, TEST, VALID, TRAIN
 
 
 mnist_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "MNIST"))
@@ -56,8 +56,8 @@ train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 
-@implementer(loader.IFullBatchLoader)
-class MnistLoader(loader.FullBatchLoader):
+@implementer(IFullBatchLoader)
+class MnistLoader(FullBatchLoader):
     """Loads MNIST dataset.
     """
     MAPPING = "mnist_loader"
@@ -141,9 +141,13 @@ class MnistLoader(loader.FullBatchLoader):
     def load_data(self):
         """Here we will load MNIST data.
         """
-        self.class_lengths[0] = 0
-        self.class_lengths[1] = 10000
-        self.class_lengths[2] = 60000
+        if not self.testing:
+            self.class_lengths[TEST] = 0
+            self.class_lengths[VALID] = 10000
+            self.class_lengths[TRAIN] = 60000
+        else:
+            self.class_lengths[TEST] = 70000
+            self.class_lengths[VALID] = self.class_lengths[TRAIN] = 0
         self.create_originals((28, 28))
         self.original_labels[:] = (0 for _ in range(len(self.original_labels)))
         self.info("Loading from original MNIST files...")

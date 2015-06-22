@@ -963,7 +963,7 @@ class StandardWorkflow(StandardWorkflowBase):
                         ("batch_size", "minibatch_size"),
                         ("labels", "minibatch_labels"),
                         ("max_samples_per_epoch", "total_samples"),
-                        "class_lengths", ("offset", "global_offset"))
+                        "class_lengths", ("offset", "minibatch_offset"))
         if self.evaluator_name == "evaluator_softmax":
             self.evaluator.link_attrs(self.forwards[-1], "max_idx")
         elif self.evaluator_name == "evaluator_mse":
