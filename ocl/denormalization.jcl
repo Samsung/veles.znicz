@@ -9,7 +9,7 @@
 {% endif %}
 
 
-inline dtype denormalize(dtype src) {
+inline denormalize(dtype src, int index) {
   {% if normalization == "pointwise" %}
     return (src - add[index]) / mul[index];
   {% elif normalization == "mean_disp" %}
