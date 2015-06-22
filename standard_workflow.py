@@ -790,7 +790,7 @@ class StandardWorkflow(StandardWorkflowBase):
         else:
             start_unit = wf.start_point
         wf.link_loader(start_unit)
-        wf.loader.derive_from(self.loader)
+        wf.loader.derive_from(self.real_loader)
         if cyclic:
             assert hasattr(wf.loader, "complete"), \
                 "The specified loader does not have \"complete\" flag."
