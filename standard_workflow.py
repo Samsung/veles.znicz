@@ -739,10 +739,12 @@ class StandardWorkflow(StandardWorkflowBase):
 
         # Add error or mse plotter unit
         if self.loss_function == "mse":
-            last_err = self.link_mse_plotter(last_gd)
-        else:
             last_err = self.link_min_max_plotter(
-                self.link_error_plotter(last_gd))
+                self.link_mse_plotter(last_gd))
+        elif self.loss_function == "softmax":
+            last_err = self.link_error_plotter(last_gd)
+        else:
+            last_err = last_gd
 
         # Loop the workflow
         self.link_loop(last_err)
