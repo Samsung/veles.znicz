@@ -43,7 +43,7 @@ from veles.memory import Array
 from veles.snapshotter import SnapshotterToFile
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
-import veles.znicz.tests.research.CIFAR10.cifar as cifar
+import veles.znicz.samples.CIFAR10.cifar as cifar
 
 
 class TestCifarCaffe(StandardTest):
