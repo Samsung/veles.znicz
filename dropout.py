@@ -192,7 +192,7 @@ class DropoutBackward(GradientDescentBase, Dropout):
     def __init__(self, workflow, **kwargs):
         self.mask = None  # dropout mask (should be given from forward unit)
         super(DropoutBackward, self).__init__(workflow, **kwargs)
-        del self.demanded[self.demanded.index("input")]
+        self.undemand("input")
 
     def initialize(self, device, **kwargs):
         if self.input is None:  # pylint: disable=E0203
