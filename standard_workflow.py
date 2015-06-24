@@ -759,19 +759,21 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         Generates a separate forward propagation workflow from this one,
         taking the trained weights, settings, etc.
-        :param loader_unit_factory: callable(workflow) which returns the
-        loader unit.
-        :param loader_name: Alternative to loader_unit_factory, loader name in
-          UserLoaderRegistry.
-        :param loader_config: Used in pair with loader_name to configure the
-        loader. May be a dictionary or an instance of veles.config.Config.
-        :param result_unit_factory: callable(workflow) which returns the result
-        output unit.
-        :param result_unit_config: Passed into result_unit_factory as keyword
-        arguments. May be a dictionary or an instance of veles.config.Config.
-        :param cyclic: True if the loader decides whether to stop the workflow;
-        otherwise, False => the extracted workflow is going to do a single
-        iteration.
+        :param loader_unit_factory: callable(workflow) which returns the \
+            loader unit.
+        :param loader_name: Alternative to loader_unit_factory, loader name \
+            in UserLoaderRegistry.
+        :param loader_config: Used in pair with loader_name to configure the \
+            loader. May be a dictionary or an instance of \
+            :class:`veles.config.Config`.
+        :param result_unit_factory: callable(workflow) which returns \
+            the result output unit.
+        :param result_unit_config: Passed into result_unit_factory as keyword \
+            arguments. May be a dictionary or an instance of \
+            :class:`veles.config.Config`.
+        :param cyclic: True if the loader decides whether to stop \
+            the workflow; otherwise, False => the extracted workflow \
+            is going to do a single iteration.
         :return: veles.znicz.standard_workflow.StandardWorkflowBase instance.
         """
         self.debug("Constructing the new workflow...")
@@ -843,6 +845,7 @@ class StandardWorkflow(StandardWorkflowBase):
         descendant (but the first
         :class:`veles.znicz.nn_units.GradientDescentBase` runs the last of all
         gds. Do not be confused).
+
         Arguments:
             parents: units, from whom will be link last of\
             :class:`veles.znicz.nn_units.GradientDescentBase` descendant units
