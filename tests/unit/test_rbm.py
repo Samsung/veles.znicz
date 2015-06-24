@@ -69,8 +69,7 @@ class TestRBMUnits(AcceleratedTest):
         # add initialize and input
         a2a.input = Array()
         a2a.input.reset()
-        a2a.input.mem = numpy.zeros((128, 1000),
-                                    dtype=numpy.float64)
+        a2a.input.mem = numpy.zeros((128, 1000), numpy.float64)
         a2a.input.mem[:] = test_data['hr'][:]
         a2a.weights_transposed = True
         a2a.batch_size = 128

@@ -43,6 +43,7 @@ from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
     INumpyUnit
 from veles.memory import Array
 from veles.mutable import Bool
+from veles.normalization import NoneNormalizer
 import veles.prng as prng
 from veles.units import IUnit, Unit
 from veles.workflow import Repeater, Workflow
@@ -530,6 +531,7 @@ class EvaluatorRBM(Workflow):
         self.mse.link_from(self.rec)
         self.mse.link_attrs(self.rec, "output")
         self.mse.link_attrs(self.rec, ("output", "output"))
+        self.mse.normalizer = NoneNormalizer()
         self.end_point.link_from(self.mse)
 
         self.binarization.link_attrs(self, "input", "batch_size")
