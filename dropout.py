@@ -195,12 +195,9 @@ class DropoutBackward(GradientDescentBase, Dropout):
         self.undemand("input")
 
     def initialize(self, device, **kwargs):
-        if self.input is None:  # pylint: disable=E0203
+        if not hasattr(self, "input"):
             self.input = self.err_output
-            super(DropoutBackward, self).initialize(device=device, **kwargs)
-            self.input = None
-        else:
-            super(DropoutBackward, self).initialize(device=device, **kwargs)
+        super(DropoutBackward, self).initialize(device=device, **kwargs)
 
     def _gpu_init(self):
         self.build_program({"OUTPUT_SIZE": self.err_output.size}, "%s_%s" %
