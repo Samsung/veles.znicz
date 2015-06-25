@@ -61,7 +61,7 @@ class LinesWorkflow(StandardWorkflow):
                                                       self.link_error_plotter)]
         self.link_image_saver(*end_units)
         gd = self.link_gds(self.image_saver)
-        self.link_table_plotter(gd)
+        self.link_table_plotter(gd).gate_block = self.decision.complete
         last_weights = self.link_weights_plotter(
             "gradient_weights", self.table_plotter)
         self.link_multi_hist_plotter(
