@@ -120,7 +120,7 @@ class Weights2D(plotter.Plotter):
                 n_channels = get_shape_from[-1]
                 if isinstance(n_channels, Array):
                     n_channels = n_channels.shape[-1]
-        return n_channels, sx, sy
+        return n_channels, int(sx), int(sy)
 
     def prepare_pics(self, inp, transposed):
         pics = []
