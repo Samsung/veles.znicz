@@ -135,17 +135,16 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(
-            self.evaluator,
-            ("minibatch_metrics", "metrics"))
+            self.evaluator, ("minibatch_metrics", "metrics"))
 
         self.snapshotter = NNSnapshotterToFile(
             self, prefix=root.video_ae.snapshotter.prefix,
-            directory=root.common.snapshot_dir, compress="")
+            directory=root.common.snapshot_dir, compression="snappy")
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = ~self.loader.epoch_ended
-        self.snapshotter.skip = ~self.decision.improved
+        self.snapshotter.skip = ~self.decision.train_improved
 
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,

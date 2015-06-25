@@ -91,6 +91,7 @@ class TestVideoAE(StandardTest):
         workflow.run()
         self.assertIsNone(workflow.thread_pool.failure)
         file_name = workflow.snapshotter.destination
+        self.assertTrue(file_name)
 
         avg_mse = workflow.decision.epoch_metrics[2][0]
         self.assertLess(avg_mse, 0.1957180928)
