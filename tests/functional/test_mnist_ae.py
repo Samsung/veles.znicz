@@ -107,15 +107,16 @@ class TestMnistAE(StandardTest):
         workflow_from_snapshot.run()
         self.check_write_error_rate(workflow_from_snapshot, mse[1])
 
-        self.info("Will run workflow with float and ocl backend")
+        self.info("Will run workflow with float")
 
         root.common.update({"precision_type": "float"})
 
-        # Test workflow with ocl and float
+        # Test workflow with float
         workflow = self.init_and_run(self.device, False)
         self.check_write_error_rate(workflow, mse[2])
 
         self.info("All Ok")
+
 
 if __name__ == "__main__":
     StandardTest.main()

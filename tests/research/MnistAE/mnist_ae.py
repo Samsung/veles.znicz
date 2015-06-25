@@ -157,7 +157,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         unit.link_attrs(self.evaluator, "err_output")
         unit.link_attrs(
             self.deconv, "weights", "input", "hits", "n_kernels",
-            "kx", "ky", "sliding", "padding", "unpack_data", "unpack_size")
+            "kx", "ky", "sliding", "padding", "unpack_size")
         unit.gate_skip = self.decision.gd_skip
         unit.need_err_input = False
         unit.gate_block = self.decision.complete
