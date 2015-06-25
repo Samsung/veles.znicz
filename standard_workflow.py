@@ -34,14 +34,16 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 from collections import namedtuple
-import numpy
 import re
+
+import numpy
 import six
 from zope.interface import implementer
+
 from veles.avatar import Avatar
 from veles.distributable import IDistributable, TriviallyDistributable
+from veles.downloader import Downloader
 from veles.pickle2 import best_protocol
 from veles.plumbing import FireStarter
 from veles.snapshotter import SnapshotterRegistry
@@ -65,9 +67,6 @@ from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, weights_zerofilling
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz import normalization, dropout
-from veles.znicz import depooling  # pylint: disable=W0611
-from veles.znicz import cutter, deconv, rprop_all2all  # pylint: disable=W0611
-from veles.znicz import resizable_all2all, gd_deconv  # pylint: disable=W0611
 from veles.znicz import activation
 from veles.znicz.decision import DecisionsRegistry
 import veles.znicz.diversity as diversity
@@ -82,7 +81,6 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.gd_pooling import GDPooling
 from veles.znicz.all2all import All2AllSoftmax
-from veles.znicz.downloader import Downloader
 
 
 class TypeDict(UserDict):

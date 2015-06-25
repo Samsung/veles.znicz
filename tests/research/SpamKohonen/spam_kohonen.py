@@ -34,7 +34,6 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 import json
 import lzma
 import os
@@ -47,7 +46,7 @@ from veles.config import root
 from veles.external.progressbar import ProgressBar
 from veles.interaction import Shell
 import veles.units as units
-from veles.znicz.downloader import Downloader
+from veles.downloader import Downloader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.kohonen as kohonen

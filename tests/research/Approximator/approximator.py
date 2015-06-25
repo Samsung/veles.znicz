@@ -36,7 +36,6 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 import os
 
 import numpy
@@ -50,7 +49,7 @@ import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
-from veles.znicz.downloader import Downloader
+from veles.downloader import Downloader
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.loader as loader

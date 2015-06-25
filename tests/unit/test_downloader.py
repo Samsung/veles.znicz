@@ -34,16 +34,16 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 import logging
 import os
 import tarfile
-import wget
 import unittest
+
+import wget
 
 from veles.config import root
 from veles.dummy import DummyWorkflow
-from veles.znicz.downloader import Downloader
+from veles.downloader import Downloader
 
 
 class TestDownloader(unittest.TestCase):

@@ -34,7 +34,6 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 import logging
 
 from zope.interface import implementer
@@ -44,7 +43,7 @@ from veles.normalization import NoneNormalizer
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
-from veles.znicz.downloader import Downloader
+from veles.downloader import Downloader
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver

@@ -58,7 +58,7 @@ class TestSpamKohonen(StandardTest):
                 "https://s3-eu-west-1.amazonaws.com/veles.forge/"
                 "SpamKohonen/spam.tar",
                 "directory": root.common.datasets_root,
-                "files": ["spam"]},
+                "files": [os.path.join("spam", "spam.txt.xz")]},
             "loader": {"minibatch_size": 80,
                        "force_numpy": True,
                        "ids": True,
