@@ -101,10 +101,10 @@ class Weights2D(plotter.Plotter):
                 sx = numpy.round(numpy.sqrt(n))
                 sy = n // sx
                 if sx * sy != n:
-                    self.warning("Auto-search of an image shape has failed, "
-                                 "will not draw")
+                    self.warning(
+                        "Failed to determine the image shape, will not draw")
                     return None, None, None
-                self.debug("Auto-set image shape to [%d, %d]", sy, sx)
+                self.debug("Set the image shape to [%d, %d]", sy, sx)
             else:
                 sx = get_shape_from.shape[2]
                 sy = get_shape_from.shape[1]

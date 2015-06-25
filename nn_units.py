@@ -143,7 +143,7 @@ class Forward(ForwardBase):
         self.weights_transposed = kwargs.get("weights_transposed", False)
         self.include_bias = kwargs.get("include_bias", True)
         self.demand("input")
-        self.output = Array()
+        self.output = Array(shallow_pickle=True)
         self.weights = Array()
         self.bias = Array()
         self.forward_mode = False
@@ -312,7 +312,7 @@ class GradientDescentBase(AcceleratedUnit):
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
-        self.err_input = Array()
+        self.err_input = Array(shallow_pickle=True)
         self.ocl_set_const_args = True
         self.weights = None
         self.bias = None
