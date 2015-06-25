@@ -47,7 +47,7 @@ from veles.plumbing import FireStarter
 from veles.snapshotter import SnapshotterRegistry
 from veles.units import Unit, IUnit
 from veles.znicz.diff_stats import DiffStats
-from veles.publisher import Publisher
+from veles.publishing import Publisher
 
 if six.PY3:
     from collections import UserDict
