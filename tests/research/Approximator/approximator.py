@@ -235,7 +235,7 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = ~self.loader.epoch_ended
-        self.snapshotter.skip = ~self.decision.improved
+        self.snapshotter.skip = ~self.decision.train_improved
 
         # Add gradient descent units
         self.gds[:] = [None] * len(self.forwards)

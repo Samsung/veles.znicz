@@ -82,7 +82,7 @@ class TestVideoAE(StandardTest):
             layers=root.video_ae.layers)
         workflow.decision.max_epochs = 4
         workflow.snapshotter.time_interval = 0
-        workflow.snapshotter.interval = 4
+        workflow.snapshotter.interval = 5
         workflow.initialize(
             device=self.device,
             learning_rate=root.video_ae.learning_rate,

@@ -68,7 +68,7 @@ class TestApproximator(StandardTest):
             "weights_decay": 0.00005,
             "layers": [810, 9]})
 
-    mse = (0.1669484573, 0.15975260)
+    mse = (42.57185661, 40.7357486)
 
     @timeout(240)
     @multi_device()
@@ -79,7 +79,7 @@ class TestApproximator(StandardTest):
             self.parent, layers=root.approximator.layers)
         workflow.decision.max_epochs = 3
         workflow.snapshotter.time_interval = 0
-        workflow.snapshotter.interval = 3
+        workflow.snapshotter.interval = 4
         workflow.initialize(
             device=self.device,
             learning_rate=root.approximator.learning_rate,
