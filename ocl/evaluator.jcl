@@ -11,7 +11,7 @@
 /// @param labels labels for samples in batch.
 /// @param batch_size size of the current batch.
 /// @param multiplier coefficient to multiply backpropagated error on.
-/// @param n_err [0] - n_err.
+/// @param n_err [0] - n_err, [1] - n_total.
 /// @param confusion_matrix confusion matrix (may be NULL).
 /// @param max_err_y_sum maximum sum of backpropagated gradient norms.
 /// @param err_y output error for backpropagation.
@@ -32,7 +32,7 @@ void evaluate_softmax(__global const dtype /* IN */ *y,
   int tx = get_local_id(0);
   int i_sample = tx;
   int y_start = i_sample * {{ output_size }};
-  int n_ok = 0;
+  int n_ok = 0, n_total = 0;
   dtype _max_err_y_sum = 0;
 
   // Compute err_y and fill the confusion matrix
@@ -50,6 +50,8 @@ void evaluate_softmax(__global const dtype /* IN */ *y,
       if (im == ireal) {
         n_ok++;
       }
+      n_total++;
+
       dtype vle;
       for (int j = 0; j < ireal; j++) {
         vle = y[y_start + j];
@@ -89,16 +91,20 @@ void evaluate_softmax(__global const dtype /* IN */ *y,
  
   // Compute n_err, max_err_y_sum
   IM[tx] = n_ok;
+  IREAL[tx] = n_total;
   SM[tx] = _max_err_y_sum;
   barrier(CLK_LOCAL_MEM_FENCE);
   if (!tx) {
     n_ok = IM[0];
+    n_total = IREAL[0];
     _max_err_y_sum = SM[tx];
     for (int j = 1; j < {{ block_size }}; j++) {
       n_ok += IM[j];
+      n_total += IREAL[j];
       _max_err_y_sum = max(_max_err_y_sum, SM[j]);
     }
     n_err[0] += batch_size - n_ok;
+    n_err[1] += n_total;
     max_err_y_sum[0] = max(_max_err_y_sum, max_err_y_sum[0]);
   }
 }

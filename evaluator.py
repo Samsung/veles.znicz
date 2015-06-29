@@ -194,13 +194,25 @@ class EvaluatorSoftmax(EvaluatorBase):
 
         dtype = self.output.dtype
 
-        self.n_err.reset(numpy.zeros(1, dtype=numpy.int32))
+        if not self.n_err:
+            self.n_err.reset(numpy.zeros(2, dtype=numpy.int32))
+        else:
+            assert self.n_err.size == 2
 
-        out_size = self.output.mem.size // self.output.mem.shape[0]
-        self.confusion_matrix.reset(numpy.zeros([out_size] * 2, numpy.int32)
-                                    if self.compute_confusion_matrix else None)
+        out_size = self.output.sample_size
+        if self.compute_confusion_matrix:
+            if not self.confusion_matrix:
+                self.confusion_matrix.reset(
+                    numpy.zeros([out_size, out_size], numpy.int32))
+            else:
+                assert self.confusion_matrix.size == out_size * out_size
+        else:
+            self.confusion_matrix.reset()
 
-        self.max_err_output_sum.reset(numpy.zeros(1, dtype))
+        if not self.max_err_output_sum:
+            self.max_err_output_sum.reset(numpy.zeros(1, dtype))
+        else:
+            assert self.max_err_output_sum.size == 1
 
         self.init_vectors(self.confusion_matrix, self.n_err, self.max_idx,
                           self.labels, self.max_err_output_sum)
@@ -265,6 +277,7 @@ class EvaluatorSoftmax(EvaluatorBase):
         confusion_matrix = self.confusion_matrix.mem
 
         n_ok = 0
+        n_total = 0
         multiplier = 1.0 / batch_size if self.mean else 1.0
         for i in range(batch_size):  # loop by batch
             if labels[i] < 0:
@@ -277,6 +290,7 @@ class EvaluatorSoftmax(EvaluatorBase):
             confusion_matrix[max_idx, labels[i]] += 1
             if max_idx == labels[i]:
                 n_ok += 1
+            n_total += 1
 
             # Compute softmax output error gradient
             err_output[:] = output[:]
@@ -292,6 +306,7 @@ class EvaluatorSoftmax(EvaluatorBase):
         if batch_size < self.err_output.mem.shape[0]:
             self.err_output.mem[batch_size:] = 0.0
         self.n_err[0] += batch_size - n_ok
+        self.n_err[1] += n_total
 
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
