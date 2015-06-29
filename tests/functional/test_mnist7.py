@@ -48,7 +48,9 @@ class TestMnist7(StandardTest):
             "snapshotter": {"prefix": "mnist7_test", "interval": 3,
                             "time_interval": 0},
             "loader": {"minibatch_size": 60, "force_numpy": False,
-                       "normalization_type": "linear"},
+                       "normalization_type": "linear",
+                       "target_normalization_type": "none",
+                       "target_normalization_parameters": {"dict": True}},
             "learning_rate": 0.0001,
             "weights_decay": 0.00005,
             "layers": [100, 100, 7]})

@@ -76,7 +76,8 @@ class TestKanji(StandardTest):
                        "target_paths": [target_path],
                        "color_space": "GRAY",
                        "normalization_type": "linear",
-                       "target_normalization_type": "linear",
+                       "target_normalization_type": "range_linear",
+                       "target_normalization_parameters": {"dict": True},
                        "targets_shape": (24, 24),
                        "background_color": (0,),
                        "validation_ratio": 0.15},
@@ -126,7 +127,7 @@ class TestKanji(StandardTest):
         err = workflow.decision.epoch_n_err[1]
         self.assertEqual(err, 7526)
         avg_mse = workflow.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.592094, places=5)
+        self.assertAlmostEqual(avg_mse, 75.49195, places=5)
         self.assertEqual(2, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
@@ -148,7 +149,7 @@ class TestKanji(StandardTest):
         err = workflow_from_snapshot.decision.epoch_n_err[1]
         self.assertEqual(err, 5641)
         avg_mse = workflow_from_snapshot.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.548595, places=5)
+        self.assertAlmostEqual(avg_mse, 69.94587, places=5)
         self.assertEqual(5, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 
