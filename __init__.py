@@ -48,10 +48,10 @@ except ImportError:
     pass
 
 
-__versioninfo__ = 0, 7, 2
+__versioninfo__ = 0, 8, 0
 __version__ = ".".join(map(str, __versioninfo__))
-__license__ = "Samsung Proprietary License"
-__copyright__ = "© 2013 Samsung Electronics Co., Ltd."
+__license__ = "Apache 2.0"
+__copyright__ = "© 2013-215 Samsung Electronics Co., Ltd."
 
 try:
     __git__ = "$Commit$"
