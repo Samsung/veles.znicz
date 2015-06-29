@@ -337,21 +337,22 @@ class DecisionGD(DecisionBase):
         self.fail_iterations = kwargs.get("fail_iterations", 100)
         self.gd_skip = Bool()
         self.epoch_n_err = [self.BIGNUM] * 3
+        self.epoch_n_evaluated_samples = [0] * 3
         self.epoch_n_err_pt = [100.0] * 3
         self.best_n_err_pt = [100.0] * 3
         self.minibatch_n_err = None  # memory.Array()
 
         # minimum validation error and its epoch number
-        self.min_validation_n_err = self.BIGNUM
-        self.min_validation_n_err_epoch_number = -1
+        self.min_validation_n_err_pt = 100.0
+        self.min_validation_n_err_pt_epoch_number = -1
 
         # train error when validation was minimal
-        self.min_train_validation_n_err = self.BIGNUM
+        self.min_train_validation_n_err_pt = 100.0
 
         # minimum train error and its epoch number
-        self.min_train_n_err = self.BIGNUM
-        self.min_train_n_err_epoch_number = -1
-        self.prev_train_err = self.BIGNUM
+        self.min_train_n_err_pt = 100.0
+        self.min_train_n_err_pt_epoch_number = -1
+        self.prev_train_err_pt = 100.0
 
         self.confusion_matrixes = [None] * 3
         self.minibatch_confusion_matrix = None  # memory.Array()
@@ -363,6 +364,7 @@ class DecisionGD(DecisionBase):
         super(DecisionGD, self).initialize(**kwargs)
         # Reset errors
         self.epoch_n_err[:] = [self.BIGNUM, self.BIGNUM, self.BIGNUM]
+        self.epoch_n_evaluated_samples[:] = [0] * 3
         self.epoch_n_err_pt[:] = [100.0, 100.0, 100.0]
         map(self.reset_statistics, range(3))
         self.initialize_arrays(self.minibatch_confusion_matrix,
@@ -370,7 +372,8 @@ class DecisionGD(DecisionBase):
 
     def get_metric_names(self):
         if not self.testing:
-            return {"min_errors_number", "best_accuracy_%", "best_epoch"}
+            return {"Min errors", "Accuracy", "EvaluationFitness",
+                    "Best epoch"}
         return set()
 
     def get_metric_values(self):
@@ -379,15 +382,17 @@ class DecisionGD(DecisionBase):
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
         evalfun = root.common.evaluation_transform
-        return {"Min errors number": {
-            tstr: self.min_train_n_err, vstr: self.min_validation_n_err},
+        return {
+            "Min errors": {
+                tstr: "%.2f%%" % self.min_train_n_err_pt,
+                vstr: "%.2f%%" % self.min_validation_n_err_pt},
             "Accuracy": {
                 tstr: "%.2f%%" % (100 - self.best_n_err_pt[TRAIN]),
                 vstr: "%.2f%%" % (100 - self.best_n_err_pt[VALID])},
             "EvaluationFitness": evalfun(1 - self.best_n_err_pt[VALID] / 100,
                                          1 - self.best_n_err_pt[TRAIN] / 100),
-            "Best epoch": {tstr: self.min_train_n_err_epoch_number,
-                           vstr: self.min_validation_n_err_epoch_number}}
+            "Best epoch": {tstr: self.min_train_n_err_pt_epoch_number,
+                           vstr: self.min_validation_n_err_pt_epoch_number}}
 
     def on_run(self):
         # Check skip gradient descent or not
@@ -405,12 +410,13 @@ class DecisionGD(DecisionBase):
         if self.minibatch_n_err:
             self.minibatch_n_err.map_read()
             self.epoch_n_err[minibatch_class] = self.minibatch_n_err[0]
+            self.epoch_n_evaluated_samples[minibatch_class] = (
+                self.minibatch_n_err[1])
             # Calculate error in percent
             if self.class_lengths[minibatch_class]:
                 self.epoch_n_err_pt[minibatch_class] = (
                     100.0 * self.epoch_n_err[minibatch_class] /
-                    (self.class_lengths[minibatch_class] if not self.is_slave
-                     else self.minibatch_size))
+                    self.epoch_n_evaluated_samples[minibatch_class])
                 if self.epoch_n_err_pt[minibatch_class] < \
                         self.best_n_err_pt[minibatch_class]:
                     self.best_n_err_pt[minibatch_class] = \
@@ -425,19 +431,20 @@ class DecisionGD(DecisionBase):
 
     def improve_condition(self):
         minibatch_class = self.minibatch_class
-        if ((self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
-             (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
-              and self.epoch_n_err[TRAIN] < self.min_train_validation_n_err))):
-            self.min_validation_n_err = self.epoch_n_err[minibatch_class]
-            self.min_train_validation_n_err = self.epoch_n_err[TRAIN]
-            self.min_validation_n_err_epoch_number = self.epoch_number
+        if (max(self.epoch_n_err_pt[minibatch_class],
+                self.epoch_n_err_pt[TRAIN]) <
+            max(self.min_validation_n_err_pt,
+                self.min_train_validation_n_err_pt)):
+            self.min_validation_n_err_pt = self.epoch_n_err_pt[minibatch_class]
+            self.min_train_validation_n_err_pt = self.epoch_n_err_pt[TRAIN]
+            self.min_validation_n_err_pt_epoch_number = self.epoch_number
             return True
         return False
 
     def train_improve_condition(self):
-        if self.epoch_n_err[TRAIN] < self.min_train_n_err:
-            self.min_train_n_err = self.epoch_n_err[TRAIN]
-            self.min_train_n_err_epoch_number = self.epoch_number
+        if self.epoch_n_err[TRAIN] < self.min_train_n_err_pt:
+            self.min_train_n_err_pt = self.epoch_n_err[TRAIN]
+            self.min_train_n_err_pt_epoch_number = self.epoch_number
             return True
         return False
 
@@ -458,8 +465,8 @@ class DecisionGD(DecisionBase):
     def on_apply_data_from_master(self, data):
         self.improved <<= data["improved"]
         self.reset_statistics(self.minibatch_class)
-        self.min_validation_n_err = 0
-        self.min_train_n_err = 0
+        self.min_validation_n_err_pt = 0
+        self.min_train_n_err_pt = 0
 
     def on_apply_data_from_slave(self, data, slave):
         if self.minibatch_n_err:
@@ -476,9 +483,10 @@ class DecisionGD(DecisionBase):
                 "minibatch_confusion_matrix"]
 
     def stop_condition(self):
-        if self.min_validation_n_err <= 0:
+        if (self.min_validation_n_err_pt <= 0 and
+                self.min_train_validation_n_err_pt <= 0):
             return True
-        if (self.epoch_number - self.min_validation_n_err_epoch_number >
+        if (self.epoch_number - self.min_validation_n_err_pt_epoch_number >
                 self.fail_iterations):
             return True
         return False
@@ -492,15 +500,18 @@ class DecisionGD(DecisionBase):
                              " has actually started => dropping into pdb...")
                 import pdb
                 pdb.set_trace()
-            ss.append("n_err %d (%.2f%%)" %
+            ss.append("n_err %d of %d (%.2f%%)" %
                       (self.epoch_n_err[minibatch_class],
+                       self.epoch_n_evaluated_samples[minibatch_class],
                        self.epoch_n_err_pt[minibatch_class]))
         if not self.is_slave:  # we will need them in generate_data_for_master
             self.reset_statistics(self.minibatch_class)
 
     def fill_snapshot_suffixes(self, ss):
         if self.minibatch_n_err is not None:
-            ss.append("%.2fpt" % (self.epoch_n_err_pt[self.minibatch_class]))
+            ss.append("%s_%.2f_%s_%.2f" %
+                      (CLASS_NAME[VALID], self.epoch_n_err_pt[VALID],
+                       CLASS_NAME[TRAIN], self.epoch_n_err_pt[TRAIN]))
 
     def reset_statistics(self, minibatch_class):
         # Reset statistics per class
@@ -558,8 +569,8 @@ class DecisionMSE(DecisionGD):
         evalfun = root.common.evaluation_transform
         return {mstr: {tstr: "%.3f" % self.min_train_mse,
                        vstr: "%.3f" % self.min_validation_mse},
-                "EvaluationFitness": evalfun(-self.min_validation_mse,
-                                             -self.min_train_mse),
+                "EvaluationFitness": evalfun(
+                    -self.min_validation_mse, -self.min_train_mse),
                 "Min %s epochs number" % mstr: {
                     tstr: self.min_validation_mse_epoch_number,
                     vstr: self.min_train_mse_epoch_number},
@@ -587,8 +598,8 @@ class DecisionMSE(DecisionGD):
 
     def improve_condition(self):
         if (self.epoch_min_mse[VALID] < self.min_validation_mse or
-                (self.epoch_min_mse[VALID] == self.min_validation_mse
-                 and self.epoch_min_mse[TRAIN] < self.min_train_mse)):
+                (self.epoch_min_mse[VALID] == self.min_validation_mse and
+                 self.epoch_min_mse[TRAIN] < self.min_train_mse)):
             self.min_validation_mse = self.epoch_min_mse[VALID]
             self.min_validation_mse_epoch_number = self.epoch_number
             self.train_mse_on_min_validation_mse = self.epoch_min_mse[TRAIN]
