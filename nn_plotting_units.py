@@ -190,7 +190,6 @@ class Weights2D(plotter.Plotter):
             return None
 
         figure = self.pp.figure(self.name)
-        figure.clf()
 
         n_cols = roundup(int(numpy.round(numpy.sqrt(len(pics)))),
                          self.column_align)
@@ -200,9 +199,7 @@ class Weights2D(plotter.Plotter):
         for _row in range(n_rows):
             for _col in range(n_cols):
                 ax = figure.add_subplot(n_rows, n_cols, i + 1)
-                ax.cla()
                 ax.axis('off')
-                # ax.set_title(self.name)
                 if len(pics[i].shape) == 3:
                     ax.imshow(pics[i], interpolation="nearest")
                 else:

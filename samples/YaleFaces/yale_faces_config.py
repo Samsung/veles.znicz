@@ -38,14 +38,10 @@ under the License.
 
 import numpy
 import os
+
 from veles.config import root
+import veles.publishing.pdf_backend  # pylint: disable=W0611
 
-root.common.disable.publishing = True
-
-root.yalefaces.publisher.backends = {"confluence": {
-    "server": "http://confluence",
-    "username": "user", "password": "password",
-    "space": "SPACE", "parent": "Veles"}}
 
 root.yalefaces.update({
     "downloader": {
@@ -58,6 +54,14 @@ root.yalefaces.update({
     "loss_function": "softmax",
     "loader_name": "full_batch_auto_label_file_image",
     "snapshotter": {"prefix": "yalefaces", "interval": 10, "time_interval": 0},
+    "publisher": {
+        "backends": {
+            "dict": True,
+            "pdf": {
+                "file": "yalefaces.pdf"
+            }
+        }
+    },
     "loader": {"minibatch_size": 40, "force_numpy": False,
                "validation_ratio": 0.15,
                "file_subtypes": ["x-portable-graymap"],
