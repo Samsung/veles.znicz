@@ -66,10 +66,10 @@ class StandardTest(AcceleratedTest):
 
     def seed(self):
         prng.get().seed(numpy.fromfile("%s/znicz/tests/research/seed" %
-                                       root.common.veles_dir,
+                                       root.common.dirs.veles,
                                        dtype=numpy.int32, count=1024))
         prng.get(2).seed(numpy.fromfile("%s/znicz/tests/research/seed2" %
-                                        root.common.veles_dir,
+                                        root.common.dirs.veles,
                                         dtype=numpy.int32, count=1024))
 
     def tearDown(self):

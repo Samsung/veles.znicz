@@ -42,14 +42,14 @@ import os
 from veles.config import root
 
 """
-train = os.path.join(root.common.datasets_root,
+train = os.path.join(root.common.dirs.datasets,
                      "Lines/LINES_10_500_NOISY_min_valid/learning")
-valid = os.path.join(root.common.datasets_root,
+valid = os.path.join(root.common.dirs.datasets,
                      "Lines/LINES_10_500_NOISY_min_valid/test")
 """
-train = os.path.join(root.common.datasets_root,
+train = os.path.join(root.common.dirs.datasets,
                      "lines_min/learn")
-valid = os.path.join(root.common.datasets_root,
+valid = os.path.join(root.common.dirs.datasets,
                      "lines_min/test")
 
 root.lines.mcdnnic_parameters = {
@@ -61,16 +61,16 @@ root.lines.update({
     "downloader": {
         "url":
         "https://s3-eu-west-1.amazonaws.com/veles.forge/Lines/lines_min.tar",
-        "directory": root.common.datasets_root,
+        "directory": root.common.dirs.datasets,
         "files": ["lines_min"]},
     "mcdnnic_topology": "12x256x256-32C4-MP2-64C4-MP3-32N-4N",
     "decision": {"fail_iterations": 100,
                  "max_epochs": numpy.iinfo(numpy.uint32).max},
     "snapshotter": {"prefix": "lines", "interval": 1, "time_interval": 0},
     "image_saver": {"out_dirs":
-                    [os.path.join(root.common.cache_dir, "tmp/test"),
-                     os.path.join(root.common.cache_dir, "tmp/validation"),
-                     os.path.join(root.common.cache_dir, "tmp/train")]},
+                    [os.path.join(root.common.dirs.cache, "tmp/test"),
+                     os.path.join(root.common.dirs.cache, "tmp/validation"),
+                     os.path.join(root.common.dirs.cache, "tmp/train")]},
     "loader": {"minibatch_size": 12, "force_numpy": False,
                "color_space": "RGB", "file_subtypes": ["jpeg"],
                "normalization_type": "mean_disp",

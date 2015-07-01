@@ -47,9 +47,9 @@ class TestHands(StandardTest):
     @classmethod
     def setUpClass(cls):
         train_dir = [
-            os.path.join(root.common.datasets_root, "hands/Training")]
+            os.path.join(root.common.dirs.datasets, "hands/Training")]
         validation_dir = [
-            os.path.join(root.common.datasets_root, "hands/Testing")]
+            os.path.join(root.common.dirs.datasets, "hands/Testing")]
 
         root.hands.update({
             "decision": {"fail_iterations": 100, "max_epochs": 2},
@@ -57,7 +57,7 @@ class TestHands(StandardTest):
                 "url":
                 "https://s3-eu-west-1.amazonaws.com/veles.forge/Hands/"
                 "hands.tar",
-                "directory": root.common.datasets_root,
+                "directory": root.common.dirs.datasets,
                 "files": ["hands"]},
             "loss_function": "softmax",
             "loader_name": "hands_loader",

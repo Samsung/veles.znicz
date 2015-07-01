@@ -62,7 +62,7 @@ FILLING = "gaussian"
 STDDEV_CONV = 0.01
 STDDEV_AA = 0.005
 
-root.common.precision_type = "float"
+root.common.engine.precision_type = "float"
 root.imagenet_ae.model = "imagenet"
 root.imagenet_ae.update({
     "decision_mse": {"fail_iterations": 50,
@@ -80,20 +80,20 @@ root.imagenet_ae.update({
     "loader": {"year": "imagenet",
                "series": "DET",
                "minibatch_size": 120,
-               "path": os.path.join(root.common.datasets_root, "AlexNet"),
+               "path": os.path.join(root.common.dirs.datasets, "AlexNet"),
                "sx": 216,
                "sy": 216},
     "image_saver": {"out_dirs":
-                    [os.path.join(root.common.cache_dir,
+                    [os.path.join(root.common.dirs.cache,
                                   "tmp_imagenet/test"),
-                     os.path.join(root.common.cache_dir,
+                     os.path.join(root.common.dirs.cache,
                                   "tmp_imagenet/validation"),
-                     os.path.join(root.common.cache_dir,
+                     os.path.join(root.common.dirs.cache,
                                   "tmp_imagenet/train")]},
     "snapshotter": {"prefix": "imagenet_ae",
                     "compression": "",
                     "directory":
-                    os.path.join(root.common.datasets_root,
+                    os.path.join(root.common.dirs.datasets,
                                  "imagenet/snapshots/DET/new")},
     "from_snapshot_add_layer": True,
     "fine_tuning_noise": 1.0e-6,

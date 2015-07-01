@@ -44,12 +44,12 @@ root.video_ae.update({
     "downloader": {
         "url":
         "https://s3-eu-west-1.amazonaws.com/veles.forge/VideoAE/video_ae.tar",
-        "directory": root.common.datasets_root,
+        "directory": root.common.dirs.datasets,
         "files": ["video_ae"]},
     "snapshotter": {"prefix": "video_ae"},
     "loader": {"minibatch_size": 50, "force_numpy": False,
                "train_paths":
-               (os.path.join(root.common.datasets_root, "video_ae/img"),),
+               (os.path.join(root.common.dirs.datasets, "video_ae/img"),),
                "color_space": "GRAY",
                "background_color": (0x80,),
                "normalization_type": "linear"

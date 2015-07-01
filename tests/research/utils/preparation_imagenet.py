@@ -73,7 +73,7 @@ VALIDATION = "val"
 root.prep_imagenet.root_name = "imagenet"
 root.prep_imagenet.series = "DET"
 root.prep_imagenet.root_path = os.path.join(
-    root.common.datasets_root, "AlexNet", root.prep_imagenet.root_name)
+    root.common.dirs.datasets, "AlexNet", root.prep_imagenet.root_name)
 
 root.prep_imagenet.update({
     "file_with_indices":
@@ -657,7 +657,8 @@ If you want tro check the result, run "test_load_data" command.
         self.s_mean = s_sum / s_count
         mean = numpy.round(self.s_mean)
         numpy.clip(mean, 0, 255, mean)
-        mean = mean.astype(opencl_types.dtypes[root.common.precision_type])
+        mean = mean.astype(opencl_types.dtypes[
+            root.common.engine.precision_type])
 
         if self._include_derivative:
             mean = self.to_4ch(mean)

@@ -51,7 +51,7 @@ class TestDownloader(unittest.TestCase):
         downloader = Downloader(
             DummyWorkflow(),
             url="",
-            directory=root.common.cache_dir,
+            directory=root.common.dirs.cache,
             files=["txt_file.txt"])
         txt_file = os.path.join(downloader.directory, "txt_file.txt")
         file = os.path.join(downloader.directory, "TestDownloader.tar")

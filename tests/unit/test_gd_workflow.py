@@ -64,7 +64,7 @@ class Workflow(AcceleratedWorkflow):
 
         ConvForward = kwargs["ConvForward"]
         ConvGD = kwargs["ConvGD"]
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         self.batch_size = 2
 
         self.input = numpy.zeros([self.batch_size, 8, 8, 3], dtype=dtype)

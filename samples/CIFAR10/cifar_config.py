@@ -41,15 +41,15 @@ import os
 from veles.config import root
 
 
-train_dir = os.path.join(root.common.datasets_root, "cifar-10-batches-py")
-validation_dir = os.path.join(root.common.datasets_root,
+train_dir = os.path.join(root.common.dirs.datasets, "cifar-10-batches-py")
+validation_dir = os.path.join(root.common.dirs.datasets,
                               "cifar-10-batches-py/test_batch")
 
 root.cifar.update({
     "loader_name": "cifar_loader",
     "downloader": {
         "url": "http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz",
-        "directory": root.common.datasets_root,
+        "directory": root.common.dirs.datasets,
         "files": ["cifar-10-batches-py"]},
     "decision": {"fail_iterations": 1000, "max_epochs": 1000000000},
     "lr_adjuster": {"do": False},
@@ -58,9 +58,9 @@ root.cifar.update({
     "add_plotters": True,
     "image_saver": {"do": False,
                     "out_dirs":
-                    [os.path.join(root.common.cache_dir, "tmp/test"),
-                     os.path.join(root.common.cache_dir, "tmp/validation"),
-                     os.path.join(root.common.cache_dir, "tmp/train")]},
+                    [os.path.join(root.common.dirs.cache, "tmp/test"),
+                     os.path.join(root.common.dirs.cache, "tmp/validation"),
+                     os.path.join(root.common.dirs.cache, "tmp/train")]},
     "loader": {"minibatch_size": 81, "force_numpy": False,
                "normalization_type": "linear"},
     "accumulator": {"n_bars": 30},

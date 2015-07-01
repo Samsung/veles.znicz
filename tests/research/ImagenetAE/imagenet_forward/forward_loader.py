@@ -118,7 +118,7 @@ class ImagenetForwardLoaderBbox(AcceleratedUnit, Processor):
         self.demand("entry_shape", "mean")
         self.path_to_empty_images = kwargs.get(
             "path_to_empty_images",
-            os.path.join(root.common.datasets_root, "empty_images.txt"))
+            os.path.join(root.common.dirs.datasets, "empty_images.txt"))
 
     def init_unpickled(self):
         super(ImagenetForwardLoaderBbox, self).init_unpickled()

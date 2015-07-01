@@ -169,7 +169,7 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         rnd.get().seed("%s/seed" % self.this_dir,
                        dtype=numpy.int32, count=1024)
 
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
 
         if forward is None:
             batch_size = 3

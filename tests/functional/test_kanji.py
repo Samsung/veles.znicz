@@ -49,12 +49,12 @@ class TestKanji(StandardTest):
     @classmethod
     def setUpClass(cls):
         prng.get(2).seed(numpy.fromfile("%s/znicz/tests/research/seed2" %
-                                        root.common.veles_dir,
+                                        root.common.dirs.veles,
                                         dtype=numpy.uint32, count=1024))
-        train_path = os.path.join(root.common.datasets_root,
+        train_path = os.path.join(root.common.dirs.datasets,
                                   "kanji/train")
 
-        target_path = os.path.join(root.common.datasets_root,
+        target_path = os.path.join(root.common.dirs.datasets,
                                    "kanji/target")
 
         root.kanji.update({
@@ -64,7 +64,7 @@ class TestKanji(StandardTest):
                 "url":
                 "https://s3-eu-west-1.amazonaws.com/veles.forge/Kanji"
                 "/kanji.tar",
-                "directory": root.common.datasets_root,
+                "directory": root.common.dirs.datasets,
                 "files": ["kanji"]},
             "loss_function": "mse",
             "loader_name": "full_batch_auto_label_file_image_mse",

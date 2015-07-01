@@ -40,7 +40,7 @@ from veles.config import root
 root.yalefaces.update({
     "preprocessing": True,
     "datasaver": {"file_name":
-                  os.path.join(root.common.cache_dir,
+                  os.path.join(root.common.dirs.cache,
                                "yale_faces_minibatches.sav")},
     "loader_name": "full_batch_auto_label_file_image",
     "loader": {"minibatch_size": 40, "force_numpy": False,
@@ -54,4 +54,4 @@ root.yalefaces.update({
                "color_space": "GRAY",
                "background_color": (0,),
                "train_paths":
-               [os.path.join(root.common.datasets_root, "CroppedYale")]}})
+               [os.path.join(root.common.dirs.datasets, "CroppedYale")]}})

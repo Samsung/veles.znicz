@@ -49,7 +49,7 @@ class TestGDRELUConv(AcceleratedTest):
         self.info("Will test RELU convolutional layer back propagation")
 
         inp = Array()
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         inp.mem = numpy.array([[[-1, 0, 2, 0, 3],
                               [0, 1, -2, 1, 2],
                               [2, 0, 1, 1, 0],

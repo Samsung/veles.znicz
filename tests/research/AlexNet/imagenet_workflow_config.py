@@ -40,14 +40,14 @@ from veles.config import root
 base_lr = 0.01
 wd = 0.0005
 
-root.common.precision_type = "float"
-root.common.precision_level = 0
+root.common.engine.precision_type = "float"
+root.common.engine.precision_level = 0
 root.common.engine.backend = "cuda"
 
 root.imagenet.root_name = "imagenet"
 root.imagenet.series = "img"
 root.imagenet.root_path = os.path.join(
-    root.common.datasets_root, "AlexNet", "%s" % root.imagenet.root_name)
+    root.common.dirs.datasets, "AlexNet", "%s" % root.imagenet.root_name)
 
 root.imagenet.lr_adjuster.lr_parameters = {
     "lrs_with_lengths":
@@ -97,11 +97,11 @@ root.imagenet.update({
     "lr_adjuster": {"lr_policy_name": "arbitrary_step",
                     "bias_lr_policy_name": "arbitrary_step"},
     "image_saver": {"out_dirs":
-                    [os.path.join(root.common.datasets_root,
+                    [os.path.join(root.common.dirs.datasets,
                                   "AlexNet/image_saver/test"),
-                     os.path.join(root.common.datasets_root,
+                     os.path.join(root.common.dirs.datasets,
                                   "AlexNet/image_saver/validation"),
-                     os.path.join(root.common.datasets_root,
+                     os.path.join(root.common.dirs.datasets,
                                   "AlexNet/image_saver/train")]},
     "loader_name": "imagenet_pickle_loader",
     "weights_plotter": {"limit": 256, "split_channels": False},

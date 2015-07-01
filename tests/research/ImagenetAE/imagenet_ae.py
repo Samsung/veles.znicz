@@ -191,7 +191,7 @@ class ImagenetAELoader(loader.Loader):
 
         self.mean.mem = matrixes[0]
         self.rdisp.mem = matrixes[1].astype(
-            opencl_types.dtypes[root.common.precision_type])
+            opencl_types.dtypes[root.common.engine.precision_type])
         if numpy.count_nonzero(numpy.isnan(self.rdisp.mem)):
             raise ValueError("rdisp matrix has NaNs")
         if numpy.count_nonzero(numpy.isinf(self.rdisp.mem)):

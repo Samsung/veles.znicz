@@ -44,13 +44,13 @@ root.channels.update({
     "downloader": {
         "url":
         "https://s3-eu-west-1.amazonaws.com/veles.forge/TvChannels/train.tar",
-        "directory": root.common.datasets_root,
+        "directory": root.common.dirs.datasets,
         "files": ["train"]},
     "snapshotter": {"prefix": "channels", "interval": 1, "time_interval": 0},
     "image_saver": {"out_dirs":
-                    [os.path.join(root.common.cache_dir, "tmp/test"),
-                     os.path.join(root.common.cache_dir, "tmp/validation"),
-                     os.path.join(root.common.cache_dir, "tmp/train")]},
+                    [os.path.join(root.common.dirs.cache, "tmp/test"),
+                     os.path.join(root.common.dirs.cache, "tmp/validation"),
+                     os.path.join(root.common.dirs.cache, "tmp/train")]},
     "loader": {"minibatch_size": 30,
                "force_numpy": True,
                "validation_ratio": 0.15,
@@ -66,7 +66,7 @@ root.channels.update({
                "background_color": (0, 0, 0, 0),
                "scale_maintain_aspect_ratio": True,
                "train_paths":
-               [os.path.join(root.common.datasets_root, "train")]},
+               [os.path.join(root.common.dirs.datasets, "train")]},
     "loss_function": "softmax",
     "loader_name": "full_batch_auto_label_file_image",
     "layers": [{"type": "all2all_tanh",

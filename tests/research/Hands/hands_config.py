@@ -40,8 +40,8 @@ import os
 from veles.config import root
 
 
-train_dir = [os.path.join(root.common.datasets_root, "hands/Training")]
-validation_dir = [os.path.join(root.common.datasets_root, "hands/Testing")]
+train_dir = [os.path.join(root.common.dirs.datasets, "hands/Training")]
+validation_dir = [os.path.join(root.common.dirs.datasets, "hands/Testing")]
 
 
 root.hands.update({
@@ -50,13 +50,13 @@ root.hands.update({
     "downloader": {
         "url":
         "https://s3-eu-west-1.amazonaws.com/veles.forge/Hands/hands.tar",
-        "directory": root.common.datasets_root,
+        "directory": root.common.dirs.datasets,
         "files": ["hands"]},
     "image_saver": {"do": True,
                     "out_dirs":
-                    [os.path.join(root.common.cache_dir, "tmp/test"),
-                     os.path.join(root.common.cache_dir, "tmp/validation"),
-                     os.path.join(root.common.cache_dir, "tmp/train")]},
+                    [os.path.join(root.common.dirs.cache, "tmp/test"),
+                     os.path.join(root.common.dirs.cache, "tmp/validation"),
+                     os.path.join(root.common.dirs.cache, "tmp/train")]},
     "loader_name": "hands_loader",
     "snapshotter": {"prefix": "hands", "interval": 1, "time_interval": 0},
     "loader": {"minibatch_size": 40, "train_paths": train_dir,

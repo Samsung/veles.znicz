@@ -246,7 +246,7 @@ class MSEHistogram(plotter.Plotter):
         super(MSEHistogram, self).initialize(**kwargs)
         self.val_mse = numpy.zeros(
             self.n_bars,
-            dtype=opencl_types.dtypes[config.root.common.precision_type])
+            opencl_types.dtypes[config.root.common.engine.precision_type])
 
     def redraw(self):
         fig = self.pp.figure(self.name)

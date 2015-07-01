@@ -56,7 +56,7 @@ class TestAll2All(AcceleratedTest):
     def test_with_fixed_input(self):
         self.info("Will test all2all unit")
         inp = Array()
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         inp.mem = numpy.array([[1, 2, 3, 2, 1],
                                [0, 1, 2, 1, 0],
                                [0, 1, 0, 1, 0],
@@ -94,7 +94,7 @@ class TestAll2All(AcceleratedTest):
 
     def _do_test(self, device, Unit, weights_transposed):
         inp = Array()
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         inp.mem = numpy.empty((1999, 1777), dtype=dtype)
         prng.get().fill(inp.mem)
 
@@ -172,7 +172,7 @@ class TestAll2All(AcceleratedTest):
         self._do_gpu_cpu(all2all.All2AllSoftmax)
 
     def test_two_stage(self):
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         a2a = all2all.All2All(self.parent, output_sample_shape=(75, 75),
                               output_samples_number=1999, output_dtype=dtype)
         a2a.input = Array()
@@ -185,7 +185,7 @@ class TestAll2All(AcceleratedTest):
         out = a2a.output.mem
 
         inp = Array()
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         inp.mem = numpy.empty((1999, 1777), dtype=dtype)
         prng.get().fill(inp.mem)
         a2a.input = inp

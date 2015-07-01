@@ -84,7 +84,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
     def _test_err_h(self, device):
         self.info("Will test convolutional layer back propagation")
 
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         inp = numpy.array([[[-1, 0, 2, 0, 3],
                             [0, 1, -2, 1, 2],
                             [2, 0, 1, 1, 0],
@@ -220,7 +220,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
     def _test_padding_sliding(self, device):
         self.info("Will test convolutional layer back propagation")
 
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         inp = numpy.array([[[1, 2, 3, 2, 1],
                             [0, 1, 2, 1, 0],
                             [0, 1, 0, 1, 0],
@@ -359,7 +359,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                   "via numeric differentiation (weights_transposed = %s)",
                   str(weights_transposed))
 
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         inp = numpy.zeros([2, 5, 5, 3], dtype=dtype)
         prng.get().fill(inp)
         forward = Forward(self.parent, n_kernels=2, kx=3, ky=3,

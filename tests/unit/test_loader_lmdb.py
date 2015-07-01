@@ -71,7 +71,7 @@ class TestLMDBLoader(AcceleratedTest):
 
     def get_kwargs(self):
         data_path = os.path.join(
-            root.common.datasets_root, "AlexNet/LMDB_old")
+            root.common.dirs.datasets, "AlexNet/LMDB_old")
         return {"minibatch_size": 256, "shuffle_limit": 1, "crop": (227, 227),
                 "mirror": "random", "color_space": "RGB",
                 "db_shape": (227, 227, 3),
@@ -81,7 +81,7 @@ class TestLMDBLoader(AcceleratedTest):
                 os.path.join(data_path, "ilsvrc12_val_lmdb"),
                 "normalization_parameters": {
                     "mean_source":
-                    os.path.join(root.common.datasets_root,
+                    os.path.join(root.common.dirs.datasets,
                                  "AlexNet/mean_image_227.JPEG")}}
 
 

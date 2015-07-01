@@ -49,9 +49,9 @@ import veles.znicz.samples.CIFAR10.cifar as cifar
 class TestCifarCaffe(StandardTest):
     @classmethod
     def setUpClass(cls):
-        train_dir = os.path.join(root.common.datasets_root, "cifar/10")
+        train_dir = os.path.join(root.common.dirs.datasets, "cifar/10")
         validation_dir = os.path.join(
-            root.common.datasets_root, "cifar/10/test_batch")
+            root.common.dirs.datasets, "cifar/10/test_batch")
 
         root.cifar.lr_adjuster.lr_parameters = {
             "lrs_with_lengths": [(1, 60000), (0.1, 5000), (0.01, 100000000)]}
@@ -63,7 +63,7 @@ class TestCifarCaffe(StandardTest):
             "downloader": {
                 "url":
                 "http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz",
-                "directory": root.common.datasets_root,
+                "directory": root.common.dirs.datasets,
                 "files": ["cifar-10-batches-py"]},
             "decision": {"fail_iterations": 250, "max_epochs": 1},
             "lr_adjuster": {"do": True, "lr_policy_name": "arbitrary_step",
@@ -75,9 +75,9 @@ class TestCifarCaffe(StandardTest):
             "image_saver": {
                 "do": False,
                 "out_dirs": [
-                    os.path.join(root.common.cache_dir, "tmp/test"),
-                    os.path.join(root.common.cache_dir, "tmp/validation"),
-                    os.path.join(root.common.cache_dir, "tmp/train")]},
+                    os.path.join(root.common.dirs.cache, "tmp/test"),
+                    os.path.join(root.common.dirs.cache, "tmp/validation"),
+                    os.path.join(root.common.dirs.cache, "tmp/train")]},
             "loader": {"minibatch_size": 100,
                        "normalization_type": "internal_mean",
                        "add_sobel": False,

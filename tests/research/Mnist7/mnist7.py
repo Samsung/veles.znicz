@@ -80,7 +80,7 @@ class Mnist7Loader(MnistLoader, loader.FullBatchLoaderMSE):
              [1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 7
              [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],  # 8
              [1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0]],  # 9)
-            dtype=opencl_types.dtypes[root.common.precision_type])
+            dtype=opencl_types.dtypes[root.common.engine.precision_type])
         self.original_targets.mem = numpy.zeros(
             (len(self.original_labels), 7),
             dtype=self.original_data.dtype)
@@ -149,7 +149,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
 
         self.snapshotter = NNSnapshotterToFile(
             self, prefix=root.mnist7.snapshotter.prefix,
-            directory=root.common.snapshot_dir,
+            directory=root.common.dirs.snapshots,
             interval=root.mnist7.snapshotter.interval,
             time_interval=root.mnist7.snapshotter.time_interval)
         self.snapshotter.link_from(self.decision)

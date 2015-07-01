@@ -54,7 +54,7 @@ class TestConvRelu(AcceleratedTest):
         self.info("Will test RELU convolutional layer forward propagation")
 
         inp = Array()
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         inp.mem = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],
                               [0, 1, 0, 1, 0],

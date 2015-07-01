@@ -145,7 +145,7 @@ class ImagenetLoader(loader.Loader):
 
         self.mean.mem = matrixes[0]
         self.rdisp.mem = matrixes[1].astype(
-            opencl_types.dtypes[root.common.precision_type])
+            opencl_types.dtypes[root.common.engine.precision_type])
         if numpy.count_nonzero(numpy.isnan(self.rdisp.mem)):
             raise ValueError("rdisp matrix has NaNs")
         if numpy.count_nonzero(numpy.isinf(self.rdisp.mem)):
@@ -164,7 +164,7 @@ class ImagenetLoader(loader.Loader):
     def create_minibatch_data(self):
         sh = [self.max_minibatch_size]
         sh.extend((self.crop_size_sy, self.crop_size_sx, self.channels))
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         self.minibatch_data.mem = numpy.zeros(sh, dtype=dtype)
 
     def transform_sample(self, sample):

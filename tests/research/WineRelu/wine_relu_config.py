@@ -46,13 +46,13 @@ root.wine_relu.update({
     "downloader": {
         "url":
         "https://s3-eu-west-1.amazonaws.com/veles.forge/WineRelu/wine.tar",
-        "directory": root.common.datasets_root,
+        "directory": root.common.dirs.datasets,
         "files": ["wine"]},
     "snapshotter": {"prefix": "wine_relu", "interval": 1, "time_interval": 0},
     "loader_name": "wine_loader",
     "loader": {"minibatch_size": 10, "force_numpy": False,
                "dataset_file":
-               os.path.join(root.common.datasets_root, "wine/wine.txt.gz")},
+               os.path.join(root.common.dirs.datasets, "wine/wine.txt.gz")},
     "layers": [{"type": "all2all_relu",
                 "->": {"output_sample_shape": 10},
                 "<-": {"learning_rate": 0.03, "weights_decay": 0.0}},

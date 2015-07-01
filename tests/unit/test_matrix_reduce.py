@@ -77,7 +77,7 @@ class TestMatrixReduce(AcceleratedTest):
     def test_fixed(self):
         """Test with fixed input.
         """
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
 
         a = Array()
         a.mem = numpy.array([[1, 2, 3],
@@ -139,7 +139,7 @@ class TestMatrixReduce(AcceleratedTest):
     def test_random(self):
         """Test with random input vs numpy.
         """
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
 
         a = Array()
         a.mem = numpy.zeros([3131, 1001], dtype=dtype)

@@ -46,9 +46,9 @@ import veles.znicz.tests.research.Approximator.approximator as approximator
 class TestApproximator(StandardTest):
     @classmethod
     def setUpClass(cls):
-        target_dir = [os.path.join(root.common.datasets_root,
+        target_dir = [os.path.join(root.common.dirs.datasets,
                                    "approximator/all_org_apertures.mat")]
-        train_dir = [os.path.join(root.common.datasets_root,
+        train_dir = [os.path.join(root.common.dirs.datasets,
                                   "approximator/all_dec_apertures.mat")]
 
         root.approximator.update({
@@ -57,7 +57,7 @@ class TestApproximator(StandardTest):
                 "url":
                 "https://s3-eu-west-1.amazonaws.com/veles.forge" +
                 "/Approximator/approximator.tar",
-                "directory": root.common.datasets_root,
+                "directory": root.common.dirs.datasets,
                 "files": ["approximator"]},
             "snapshotter": {"prefix": "approximator_test"},
             "loader": {"minibatch_size": 100, "train_paths": train_dir,

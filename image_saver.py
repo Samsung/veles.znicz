@@ -75,11 +75,11 @@ class ImageSaver(Unit, TriviallyDistributable):
     def __init__(self, workflow, **kwargs):
         super(ImageSaver, self).__init__(workflow, **kwargs)
         self.out_dirs = kwargs.get(
-            "out_dirs", [os.path.join(config.root.common.cache_dir,
+            "out_dirs", [os.path.join(config.root.common.dirs.cache,
                                       "tmpimg/test"),
-                         os.path.join(config.root.common.cache_dir,
+                         os.path.join(config.root.common.dirs.cache,
                                       "tmpimg/validation"),
-                         os.path.join(config.root.common.cache_dir,
+                         os.path.join(config.root.common.dirs.cache,
                                       "tmpimg/train")])
         self.limit = kwargs.get("limit", 100)
         self.output = None  # memory.Array()

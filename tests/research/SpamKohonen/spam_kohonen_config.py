@@ -47,7 +47,7 @@ root.spam_kohonen.update({
     "downloader": {
         "url":
         "https://s3-eu-west-1.amazonaws.com/veles.forge/SpamKohonen/spam.tar",
-        "directory": root.common.datasets_root,
+        "directory": root.common.dirs.datasets,
         "files": ["spam"]},
     "decision": {"epochs": 200, "snapshot_prefix": "spam_kohonen"},
     "loader": {"minibatch_size": 80,
@@ -55,7 +55,7 @@ root.spam_kohonen.update({
                "ids": True,
                "classes": False,
                "file":
-               os.path.join(root.common.datasets_root, "spam/spam.txt.xz")},
+               os.path.join(root.common.dirs.datasets, "spam/spam.txt.xz")},
     "train": {"gradient_decay": lambda t: 0.002 / (1.0 + t * 0.00002),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00002)},
     "exporter": {"file": "classified_fast4.txt"}})

@@ -37,11 +37,11 @@ import os
 from veles.config import root
 
 INDICES_TO_NAMES_FILE = os.path.join(
-    root.common.datasets_root, "imagenet/2014/indices_to_categories.txt")
+    root.common.dirs.datasets, "imagenet/2014/indices_to_categories.txt")
 INDICES_TO_DESCRIPTIONS_FILE = os.path.join(
-    root.common.datasets_root, "imagenet/2014/indices_to_descriptions.txt")
+    root.common.dirs.datasets, "imagenet/2014/indices_to_descriptions.txt")
 INDICES_HIERARCHY_FILE = os.path.join(
-    root.common.datasets_root, "imagenet/2014/indices_hierarchy.txt")
+    root.common.dirs.datasets, "imagenet/2014/indices_hierarchy.txt")
 
 
 def write_list_to_file(items, filename):

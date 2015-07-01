@@ -54,7 +54,7 @@ class TestYaleFaces(StandardTest):
             "downloader": {"url":
                            ("http://vision.ucsd.edu/extyaleb/CroppedYaleBZip/"
                             + "CroppedYale.zip"),
-                           "directory": root.common.datasets_root,
+                           "directory": root.common.dirs.datasets,
                            "files": ["CroppedYale"]},
             "name_workflow": "FullyConnected_YaleFaces",
             "decision": {"fail_iterations": 50, "max_epochs": 3},
@@ -73,7 +73,7 @@ class TestYaleFaces(StandardTest):
                        "background_color": (0,),
                        "normalization_type": "mean_disp",
                        "train_paths":
-                           [os.path.join(root.common.datasets_root,
+                           [os.path.join(root.common.dirs.datasets,
                                          "CroppedYale")]},
             "layers": [{"type": "all2all_tanh",
                         "->": {"output_sample_shape": 100},
@@ -122,7 +122,7 @@ class TestYaleFaces(StandardTest):
 
         errors = (239, 167, 222)
         self.info("Will run workflow with double")
-        root.common.precision_type = "double"
+        root.common.engine.precision_type = "double"
 
         # Test workflow
         workflow = self.init_and_run(False)
@@ -153,7 +153,7 @@ class TestYaleFaces(StandardTest):
         self.check_write_error_rate(workflow_from_snapshot, errors[1])
 
         self.info("Will run workflow with float")
-        root.common.precision_type = "float"
+        root.common.engine.precision_type = "float"
 
         # Test workflow with ocl and float
         workflow = self.init_and_run(False)

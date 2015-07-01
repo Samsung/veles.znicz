@@ -42,9 +42,9 @@ from veles.config import root
 root.imagenet_forward.update({
     "loader": {"year": "DET_dataset",
                "series": "DET",
-               "path": os.path.join(root.common.datasets_root, "ImagenetAE"),
+               "path": os.path.join(root.common.dirs.datasets, "ImagenetAE"),
                "path_to_bboxes":
-               os.path.join(root.common.datasets_root,
+               os.path.join(root.common.dirs.datasets,
                             "ImagenetAE/raw_bboxes/raw_bboxes_det_"
                             "test_npics_40152.4.pickle"),
                "min_index": 0,
@@ -62,15 +62,15 @@ root.imagenet_forward.update({
                "raw_bboxes_min_area_ratio": 0.005,
                "raw_bboxes_min_size_ratio": 0.05},
     "trained_workflow":
-    os.path.join(root.common.datasets_root,
+    os.path.join(root.common.dirs.datasets,
                  "ImagenetAE/snapshots/DET/2014/imagenet_ae_"
                  "2014_56.32pt.4.pickle"),
-    "imagenet_base": os.path.join(root.common.datasets_root, "ImagenetAE"),
+    "imagenet_base": os.path.join(root.common.dirs.datasets, "ImagenetAE"),
     "result_path":
-    os.path.join(root.common.datasets_root,
+    os.path.join(root.common.dirs.datasets,
                  "ImagenetAE/final/result_final_%d_%d_%s_%s_test_1.json"),
     "mergebboxes": {"raw_path":
-                    os.path.join(root.common.datasets_root,
+                    os.path.join(root.common.dirs.datasets,
                                  "ImagenetAE/result_raw_final_%d_%d_%s_%s_"
                                  "1.%d.pickle"),
                     "ignore_negative": False,
@@ -79,7 +79,7 @@ root.imagenet_forward.update({
                     "last_chance_probability_threshold": 0.39,
                     "mode": "",
                     "labels_compatibility":
-                    os.path.join(root.common.datasets_root,
+                    os.path.join(root.common.dirs.datasets,
                                  "ImagenetAE/temp/216_pool/"
                                  "label_compatibility.4.pickle"),
                     "use_compatibility": True}

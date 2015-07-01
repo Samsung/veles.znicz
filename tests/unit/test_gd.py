@@ -87,7 +87,7 @@ class TestGD(AcceleratedTest, GDNumDiff):
 
         prng.get().seed(123)
 
-        dtype = opencl_types.dtypes[root.common.precision_type]
+        dtype = opencl_types.dtypes[root.common.engine.precision_type]
         inp = numpy.zeros([batch_size, input_size], dtype=dtype)
         prng.get().fill(inp)
         forward = Forward(self.parent, output_sample_shape=[n_neurons],

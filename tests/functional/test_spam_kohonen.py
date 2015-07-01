@@ -57,14 +57,14 @@ class TestSpamKohonen(StandardTest):
                 "url":
                 "https://s3-eu-west-1.amazonaws.com/veles.forge/"
                 "SpamKohonen/spam.tar",
-                "directory": root.common.datasets_root,
+                "directory": root.common.dirs.datasets,
                 "files": [os.path.join("spam", "spam.txt.xz")]},
             "loader": {"minibatch_size": 80,
                        "force_numpy": True,
                        "ids": True,
                        "classes": False,
                        "file":
-                       os.path.join(root.common.datasets_root,
+                       os.path.join(root.common.dirs.datasets,
                                     "spam", "spam.txt.xz")},
             "train": {"gradient_decay": lambda t: 0.001 / (1.0 + t * 0.0002),
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.0002)},

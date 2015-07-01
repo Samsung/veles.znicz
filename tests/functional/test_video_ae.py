@@ -49,7 +49,7 @@ class TestVideoAE(StandardTest):
     @classmethod
     def setUpClass(cls):
         prng.get(2).seed(numpy.fromfile("%s/znicz/tests/research/seed2" %
-                                        root.common.veles_dir,
+                                        root.common.dirs.veles,
                                         dtype=numpy.uint32, count=1024))
         root.video_ae.update({
             "snapshotter": {"prefix": "video_ae_test"},
@@ -57,12 +57,12 @@ class TestVideoAE(StandardTest):
                 "url":
                 "https://s3-eu-west-1.amazonaws.com/veles."
                 "forge/VideoAE/video_ae.tar",
-                "directory": root.common.datasets_root,
+                "directory": root.common.dirs.datasets,
                 "files": ["video_ae"]},
             "decision": {"fail_iterations": 100, "max_epochs": None},
             "loader": {
                 "minibatch_size": 50, "force_numpy": False,
-                "train_paths": (os.path.join(root.common.datasets_root,
+                "train_paths": (os.path.join(root.common.dirs.datasets,
                                 "video_ae/img"),),
                 "color_space": "GRAY",
                 "background_color": (0x80,),

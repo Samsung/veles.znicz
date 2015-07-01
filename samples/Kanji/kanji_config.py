@@ -41,8 +41,8 @@ import os
 from veles.config import root
 
 
-train_path = os.path.join(root.common.datasets_root, "kanji/train")
-target_path = os.path.join(root.common.datasets_root, "kanji/target")
+train_path = os.path.join(root.common.dirs.datasets, "kanji/train")
+target_path = os.path.join(root.common.dirs.datasets, "kanji/target")
 
 
 root.kanji.update({
@@ -51,15 +51,15 @@ root.kanji.update({
     "downloader": {
         "url":
         "https://s3-eu-west-1.amazonaws.com/veles.forge/Kanji/kanji.tar",
-        "directory": root.common.datasets_root,
+        "directory": root.common.dirs.datasets,
         "files": ["kanji"]},
     "loss_function": "mse",
     "loader_name": "full_batch_auto_label_file_image_mse",
     "add_plotters": True,
     "image_saver": {"out_dirs":
-                    [os.path.join(root.common.cache_dir, "tmp/test"),
-                     os.path.join(root.common.cache_dir, "tmp/validation"),
-                     os.path.join(root.common.cache_dir, "tmp/train")]},
+                    [os.path.join(root.common.dirs.cache, "tmp/test"),
+                     os.path.join(root.common.dirs.cache, "tmp/validation"),
+                     os.path.join(root.common.dirs.cache, "tmp/train")]},
     "loader": {"minibatch_size": 50,
                "force_numpy": False,
                "file_subtypes": ["png"],

@@ -56,9 +56,9 @@ import veles.loader as loader
 from veles.znicz.nn_units import NNSnapshotterToFile
 
 
-target_dir = [os.path.join(root.common.datasets_root,
+target_dir = [os.path.join(root.common.dirs.datasets,
                            "approximator/all_org_apertures.mat")]
-train_dir = [os.path.join(root.common.datasets_root,
+train_dir = [os.path.join(root.common.dirs.datasets,
                           "approximator/all_dec_apertures.mat")]
 
 root.approximator.update({
@@ -95,7 +95,7 @@ class ApproximatorLoader(loader.FullBatchLoaderMSE):
             raise ValueError(
                 "Could not find variable to import in %s" % (fnme))
         data = numpy.zeros(array_value.shape, dtype=opencl_types.dtypes[
-            root.common.precision_type])
+            root.common.engine.precision_type])
         data[:] = array_value[:]
         return data, []
 
@@ -230,7 +230,7 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
 
         self.snapshotter = NNSnapshotterToFile(
             self, prefix=root.approximator.snapshotter.prefix,
-            directory=root.common.snapshot_dir)
+            directory=root.common.dirs.snapshots)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

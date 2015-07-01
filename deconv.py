@@ -213,7 +213,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
 
         self.build_program(
             defines, "%s/%s_%d_%dx%dx%d_%dx%d_%d" % (
-                root.common.cache_dir, self.__class__.__name__,
+                root.common.dirs.cache, self.__class__.__name__,
                 self.input.shape[0],
                 self._output_shape[2], self._output_shape[1],
                 self._output_shape[3],

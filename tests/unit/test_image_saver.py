@@ -55,12 +55,12 @@ class TestImageSaver(unittest.TestCase):
         i = datetime.datetime.now()
         root.image_saver.out_dirs = [
             os.path.join(
-                root.common.cache_dir, "tmpimg/test_image_saver_%s/test"
+                root.common.dirs.cache, "tmpimg/test_image_saver_%s/test"
                 % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
-            os.path.join(root.common.cache_dir,
+            os.path.join(root.common.dirs.cache,
                          "tmpimg/test_image_saver_%s/validation"
                          % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
-            os.path.join(root.common.cache_dir,
+            os.path.join(root.common.dirs.cache,
                          "tmpimg/test_image_saver_%s/train"
                          % (i.strftime('%Y_%m_%d_%H_%M_%S')))]
 
@@ -129,12 +129,12 @@ class TestImageSaver(unittest.TestCase):
         i = datetime.datetime.now()
         root.image_saver.out_dirs = [
             os.path.join(
-                root.common.cache_dir, "tmpimg/test_image_saver_%s/test"
+                root.common.dirs.cache, "tmpimg/test_image_saver_%s/test"
                 % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
-            os.path.join(root.common.cache_dir,
+            os.path.join(root.common.dirs.cache,
                          "tmpimg/test_image_saver_%s/validation"
                          % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
-            os.path.join(root.common.cache_dir,
+            os.path.join(root.common.dirs.cache,
                          "tmpimg/test_image_saver_%s/train"
                          % (i.strftime('%Y_%m_%d_%H_%M_%S')))]
         self.img_saver_MSE = image_saver.ImageSaver(

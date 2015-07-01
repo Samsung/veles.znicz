@@ -46,12 +46,12 @@ root.stl.update({
     "loss_function": "softmax",
     "downloader": {
         "url": "http://ai.stanford.edu/~acoates/stl10/stl10_binary.tar.gz",
-        "directory": root.common.datasets_root,
+        "directory": root.common.dirs.datasets,
         "files": ["stl10_binary"]},
     "snapshotter": {"prefix": "stl10", "interval": 1, "time_interval": 0},
     "decision": {"fail_iterations": 200, "max_epochs": 10000},
     "loader": {"directory":
-               os.path.join(root.common.datasets_root, "stl10_binary"),
+               os.path.join(root.common.dirs.datasets, "stl10_binary"),
                "minibatch_size": 50,
                "scale": (32, 32),
                "normalization_type": "internal_mean"},

@@ -46,8 +46,8 @@ import veles.znicz.samples.CIFAR10.cifar as cifar
 class TestCifarAll2All(StandardTest):
     @classmethod
     def setUpClass(cls):
-        train_dir = os.path.join(root.common.datasets_root, "cifar/10")
-        validation_dir = os.path.join(root.common.datasets_root,
+        train_dir = os.path.join(root.common.dirs.datasets, "cifar/10")
+        validation_dir = os.path.join(root.common.dirs.datasets,
                                       "cifar/10/test_batch")
         root.cifar.update({
             "decision": {"fail_iterations": 1000, "max_epochs": 2},
@@ -55,17 +55,17 @@ class TestCifarAll2All(StandardTest):
             "downloader": {
                 "url":
                 "http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz",
-                "directory": root.common.datasets_root,
+                "directory": root.common.dirs.datasets,
                 "files": ["cifar-10-batches-py"]},
             "lr_adjuster": {"do": False},
             "loss_function": "softmax",
             "add_plotters": False,
             "image_saver": {"do": False,
                             "out_dirs":
-                            [os.path.join(root.common.cache_dir, "tmp/test"),
-                             os.path.join(root.common.cache_dir,
+                            [os.path.join(root.common.dirs.cache, "tmp/test"),
+                             os.path.join(root.common.dirs.cache,
                                           "tmp/validation"),
-                             os.path.join(root.common.cache_dir,
+                             os.path.join(root.common.dirs.cache,
                                           "tmp/train")]},
             "loader": {"minibatch_size": 81, "force_numpy": False,
                        "normalization_type": "linear"},

@@ -49,10 +49,10 @@ from veles.znicz.tests.functional import StandardTest
 class TestLines(StandardTest):
     @classmethod
     def setUpClass(cls):
-        train = os.path.join(root.common.datasets_root,
+        train = os.path.join(root.common.dirs.datasets,
                              "Lines/lines_min/learn")
 
-        valid = os.path.join(root.common.datasets_root,
+        valid = os.path.join(root.common.dirs.datasets,
                              "Lines/lines_min/test")
 
         root.lines.mcdnnic_parameters = {
@@ -65,7 +65,7 @@ class TestLines(StandardTest):
                 "url":
                 "https://s3-eu-west-1.amazonaws.com/veles.forge/"
                 "Lines/lines_min.tar",
-                "directory": root.common.datasets_root,
+                "directory": root.common.dirs.datasets,
                 "files": ["lines_min"]},
             "mcdnnic_topology": "12x256x256-32C4-MP2-64C4-MP3-32N-4N",
             "decision": {"fail_iterations": 100,
@@ -73,10 +73,10 @@ class TestLines(StandardTest):
             "snapshotter": {"prefix": "lines",
                             "interval": 3, "time_interval": 0},
             "image_saver": {"out_dirs":
-                            [os.path.join(root.common.cache_dir, "tmp/test"),
-                             os.path.join(root.common.cache_dir,
+                            [os.path.join(root.common.dirs.cache, "tmp/test"),
+                             os.path.join(root.common.dirs.cache,
                                           "tmp/validation"),
-                             os.path.join(root.common.cache_dir,
+                             os.path.join(root.common.dirs.cache,
                                           "tmp/train")]},
             "loader": {"minibatch_size": 12, "force_numpy": True,
                        "color_space": "RGB", "file_subtypes": ["jpeg"],

@@ -139,7 +139,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
 
         self.snapshotter = NNSnapshotterToFile(
             self, prefix=root.video_ae.snapshotter.prefix,
-            directory=root.common.snapshot_dir, compression="snappy")
+            directory=root.common.dirs.snapshots, compression="snappy")
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
