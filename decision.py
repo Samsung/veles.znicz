@@ -432,7 +432,7 @@ class DecisionGD(DecisionBase):
     def improve_condition(self):
         minibatch_class = self.minibatch_class
         if (max(self.epoch_n_err_pt[minibatch_class],
-                self.epoch_n_err_pt[TRAIN]) <
+                self.epoch_n_err_pt[TRAIN] if self.epoch_number > 0 else 0) <
             max(self.min_validation_n_err_pt,
                 self.min_train_validation_n_err_pt)):
             self.min_validation_n_err_pt = self.epoch_n_err_pt[minibatch_class]
