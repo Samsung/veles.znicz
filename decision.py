@@ -47,9 +47,25 @@ from veles.distributable import IDistributable
 from veles.mutable import Bool
 from veles.units import Unit, IUnit
 from veles.workflow import NoMoreJobs
-from veles.loader import CLASS_NAME, TRAIN, VALID
+from veles.loader import CLASS_NAME, TRAIN, VALID, TEST
 from veles.result_provider import IResultProvider
 from veles.unit_registry import MappedUnitRegistry
+
+
+def nvl(x, none_vle):
+    return none_vle if x is None else x
+
+
+def nmax(x, y, none_vle=None):
+    return none_vle if x is None and y is None else max(nvl(x, y), nvl(y, x))
+
+
+def pt_str(x, percent_sign=True):
+    return "None" if x is None else ("%.2f%%" if percent_sign else "%.2f") % x
+
+
+def rpt_str(x):
+    return "None" if x is None else "%.2f%%" % (100.0 - x)
 
 
 class DecisionsRegistry(MappedUnitRegistry):
@@ -142,6 +158,7 @@ class DecisionBase(Unit):
         self.verify_interface(IDecision)
         self.max_epochs = kwargs.get("max_epochs", None)
         self.improved = Bool(False)
+        self.improved_epoch_number = None
         self.train_improved = Bool(False)
         self.snapshot_suffix = ""
         self.epoch_timestamp = False
@@ -239,7 +256,10 @@ class DecisionBase(Unit):
         # Test and Validation sets processed
         if self.epoch_ended:
             self.train_improved <<= self.train_improve_condition()
-            self.improved <<= self.improve_condition()
+            improved = self.improve_condition()
+            if improved:
+                self.improved_epoch_number = self.epoch_number
+            self.improved <<= improved
             suffixes = []
             self.fill_snapshot_suffixes(suffixes)
             self.snapshot_suffix = '_'.join(suffixes)
@@ -329,43 +349,47 @@ class DecisionGD(DecisionBase):
                                  for a minibatch.
         max_err_y_sums: maximums of backpropagated gradient.
     """
-
     BIGNUM = 1.0e30
 
     def __init__(self, workflow, **kwargs):
         super(DecisionGD, self).__init__(workflow, **kwargs)
         self.fail_iterations = kwargs.get("fail_iterations", 100)
         self.gd_skip = Bool()
-        self.epoch_n_err = [self.BIGNUM] * 3
+
+        # Values for the current epoch
+        self.epoch_n_err = [None] * 3
         self.epoch_n_evaluated_samples = [0] * 3
-        self.epoch_n_err_pt = [100.0] * 3
-        self.best_n_err_pt = [100.0] * 3
+        self.epoch_n_err_pt = [None] * 3
+
+        # Best achieved errors, independently for each class
+        self.best_n_err_pt = [None] * 3
+        # and its epoch numbers
+        self.best_n_err_pt_epoch_number = [None] * 3
+        # errors for other classes when the given class was the best
+        self.best_n_err_pt_others = [[None] * 3] * 3
+        self._store_best_n_err_pt_others = [False] * 3
+
+        # Errors at the epoch where
+        # max of train and validation errors was the best
+        self.best_max_train_validation_n_err_pt = [None] * 3
+        # and it's epoch number
+        self.best_max_train_validation_n_err_pt_epoch_number = -1
+
         self.minibatch_n_err = None  # memory.Array()
-
-        # minimum validation error and its epoch number
-        self.min_validation_n_err_pt = 100.0
-        self.min_validation_n_err_pt_epoch_number = -1
-
-        # train error when validation was minimal
-        self.min_train_validation_n_err_pt = 100.0
-
-        # minimum train error and its epoch number
-        self.min_train_n_err_pt = 100.0
-        self.min_train_n_err_pt_epoch_number = -1
-        self.prev_train_err_pt = 100.0
+        self.minibatch_confusion_matrix = None  # memory.Array()
+        self.minibatch_max_err_y_sum = None  # memory.Array()
 
         self.confusion_matrixes = [None] * 3
-        self.minibatch_confusion_matrix = None  # memory.Array()
         self.max_err_y_sums = [0] * 3
-        self.minibatch_max_err_y_sum = None  # memory.Array()
+
         self.demand("minibatch_size")
 
     def initialize(self, **kwargs):
         super(DecisionGD, self).initialize(**kwargs)
         # Reset errors
-        self.epoch_n_err[:] = [self.BIGNUM, self.BIGNUM, self.BIGNUM]
+        self.epoch_n_err[:] = [None] * 3
         self.epoch_n_evaluated_samples[:] = [0] * 3
-        self.epoch_n_err_pt[:] = [100.0, 100.0, 100.0]
+        self.epoch_n_err_pt[:] = [None] * 3
         map(self.reset_statistics, range(3))
         self.initialize_arrays(self.minibatch_confusion_matrix,
                                self.confusion_matrixes)
@@ -381,18 +405,32 @@ class DecisionGD(DecisionBase):
             return {}
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
+        cstr = "minimax(%s, %s)" % (tstr, vstr)
         evalfun = root.common.evaluation_transform
         return {
             "Min errors": {
-                tstr: "%.2f%%" % self.min_train_n_err_pt,
-                vstr: "%.2f%%" % self.min_validation_n_err_pt},
+                tstr: pt_str(self.best_n_err_pt[TRAIN]),
+                vstr: pt_str(self.best_n_err_pt[VALID]),
+                cstr: pt_str(
+                    nmax(self.best_max_train_validation_n_err_pt[VALID],
+                         self.best_max_train_validation_n_err_pt[TRAIN]))
+            },
             "Accuracy": {
-                tstr: "%.2f%%" % (100 - self.best_n_err_pt[TRAIN]),
-                vstr: "%.2f%%" % (100 - self.best_n_err_pt[VALID])},
-            "EvaluationFitness": evalfun(1 - self.best_n_err_pt[VALID] / 100,
-                                         1 - self.best_n_err_pt[TRAIN] / 100),
-            "Best epoch": {tstr: self.min_train_n_err_pt_epoch_number,
-                           vstr: self.min_validation_n_err_pt_epoch_number}}
+                tstr: rpt_str(self.best_n_err_pt[TRAIN]),
+                vstr: rpt_str(self.best_n_err_pt[VALID]),
+                cstr: rpt_str(
+                    nmax(self.best_max_train_validation_n_err_pt[VALID],
+                         self.best_max_train_validation_n_err_pt[TRAIN]))
+            },
+            "EvaluationFitness": evalfun(
+                1 - nvl(self.best_n_err_pt[VALID], 100) / 100,
+                1 - nvl(self.best_n_err_pt[TRAIN], 100) / 100),
+            "Best epoch": {
+                tstr: nvl(self.best_n_err_pt_epoch_number[TRAIN], "None"),
+                vstr: nvl(self.best_n_err_pt_epoch_number[VALID], "None"),
+                cstr: nvl(self.best_max_train_validation_n_err_pt_epoch_number,
+                          "None")
+            }}
 
     def on_run(self):
         # Check skip gradient descent or not
@@ -417,10 +455,14 @@ class DecisionGD(DecisionBase):
                 self.epoch_n_err_pt[minibatch_class] = (
                     100.0 * self.epoch_n_err[minibatch_class] /
                     self.epoch_n_evaluated_samples[minibatch_class])
-                if self.epoch_n_err_pt[minibatch_class] < \
-                        self.best_n_err_pt[minibatch_class]:
-                    self.best_n_err_pt[minibatch_class] = \
-                        self.epoch_n_err_pt[minibatch_class]
+                # Update best error
+                if (self.epoch_n_err_pt[minibatch_class] <
+                        nvl(self.best_n_err_pt[minibatch_class], self.BIGNUM)):
+                    self.best_n_err_pt[minibatch_class] = (
+                        self.epoch_n_err_pt[minibatch_class])
+                    self.best_n_err_pt_epoch_number[minibatch_class] = (
+                        self.epoch_number)
+                    self._store_best_n_err_pt_others[minibatch_class] = True
 
         # Store maximum of backpropagated gradient
         if (self.minibatch_max_err_y_sum is not None and
@@ -430,21 +472,34 @@ class DecisionGD(DecisionBase):
                 self.minibatch_max_err_y_sum[0])
 
     def improve_condition(self):
+        """Called at the end of an epoch.
+
+        minibatch_class will be VALID if validation exists, else TRAIN.
+        """
+        for i, store in enumerate(self._store_best_n_err_pt_others):
+            if store:
+                self.best_n_err_pt_others[i][:] = self.epoch_n_err_pt
+                self._store_best_n_err_pt_others[i] = False
+
         minibatch_class = self.minibatch_class
-        if (max(self.epoch_n_err_pt[minibatch_class],
-                self.epoch_n_err_pt[TRAIN] if self.epoch_number > 0 else 0) <
-            max(self.min_validation_n_err_pt,
-                self.min_train_validation_n_err_pt)):
-            self.min_validation_n_err_pt = self.epoch_n_err_pt[minibatch_class]
-            self.min_train_validation_n_err_pt = self.epoch_n_err_pt[TRAIN]
-            self.min_validation_n_err_pt_epoch_number = self.epoch_number
+        if (nmax(self.epoch_n_err_pt[minibatch_class],
+                 self.epoch_n_err_pt[TRAIN]) <
+            nmax(self.best_max_train_validation_n_err_pt[minibatch_class],
+                 self.best_max_train_validation_n_err_pt[TRAIN], self.BIGNUM)):
+            for i in (minibatch_class, TRAIN, TEST):
+                self.best_max_train_validation_n_err_pt[i] = (
+                    self.epoch_n_err_pt[i])
+            self.best_max_train_validation_n_err_pt_epoch_number = (
+                self.epoch_number)
             return True
         return False
 
     def train_improve_condition(self):
-        if self.epoch_n_err[TRAIN] < self.min_train_n_err_pt:
-            self.min_train_n_err_pt = self.epoch_n_err[TRAIN]
-            self.min_train_n_err_pt_epoch_number = self.epoch_number
+        if (nvl(self.epoch_n_err_pt[TRAIN], self.BIGNUM) <
+                nvl(self.best_n_err_pt[TRAIN], self.BIGNUM)):
+            self.best_n_err_pt[TRAIN] = self.epoch_n_err_pt[TRAIN]
+            self.best_n_err_pt_epoch_number[TRAIN] = self.epoch_number
+            self._store_best_n_err_pt_others[TRAIN] = True
             return True
         return False
 
@@ -483,10 +538,9 @@ class DecisionGD(DecisionBase):
                 "minibatch_confusion_matrix"]
 
     def stop_condition(self):
-        if (self.min_validation_n_err_pt <= 0 and
-                self.min_train_validation_n_err_pt <= 0):
+        if all(nvl(self.best_n_err_pt[i], 0) <= 0 for i in (VALID, TRAIN)):
             return True
-        if (self.epoch_number - self.min_validation_n_err_pt_epoch_number >
+        if (self.epoch_number - self.improved_epoch_number >
                 self.fail_iterations):
             return True
         return False
@@ -509,9 +563,10 @@ class DecisionGD(DecisionBase):
 
     def fill_snapshot_suffixes(self, ss):
         if self.minibatch_n_err is not None:
-            ss.append("%s_%.2f_%s_%.2f" %
-                      (CLASS_NAME[VALID], self.epoch_n_err_pt[VALID],
-                       CLASS_NAME[TRAIN], self.epoch_n_err_pt[TRAIN]))
+            ss.append(
+                "%s_%s_%s_%s" %
+                (CLASS_NAME[VALID], pt_str(self.epoch_n_err_pt[VALID], False),
+                 CLASS_NAME[TRAIN], pt_str(self.epoch_n_err_pt[TRAIN], False)))
 
     def reset_statistics(self, minibatch_class):
         # Reset statistics per class
