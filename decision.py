@@ -483,7 +483,7 @@ class DecisionGD(DecisionBase):
 
         minibatch_class = self.minibatch_class
         if (nmax(self.epoch_n_err_pt[minibatch_class],
-                 self.epoch_n_err_pt[TRAIN]) <
+                 self.epoch_n_err_pt[TRAIN], self.BIGNUM) <
             nmax(self.best_max_train_validation_n_err_pt[minibatch_class],
                  self.best_max_train_validation_n_err_pt[TRAIN], self.BIGNUM)):
             for i in (minibatch_class, TRAIN, TEST):
