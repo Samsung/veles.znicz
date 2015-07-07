@@ -159,7 +159,12 @@ class ImagenetLoader(loader.Loader):
         if (self.file_samples.seek(0, 2)
                 // (self.sx * self.sy * self.channels) !=
                 len(self.original_labels)):
-            raise error.Bug("Wrong data file size")
+            raise error.Bug(
+                "Wrong data file size: %s (original data) != %s (original "
+                "labels)" %
+                (self.file_samples.seek(0, 2) // (self.sx *
+                                                  self.sy * self.channels),
+                 len(self.original_labels)))
 
     def create_minibatch_data(self):
         sh = [self.max_minibatch_size]

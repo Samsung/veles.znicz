@@ -91,7 +91,9 @@ root.imagenet.loader.update({
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
                  "max_epochs": 10000},
-    "snapshotter": {"prefix": "imagenet", "interval": 1, "time_interval": 0},
+    "snapshotter": {"prefix": "imagenet", "interval": 1, "time_interval": 0,
+                    "directory": os.path.join(root.common.dirs.datasets,
+                                              "AlexNet/snapshots")},
     "add_plotters": True,
     "loss_function": "softmax",
     "lr_adjuster": {"lr_policy_name": "arbitrary_step",

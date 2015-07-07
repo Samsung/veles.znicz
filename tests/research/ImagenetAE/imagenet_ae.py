@@ -529,7 +529,7 @@ class ImagenetAEWorkflow(StandardWorkflow):
             if isinstance(gd_unit, gd_conv.GradientDescentConv):
                 gd_unit.link_attrs(
                     self.forwards[i], "n_kernels", "kx", "ky", "sliding",
-                    "padding", "unpack_data", "unpack_size")
+                    "padding", "unpack_size")
             gd_unit.link_attrs(prev, ("err_output", "err_input"))
             gd_unit.link_attrs(self.forwards[i], "weights", "input", "output")
             if hasattr(self.forwards[i], "input_offset"):
@@ -701,7 +701,7 @@ class ImagenetAEWorkflow(StandardWorkflow):
         if isinstance(gd_deconv_unit, gd_deconv.GDDeconv):
             gd_deconv_unit.link_attrs(
                 self.deconv, "weights", "input", "hits", "n_kernels",
-                "kx", "ky", "sliding", "padding", "unpack_data", "unpack_size")
+                "kx", "ky", "sliding", "padding", "unpack_size")
         self.gds.append(gd_deconv_unit)
         gd_deconv_unit.link_attrs(self.evaluator, "err_output")
         gd_deconv_unit.link_attrs(self.forwards[-1], "weights", "input")

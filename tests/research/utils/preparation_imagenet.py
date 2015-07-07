@@ -21,7 +21,9 @@ in standard configuration. It is (256, 256) for "img" challenge in standard
 configuration. Then, run "init_dataset" command to save in json all
 information about dataset. Second, run "save_dataset_to_file" command, which
 generates pickles and .dat files for Imagenet Pickle Loader.
-If you want tro check the result, run "test_load_data" command.
+If you want to check the result, run "test_load_data" command. You can
+prepare validation set with "save_validation_to_forward" command after
+training Neural Network. And use it in ImagenetForward workflow, for example.
 
 ███████████████████████████████████████████████████████████████████████████████
 
@@ -71,7 +73,7 @@ TRAIN = "train"
 VALIDATION = "val"
 
 root.prep_imagenet.root_name = "imagenet"
-root.prep_imagenet.series = "DET"
+root.prep_imagenet.series = "img"
 root.prep_imagenet.root_path = os.path.join(
     root.common.dirs.datasets, "AlexNet", root.prep_imagenet.root_name)
 
@@ -109,13 +111,14 @@ root.prep_imagenet.update({
         root.prep_imagenet.root_path,
         "count_samples_%s_%s.json"
         % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
-    "rect": (216, 216),
+    "rect": (256, 256),
     "channels": 3,
     "get_label": "all_ways",
     # "from_image_name" "from_image_path" "from_xml" "all_ways"
     "get_label_from_txt_label": True,
-    "command_to_run": "test_load_data"
+    "command_to_run": "save_dataset_to_file"
     # "save_dataset_to_file" "init_dataset" "test_load_data"
+    # "save_validation_to_forward"
 })
 
 root.prep_imagenet.classes_count = (
@@ -145,7 +148,9 @@ in standard configuration. It is (256, 256) for "img" challenge in standard
 configuration. Then, run "init_dataset" command to save in json all
 information about dataset. Second, run "save_dataset_to_file" command, which
 generates pickles and .dat files for Imagenet Pickle Loader.
-If you want tro check the result, run "test_load_data" command.
+If you want tro check the result, run "test_load_data" command. You can
+prepare validation set with "save_validation_to_forward" command after
+training Neural Network. And use it in ImagenetForward workflow, for example.
     """
     def __init__(self, **kwargs):
         super(PreparationImagenet, self).__init__(**kwargs)
@@ -174,6 +179,10 @@ If you want tro check the result, run "test_load_data" command.
         self.colorspace = kwargs.get("colorspace", "RGB")
         self._include_derivative = kwargs.get("derivative", True)
         self._sobel_kernel_size = kwargs.get("sobel_kernel_size", 5)
+        self.path_to_labels_word = os.path.join(
+            root.prep_imagenet.root_path, "classes_200_2014_DET.json")
+        self.threshold_val = 1
+        self.threshold_train = 8
 
     def initialize(self):
         self.map_items = root.prep_imagenet.MAPPING[
@@ -510,7 +519,7 @@ If you want tro check the result, run "test_load_data" command.
                       self.s_max[dst_y_min:dst_y_max, dst_x_min:dst_x_max])
         return None
 
-    def get_dataset_img(self, set_type, image_name, image, mean):
+    def get_dataset_img(self, set_type, image_name, image, mean, threshold):
         sample = self.transformation_image(image)
         self.get_original_labels_and_data(
             self.images[set_type][image_name]["label"],
@@ -518,17 +527,16 @@ If you want tro check the result, run "test_load_data" command.
         self.s_sum += sample
         self.s_count += 1.0
 
-    def get_dataset_DET(self, set_type, image_name, image, mean):
+    def get_dataset_DET(self, set_type, image_name, image, mean, threshold):
         for bbx in self.images[set_type][image_name]["bbxs"]:
             x = bbx["x"]
             y = bbx["y"]
             h_size = bbx["height"]
             w_size = bbx["width"]
             label = bbx["label"]
-            if h_size >= 8 and w_size >= 8 and h_size * w_size >= 256:
-                path_to_labels_word = os.path.join(
-                    root.prep_imagenet.root_path, "classes_200_2014_DET.json")
-                with open(path_to_labels_word, 'r') as fp:
+            if (h_size >= threshold and w_size >= threshold and
+                    h_size * w_size >= threshold * threshold):
+                with open(self.path_to_labels_word, 'r') as fp:
                     int_word_labels = json.load(fp)
                 for (int_label, word_label) in int_word_labels:
                     if label == word_label:
@@ -626,7 +634,7 @@ If you want tro check the result, run "test_load_data" command.
                 image_fnme = self.images[set_type][image_name]["path"]
                 image = self.decode_image(image_fnme)
                 getattr(self, "get_dataset_%s" % self.series)(
-                    set_type, image_name, image, mean)
+                    set_type, image_name, image, mean, self.threshold_train)
         with open(original_labels_dir, "wb") as fout:
             self.info("Saving labels of images to %s" %
                       original_labels_dir)
@@ -660,19 +668,19 @@ If you want tro check the result, run "test_load_data" command.
         mean = mean.astype(opencl_types.dtypes[
             root.common.engine.precision_type])
 
-        if self._include_derivative:
+        if self._include_derivative and self.series == "DET":
             mean = self.to_4ch(mean)
             mean[:, :, 3:4] = 0
 
         disp = self.s_max - self.s_min
-        if self._include_derivative:
+        if self._include_derivative and self.series == "DET":
             disp = self.to_4ch(disp)
 
         rdisp = numpy.ones_like(disp.ravel())
         nz = numpy.nonzero(disp.ravel())
         rdisp[nz] = numpy.reciprocal(disp.ravel()[nz])
         rdisp.shape = disp.shape
-        if self._include_derivative:
+        if self._include_derivative and self.series == "DET":
             rdisp[:, :, 3:4] = 1.0 / 128
         return mean, rdisp
 
@@ -731,10 +739,7 @@ If you want tro check the result, run "test_load_data" command.
                     if label == label_int:
                         label_num = label_txt
         if self.series == "DET":
-            path_to_labels_word = os.path.join(
-                root.prep_imagenet.root_path,
-                "classes_200_2014_DET.json")
-            with open(path_to_labels_word, "r") as labels_word:
+            with open(self.path_to_labels_word, "r") as labels_word:
                 label_cat = json.load(labels_word)
                 for (ind, label_w) in label_cat:
                     if label == ind:
@@ -762,6 +767,44 @@ If you want tro check the result, run "test_load_data" command.
         self.file_samples.readinto(sample)
         plt.imshow(sample[:, :, 0:3].copy(), interpolation="nearest")
         plt.show()
+
+    def save_validation_to_forward(self):
+        set_type = "validation"
+        self.info("Resized validation to query of Neural Network")
+
+        original_labels_dir = os.path.join(
+            self.root_path, "original_labels_%s_%s_forward.pickle" %
+            (self.root_name, self.series))
+        path_for_matrixes = os.path.join(
+            self.root_path, "matrixes_%s_%s.pickle" %
+            (self.root_name, self.series))
+        original_data_dir = os.path.join(
+            self.root_path, "original_data_%s_%s_forward.dat" %
+            (self.root_name, self.series))
+        with open(path_for_matrixes, "rb") as file_matr:
+            matrixes = pickle.load(file_matr)
+        mean = matrixes[0]
+        fnme = os.path.join(self.root_path,
+                            IMAGES_JSON %
+                            (self.root_name, self.series, set_type))
+        try:
+            self.info("Loading images info from %s to resize" % fnme)
+            with open(fnme, 'r') as fp:
+                self.images[set_type] = json.load(fp)
+        except OSError:
+            self.exception("Failed to load %s", fnme)
+        self.file_samples = open(original_data_dir, "wb")
+        for image_name, _val in sorted(self.images[set_type].items()):
+            image_fnme = self.images[set_type][image_name]["path"]
+            image = self.decode_image(image_fnme)
+            getattr(self, "get_dataset_%s" % self.series)(
+                set_type, image_name, image, mean, self.threshold_val)
+        self.info("Saving images to %s" % original_data_dir)
+        with open(original_labels_dir, "wb") as fout:
+            self.info("Saving labels of images to %s" %
+                      original_labels_dir)
+            pickle.dump(self.original_labels, fout)
+        self.file_samples.close()
 
     def init_dataset(self):
         if self.series == "DET":

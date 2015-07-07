@@ -41,7 +41,7 @@ import os
 from veles.config import root
 
 
-LR = 0.00002
+LR = 0.000002
 WD = 0.0005
 ORTHO = 0.001
 GM = 0.9
@@ -91,7 +91,7 @@ root.imagenet_ae.update({
                      os.path.join(root.common.dirs.cache,
                                   "tmp_imagenet/train")]},
     "snapshotter": {"prefix": "imagenet_ae",
-                    "compression": "",
+                    "compression": "gz",
                     "directory":
                     os.path.join(root.common.dirs.datasets,
                                  "imagenet/snapshots/DET/new")},
