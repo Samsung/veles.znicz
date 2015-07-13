@@ -161,6 +161,7 @@ class DropoutForward(Forward, Dropout):
     def _gpu_run(self):
         self.unmap_vectors(self.input, self.output)
         if self.forward_mode:
+            # Will copy input to output from outside (in cuda_run/ocl_run).
             return True
         self.unmap_vectors(self.states, self.mask)
         self._threshold_arg_[0] = ((1 << 64) - 1.0) * self.dropout_ratio
