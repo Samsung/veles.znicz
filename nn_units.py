@@ -247,8 +247,12 @@ class GradientDescentWithActivation(AcceleratedUnit):
         assert (type(self.krn_err_output_name) == str and
                 len(self.krn_err_output_name))
         assert self.err_output.shape == self.output.shape
-        super(GradientDescentWithActivation, self).initialize(device, **kwargs)
+        retval = super(GradientDescentWithActivation, self).initialize(
+            device, **kwargs)
+        if retval:
+            return retval
         self.output.initialize(device)
+        return retval
 
     def ocl_init(self):
         super(GradientDescentWithActivation, self).ocl_init()
@@ -304,11 +308,6 @@ class GradientDescentBase(AcceleratedUnit):
 
     REDUCE_SIZE = 64  # used for updating bias
 
-    OP_NONE = 0
-    OP_STORE = 1
-    OP_ADD = 2
-    OP_FLUSH = 3
-
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
@@ -339,6 +338,19 @@ class GradientDescentBase(AcceleratedUnit):
 
         # Gradient with applied learning_rate etc.
         # optionally accumulated from the previous run
+        self.accumulate_gradient = kwargs.get("accumulate_gradient", False)
+
+        # When accumulate_gradient set to True:
+        # 1. Calculate gd
+        # 2. acc = acc_alpha * gd + acc_beta * acc
+        # 3. gd = gd_alpha * acc + gd_beta * gd
+        # 4. Apply moments to gd
+        # 5. weights += gd if apply_gradient set to True
+        self.acc_alpha = kwargs.get("acc_alpha", 0.0)
+        self.acc_beta = kwargs.get("acc_beta", 0.0)
+        self.gd_alpha = kwargs.get("gd_alpha", 0.0)
+        self.gd_beta = kwargs.get("gd_beta", 1.0)
+
         self.accumulated_gradient_weights = Array()
         self.accumulated_gradient_bias = Array()
 
@@ -352,14 +364,6 @@ class GradientDescentBase(AcceleratedUnit):
         # Gradient will be applied to weights immediately just after computing
         self.apply_gradient = kwargs.get("apply_gradient",
                                          not workflow.is_slave)
-
-        # Accumulates gradient from the previous run:
-        # OP_NONE: do not allocate array at all
-        # OP_STORE: stores gradient with an applied learning_rate etc.
-        # OP_ADD: adds current gradient to the array
-        # OP_FLUSH: applies accumulated gradient, then resets it to zero
-        self.accumulate_gradient = kwargs.get("accumulate_gradient",
-                                              self.OP_NONE)
 
     @property
     def current_batch_size(self):
@@ -396,7 +400,7 @@ class GradientDescentBase(AcceleratedUnit):
             else:
                 assert self.gradient_weights.size == self.weights.size
 
-        if self.weights and self.accumulate_gradient != self.OP_NONE:
+        if self.weights and self.accumulate_gradient:
             if not self.accumulated_gradient_weights:
                 self.accumulated_gradient_weights.reset(
                     numpy.zeros_like(self.weights.mem))
@@ -417,8 +421,7 @@ class GradientDescentBase(AcceleratedUnit):
              self.gradient_bias.size != self.bias.size)):
             self.gradient_bias.reset(numpy.zeros_like(self.bias.mem))
 
-        if (self.include_bias and self.bias and
-            self.accumulate_gradient != self.OP_NONE and
+        if (self.include_bias and self.bias and self.accumulate_gradient and
             (not self.accumulated_gradient_bias or
              self.accumulated_gradient_bias.size != self.bias.size)):
             self.accumulated_gradient_bias.reset(numpy.zeros_like(
@@ -460,78 +463,6 @@ class GradientDescentBase(AcceleratedUnit):
             self.accumulated_gradient_weights, self.accumulated_gradient_bias,
             self.gradient_weights_with_moment, self.gradient_bias_with_moment)
 
-    @property
-    def learning_rate(self):
-        return self._learning_rate
-
-    @learning_rate.setter
-    def learning_rate(self, value):
-        self._learning_rate = value
-        self.ocl_set_const_args = True
-
-    @property
-    def weights_decay(self):
-        return self._weights_decay
-
-    @weights_decay.setter
-    def weights_decay(self, value):
-        self._weights_decay = value
-        self.ocl_set_const_args = True
-
-    @property
-    def l1_vs_l2(self):
-        return self._l1_vs_l2
-
-    @l1_vs_l2.setter
-    def l1_vs_l2(self, value):
-        self._l1_vs_l2 = value
-        self.ocl_set_const_args = True
-
-    @property
-    def gradient_moment(self):
-        return self._gradient_moment
-
-    @gradient_moment.setter
-    def gradient_moment(self, value):
-        self._gradient_moment = value
-        self.ocl_set_const_args = True
-
-    @property
-    def learning_rate_bias(self):
-        return self._learning_rate_bias
-
-    @learning_rate_bias.setter
-    def learning_rate_bias(self, value):
-        self._learning_rate_bias = value
-        self.ocl_set_const_args = True
-
-    @property
-    def weights_decay_bias(self):
-        return self._weights_decay_bias
-
-    @weights_decay_bias.setter
-    def weights_decay_bias(self, value):
-        self._weights_decay_bias = value
-        self.ocl_set_const_args = True
-
-    @property
-    def l1_vs_l2_bias(self):
-        return self._l1_vs_l2_bias
-
-    @l1_vs_l2_bias.setter
-    def l1_vs_l2_bias(self, value):
-        self._l1_vs_l2_bias = value
-        self.ocl_set_const_args = True
-
-    @property
-    def gradient_moment_bias(self):
-        return self._gradient_moment_bias
-
-    @gradient_moment_bias.setter
-    def gradient_moment_bias(self, value):
-        self._gradient_moment_bias = value
-        self.ocl_set_const_args = True
-
     def gpu_weights_update(self):
         self.unmap_vectors(
             self.input, self.err_output, self.weights,
@@ -544,18 +475,20 @@ class GradientDescentBase(AcceleratedUnit):
                 self._global_size_ortho, self._local_size_ortho,
                 self.krn_compute_col_sums_)
 
-            if self.ocl_set_const_args:
-                self.cl_const[4] = self.factor_ortho
-                self.krn_weights_.set_arg(10, self.cl_const[4:5])
+            self._weights_const[12] = self.factor_ortho
+            self.krn_weights_.set_arg(12, self._weights_const[12:13])
 
-        if self.ocl_set_const_args:
-            self.cl_const[0] = self.learning_rate
-            self.cl_const[1] = self.weights_decay
-            self.cl_const[2] = self.l1_vs_l2
-            self.cl_const[3] = self.gradient_moment
-            self.krn_weights_.set_args(
-                self.device.skip(6), self.cl_const[0:1], self.cl_const[1:2],
-                self.cl_const[2:3], self.cl_const[3:4])
+        self._weights_const[4:12] = (
+            self.learning_rate, self.weights_decay, self.l1_vs_l2,
+            self.gradient_moment, self.acc_alpha, self.acc_beta,
+            self.gd_alpha, self.gd_beta)
+        self.krn_weights_.set_args(
+            self.device.skip(4), self._weights_const[4:5],
+            self._weights_const[5:6], self._weights_const[6:7],
+            self._weights_const[7:8], self._weights_const[8:9],
+            self._weights_const[9:10], self._weights_const[10:11],
+            self._weights_const[11:12])
+
         self.execute_kernel(
             self._global_size_weights, self._local_size_weights,
             self.krn_weights_)
@@ -568,14 +501,17 @@ class GradientDescentBase(AcceleratedUnit):
             self.err_output, self.bias, self.gradient_bias,
             self.accumulated_gradient_bias, self.gradient_bias_with_moment)
 
-        if self.ocl_set_const_args:  # need own constants for weights and bias
-            self.cl_const[5] = self.learning_rate_bias
-            self.cl_const[6] = self.weights_decay_bias
-            self.cl_const[7] = self.l1_vs_l2_bias
-            self.cl_const[8] = self.gradient_moment_bias
-            self.krn_bias_.set_args(
-                self.device.skip(5), self.cl_const[5:6], self.cl_const[6:7],
-                self.cl_const[7:8], self.cl_const[8:9])
+        self._bias_const[5:13] = (
+            self.learning_rate_bias, self.weights_decay_bias,
+            self.l1_vs_l2_bias, self.gradient_moment_bias,
+            self.acc_alpha, self.acc_beta,
+            self.gd_alpha, self.gd_beta)
+        self.krn_bias_.set_args(
+            self.device.skip(5), self._bias_const[5:6], self._bias_const[6:7],
+            self._bias_const[7:8], self._bias_const[8:9],
+            self._bias_const[9:10], self._bias_const[10:11],
+            self._bias_const[11:12], self._bias_const[12:13])
+
         self.execute_kernel(
             self._global_size_bias, self._local_size_bias,
             self.krn_bias_)
@@ -676,6 +612,17 @@ class GradientDescentBase(AcceleratedUnit):
 
     def drop_slave(self, slave):
         pass
+
+    def accumulate_gradient_f(self, accumulated_gradient, gradient):
+        if accumulated_gradient and self.accumulate_gradient:
+            accumulated_gradient[:] = (
+                gradient * self.acc_alpha +
+                (self.acc_beta * accumulated_gradient if self.acc_beta else 0))
+
+            gradient *= self.gd_beta
+            gradient += self.gd_alpha * accumulated_gradient
+
+        return gradient
 
     @staticmethod
     def numpy_gradient_step(weight, gradient, lr, factor_l12, l1_vs_l2,

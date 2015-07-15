@@ -23,7 +23,11 @@ void bias_update(__global const dtype    *err_output,
                  const dtype             lr,
                  const dtype             factor_l12,
                  const dtype             l1_vs_l2,
-                 const dtype             moment) {
+                 const dtype             moment,
+				 const dtype             acc_alpha,
+				 const dtype             acc_beta,
+				 const dtype             gd_alpha,
+				 const dtype             gd_beta) {
 
   #define A err_output
   #define A_WIDTH BIAS_SIZE

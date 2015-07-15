@@ -40,10 +40,11 @@ from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
+from veles.accelerated_units import (
+    AcceleratedUnit, IOpenCLUnit, ICUDAUnit, INumpyUnit)
 
 import veles.error as error
-from veles.memory import reshape
+from veles.memory import Array, reshape
 import veles.znicz.nn_units as nn_units
 from veles.units import Unit
 
@@ -255,3 +256,91 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
         inp[:] = 0
         inp[:, self.padding[1]:self.padding[1] + self.output_shape[1],
             self.padding[0]:self.padding[0] + self.output_shape[2], :] = out
+
+
+@implementer(ICUDAUnit, IOpenCLUnit)
+class Cutter1D(AcceleratedUnit):
+    """Cuts the specified interval from each 1D sample of input batch
+    into output.
+
+    y = alpha * x + beta * y
+    """
+    def __init__(self, workflow, **kwargs):
+        super(Cutter1D, self).__init__(workflow, **kwargs)
+        self.alpha = kwargs.get("alpha")
+        self.beta = kwargs.get("beta")
+        self.input_offset = kwargs.get("input_offset", -1)
+        self.output_offset = kwargs.get("output_offset", 0)
+        self.length = kwargs.get("length", -1)
+        self.output = Array()
+        self.demand("alpha", "beta", "input")
+
+    def init_unpickled(self):
+        super(Cutter1D, self).init_unpickled()
+        self.sources_["cutter"] = {}
+
+    def initialize(self, device, **kwargs):
+        if self.input_offset < 0 or self.length < 0:
+            return True
+        super(Cutter1D, self).initialize(device, **kwargs)
+
+        if not self.output:
+            self.output.reset(
+                numpy.zeros(
+                    (self.input.shape[0], self.output_offset + self.length),
+                    dtype=self.input.dtype))
+        else:
+            assert self.output.size >= self.output_offset + self.length
+
+        self.init_vectors(self.input, self.output)
+
+    def cuda_init(self):
+        dtype = self.input.dtype
+        itemsize = self.input.itemsize
+        limit = self.input.shape[0] * self.length
+
+        self.build_program({}, "%s" % self.__class__.__name__, dtype=dtype)
+        self.assign_kernel("cutter_1d_forward")
+
+        self.set_args(
+            int(self.input.devmem) + self.input_offset * itemsize,
+            numpy.array([self.alpha], dtype=dtype),
+            numpy.array([self.input.sample_size], dtype=numpy.int32),
+            int(self.output.devmem) + self.output_offset * itemsize,
+            numpy.array([self.beta], dtype=dtype),
+            numpy.array([self.output.sample_size], dtype=numpy.int32),
+            numpy.array([self.length], dtype=numpy.int32),
+            numpy.array([limit], dtype=numpy.int32))
+
+        block_size = self.device.suggest_block_size(self._kernel_)
+        self._global_size = (int(numpy.ceil(limit / block_size)), 1, 1)
+        self._local_size = (block_size, 1, 1)
+
+    def ocl_init(self):
+        dtype = self.input.dtype
+
+        self.build_program({}, "%s" % self.__class__.__name__, dtype=dtype)
+        self.assign_kernel("cutter_1d_forward")
+
+        self.set_args(
+            self.input.devmem,
+            numpy.array([self.input_offset], dtype=numpy.int32),
+            numpy.array([self.alpha], dtype=dtype),
+            numpy.array([self.input.sample_size], dtype=numpy.int32),
+            self.output.devmem,
+            numpy.array([self.output_offset], dtype=numpy.int32),
+            numpy.array([self.beta], dtype=dtype),
+            numpy.array([self.output.sample_size], dtype=numpy.int32))
+
+        self._global_size = (self.input.shape[0], self.length)
+        self._local_size = None
+
+    def _gpu_run(self):
+        self.unmap_vectors(self.input, self.output)
+        self.execute_kernel(self._global_size, self._local_size)
+
+    def cuda_run(self):
+        return self._gpu_run()
+
+    def ocl_run(self):
+        return self._gpu_run()

@@ -429,8 +429,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
-                              self.info, self.assertLess,
-                              mean=False)
+                              self.info, self.assertLess, mean=False)
 
 
 @assign_backend("ocl")

@@ -135,7 +135,6 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.solvers = s
 
         self.reduce_size = self.REDUCE_SIZE
-        self.cl_const = None
         self.krn_err_input_ = None
         self.krn_weights_ = None
         self.krn_err_output_ = None
@@ -171,6 +170,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.last_minibatch = kwargs.get("last_minibatch", False)
 
     def initialize(self, device, **kwargs):
+        if not self.input:
+            return True
+
         super(GradientDescent, self).initialize(device=device, **kwargs)
 
         if "adadelta" in self.solvers:
@@ -200,13 +202,14 @@ class GradientDescent(nn_units.GradientDescentBase):
         if "adagrad" in self.solvers:
             self.init_vectors(self.adagrad.weights, self.adagrad.bias)
 
-        if (any(s in self.solvers for s in ("fast", "adagrad", "adadelta"))
-                and not self.gradient_weights_with_moment):
+        if (any(s in self.solvers for s in ("fast", "adagrad", "adadelta")) and
+                not self.gradient_weights_with_moment):
             raise ValueError("Some of the solvers need moment vectors")
 
     def _gpu_init(self, blas_class):
         dtype = self.err_output.dtype
-        self.cl_const = numpy.zeros(9, dtype=dtype)
+        self._weights_const = numpy.zeros(16, dtype=dtype)
+        self._bias_const = numpy.zeros(16, dtype=dtype)
 
         side = self.weights_shape[0]
         other = self.weights.size // side
@@ -240,9 +243,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             dtype=dtype)
 
         self.krn_weights_ = self.get_kernel("weights_update")
-        self.krn_weights_.set_args(self.err_output.devmem,
-                                   self.input.devmem,
-                                   self.weights.devmem,
+        self.krn_weights_.set_args(self.weights.devmem,
                                    self.gradient_weights.devmem,
                                    self.accumulated_gradient_weights.devmem,
                                    self.gradient_weights_with_moment.devmem)
@@ -259,7 +260,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
-            self.krn_weights_.set_arg(11, self.col_sums.devmem)
+            self.krn_weights_.set_arg(13, self.col_sums.devmem)
 
         self.gemm_ = blas_class.gemm(dtype)
         self.np_one = numpy.ones(1, dtype=dtype)
@@ -318,22 +319,6 @@ class GradientDescent(nn_units.GradientDescentBase):
         if self.apply_gradient:
             vec.mem += gradient
 
-    def accumulate_gradient_f(self, accumulated_gradient, gradient):
-        if accumulated_gradient:
-            if self.accumulate_gradient == self.OP_NONE:
-                pass
-            elif self.accumulate_gradient == self.OP_STORE:
-                accumulated_gradient.mem[:] = gradient
-            elif self.accumulate_gradient == self.OP_ADD:
-                accumulated_gradient.mem[:] += gradient
-            elif self.accumulate_gradient == self.OP_FLUSH:
-                gradient += accumulated_gradient.mem
-                accumulated_gradient.mem[:] = 0
-            else:
-                raise ValueError(
-                    "Incorrect accumulate_gradient attribute value")
-        return gradient
-
     def numpy_update(self, s):
         f_ortho_use = False if s == 'bias' else self.factor_ortho
 
@@ -375,7 +360,6 @@ class GradientDescent(nn_units.GradientDescentBase):
             gradient = self.accumulate_gradient_f(acc_vec, gradient)
             # if "momentum" in self.solvers:
             gradient = self.moment_use(vec_old, gradient)
-
         else:
             # it is RNN
             gradient = self.accumulate_gradient_f(acc_vec, grad_vec)
@@ -578,7 +562,7 @@ class GDTanh(nn_units.GradientDescentWithActivation, GradientDescent):
         self.sources_["gradient_descent_tanh"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
-        super(GDTanh, self).initialize(device=device, **kwargs)
+        return super(GDTanh, self).initialize(device=device, **kwargs)
 
 
 class GDRELU(nn_units.GradientDescentWithActivation, GradientDescent):
@@ -607,7 +591,7 @@ class GDRELU(nn_units.GradientDescentWithActivation, GradientDescent):
         self.sources_["gradient_descent_relu"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
-        super(GDRELU, self).initialize(device=device, **kwargs)
+        return super(GDRELU, self).initialize(device=device, **kwargs)
 
 
 class GDStrictRELU(nn_units.GradientDescentWithActivation, GradientDescent):
@@ -633,7 +617,7 @@ class GDStrictRELU(nn_units.GradientDescentWithActivation, GradientDescent):
         self.sources_["gradient_descent_strict_relu"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
-        super(GDRELU, self).initialize(device=device, **kwargs)
+        return super(GDRELU, self).initialize(device=device, **kwargs)
 
 
 class GDSigmoid(nn_units.GradientDescentWithActivation, GradientDescent):
@@ -655,4 +639,4 @@ class GDSigmoid(nn_units.GradientDescentWithActivation, GradientDescent):
         self.sources_["gradient_descent_sigmoid"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
-        super(GDSigmoid, self).initialize(device=device, **kwargs)
+        return super(GDSigmoid, self).initialize(device=device, **kwargs)

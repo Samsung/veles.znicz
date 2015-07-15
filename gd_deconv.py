@@ -155,8 +155,6 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         if self.hits:
             self.hits.initialize(self.device)
 
-        self._dtype = self.err_output.dtype
-
         self._batch_size = self.err_output.shape[0]
         self._kernel_app_per_image = self.input.sample_size // self.n_kernels
         self._kernel_app_total = (self._kernel_app_per_image *
@@ -164,6 +162,9 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._kernel_size = self.kx * self.ky * self.channels_number
 
     def _gpu_init(self, blas_class):
+        dtype = self.err_output.dtype
+        self._weights_const = numpy.zeros(16, dtype=dtype)
+
         self.sources_["conv/forward"] = {}
         self.sources_["deconv/gradient_descent/weights_update"] = {
             "USE_ORTHO": int(bool(self.factor_ortho)),
@@ -171,8 +172,6 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         }
 
         sy, sx = self.ky_kx
-
-        self.cl_const = numpy.zeros(5, dtype=self._dtype)
 
         side = self.weights_shape[0]
         other = self.weights.size // side
@@ -213,7 +212,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.input.shape[0],
                 self.input.sample_size,
                 self.err_output.sample_size),
-            dtype=self._dtype)
+            dtype=dtype)
 
         self.krn_err_output_ = self.get_kernel("err_output_update")
         self.krn_err_output_.set_arg(0, self.err_output.devmem)
@@ -221,9 +220,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.krn_err_output_.set_arg(1, self.hits.devmem)
 
         self.krn_weights_ = self.get_kernel("weights_update")
-        self.krn_weights_.set_args(self.err_output.devmem,
-                                   self.input.devmem,
-                                   self.weights.devmem,
+        self.krn_weights_.set_args(self.weights.devmem,
                                    self.gradient_weights.devmem,
                                    self.accumulated_gradient_weights.devmem,
                                    self.gradient_weights_with_moment.devmem)
@@ -232,11 +229,11 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
-            self.krn_weights_.set_arg(11, self.col_sums.devmem)
+            self.krn_weights_.set_arg(13, self.col_sums.devmem)
 
-        self.gemm_ = blas_class.gemm(self._dtype)
-        self.np_one = numpy.ones(1, dtype=self._dtype)
-        self.np_zero = numpy.zeros(1, dtype=self._dtype)
+        self.gemm_ = blas_class.gemm(dtype)
+        self.np_one = numpy.ones(1, dtype=dtype)
+        self.np_zero = numpy.zeros(1, dtype=dtype)
         self._const_i = numpy.zeros(1, dtype=numpy.int64)
 
         self.assign_kernel("Unpack1D")

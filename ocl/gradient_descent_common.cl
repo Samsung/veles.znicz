@@ -11,15 +11,6 @@
 #ifndef ACCUMULATE_GRADIENT
 #error "ACCUMULATE_GRADIENT should be defined"
 #endif
-#define OP_NONE 0
-#define OP_STORE 1
-#define OP_ADD 2
-#define OP_FLUSH 3
-#if (ACCUMULATE_GRADIENT >= 0) && (ACCUMULATE_GRADIENT <= 3)
-// All Ok
-#else
-#error "Incorrect ACCUMULATE_GRADIENT"
-#endif
 
 #ifndef APPLY_GRADIENT
 #error "APPLY_GRADIENT should be defined"

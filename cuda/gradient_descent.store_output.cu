@@ -1,15 +1,12 @@
-#if ACCUMULATE_GRADIENT == OP_STORE
-accumulated_gradient[idx] = gd;
-#elif ACCUMULATE_GRADIENT == OP_ADD
-accumulated_gradient[idx] += gd;
-#elif ACCUMULATE_GRADIENT == OP_FLUSH
-gd += accumulated_gradient[idx];
-accumulated_gradient[idx] = 0;
+#if ACCUMULATE_GRADIENT > 0
+dtype acc = acc_beta ? acc_beta * accumulated_gradient[idx] : 0;
+acc += acc_alpha * gd;
+accumulated_gradient[idx] = acc;
+
+gd *= gd_beta;
+gd += gd_alpha * acc;
 #endif
 
-#ifndef USE_MOMENT
-#error "USE_MOMENT should be defined"
-#endif
 #if USE_MOMENT > 0
 gd += gradient_with_moment[idx] * moment;
 gradient_with_moment[idx] = gd;

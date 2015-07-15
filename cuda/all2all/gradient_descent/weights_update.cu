@@ -7,16 +7,18 @@
 
 
 extern "C"
-__global__ void weights_update(const dtype    *_err_output,
-                               const dtype    *_input,
-                               dtype          *weights,
+__global__ void weights_update(dtype          *weights,
                                const dtype    *gradient,
                                dtype          *accumulated_gradient,
                                dtype          *gradient_with_moment,
                                const dtype    lr,
                                const dtype    factor_l12,
                                const dtype    l1_vs_l2,
-                               const dtype    moment
+                               const dtype    moment,
+                               const dtype    acc_alpha,
+                               const dtype    acc_beta,
+                               const dtype    gd_alpha,
+                               const dtype    gd_beta
 #if USE_ORTHO > 0
                              , const dtype    factor_ortho,
                                const dtype    *col_sums

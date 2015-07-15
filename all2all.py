@@ -309,8 +309,9 @@ class All2AllTanh(All2All):
 
     def initialize(self, device, **kwargs):
         self.activation_mode = "ACTIVATION_TANH"
-        super(All2AllTanh, self).initialize(device=device, **kwargs)
+        retval = super(All2AllTanh, self).initialize(device=device, **kwargs)
         self.output.max_supposed = All2AllTanh.A
+        return retval
 
     def numpy_run(self):
         """Forward propagation from batch on CPU only.
@@ -331,8 +332,9 @@ class All2AllRELU(All2All):
 
     def initialize(self, device, **kwargs):
         self.activation_mode = "ACTIVATION_RELU"
-        super(All2AllRELU, self).initialize(device=device, **kwargs)
+        retval = super(All2AllRELU, self).initialize(device=device, **kwargs)
         self.output.max_supposed = 10
+        return retval
 
     def numpy_run(self):
         """Forward propagation from batch on CPU only.
@@ -351,8 +353,10 @@ class All2AllStrictRELU(All2All):
 
     def initialize(self, device, **kwargs):
         self.activation_mode = "ACTIVATION_STRICT_RELU"
-        super(All2AllStrictRELU, self).initialize(device=device, **kwargs)
+        retval = super(All2AllStrictRELU, self).initialize(
+            device=device, **kwargs)
         self.output.max_supposed = 10
+        return retval
 
     def numpy_run(self):
         """Forward propagation from batch on CPU only.
@@ -370,8 +374,10 @@ class All2AllSigmoid(All2All):
 
     def initialize(self, device, **kwargs):
         self.activation_mode = "ACTIVATION_SIGMOID"
-        super(All2AllSigmoid, self).initialize(device=device, **kwargs)
+        retval = super(All2AllSigmoid, self).initialize(
+            device=device, **kwargs)
         self.output.supposed_max_value = 10
+        return retval
 
     def numpy_run(self):
         """Forward propagation from batch on CPU only.
@@ -418,7 +424,10 @@ class All2AllSoftmax(All2All):
         self.sources_["all2all/softmax"] = {
             "REDUCE_SIZE": self.reduce_size
         }
-        super(All2AllSoftmax, self).initialize(device=device, **kwargs)
+        retval = super(All2AllSoftmax, self).initialize(
+            device=device, **kwargs)
+        if retval:
+            return retval
         if self.output.mem.size // self.output.mem.shape[0] <= 1:
             raise error.BadFormatError(
                 "Output sample size should be greater than 1 for SoftMax.")
@@ -427,6 +436,7 @@ class All2AllSoftmax(All2All):
             self.max_idx.reset(numpy.zeros(self.output.shape[0],
                                            dtype=numpy.int32))
         self.max_idx.initialize(self.device)
+        return retval
 
     def numpy_apply_exp(self):
         self.output.map_write()
