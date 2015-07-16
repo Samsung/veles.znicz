@@ -37,10 +37,8 @@ import logging
 import unittest
 from zope.interface import implementer
 
-from veles import prng
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 from veles.dummy import DummyWorkflow
-from veles.znicz.gd import GradientDescent
 from veles.znicz.nn_units import Forward, NNSnapshotterToFile
 
 
@@ -68,19 +66,6 @@ class Test(unittest.TestCase):
 
     def tearDown(self):
         del self.parent
-
-    def test_ocl_set_const_args(self):
-        u = GradientDescent(self.parent)
-        self.assertTrue(u.ocl_set_const_args)
-        for attr in ("learning_rate", "weights_decay",
-                     "l1_vs_l2", "gradient_moment",
-                     "learning_rate_bias", "weights_decay_bias",
-                     "l1_vs_l2_bias", "gradient_moment_bias"):
-            vle = prng.get().rand()
-            u.ocl_set_const_args = False
-            setattr(u, attr, vle)
-            self.assertTrue(u.ocl_set_const_args)
-            self.assertEqual(getattr(u, attr), vle)
 
     def test_nnsnapshotter(self):
         nns = NNSnapshotterToFile(self.parent)
