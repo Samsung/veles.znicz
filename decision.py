@@ -371,9 +371,9 @@ class DecisionGD(DecisionBase):
 
         # Errors at the epoch where
         # max of train and validation errors was the best
-        self.best_max_train_validation_n_err_pt = [None] * 3
+        self.best_minimax_n_err_pt = [None] * 3
         # and it's epoch number
-        self.best_max_train_validation_n_err_pt_epoch_number = -1
+        self.best_minimax_n_err_pt_epoch_number = -1
 
         self.minibatch_n_err = None  # memory.Array()
         self.minibatch_confusion_matrix = None  # memory.Array()
@@ -412,15 +412,15 @@ class DecisionGD(DecisionBase):
                 tstr: pt_str(self.best_n_err_pt[TRAIN]),
                 vstr: pt_str(self.best_n_err_pt[VALID]),
                 cstr: pt_str(
-                    nmax(self.best_max_train_validation_n_err_pt[VALID],
-                         self.best_max_train_validation_n_err_pt[TRAIN]))
+                    nmax(self.best_minimax_n_err_pt[VALID],
+                         self.best_minimax_n_err_pt[TRAIN]))
             },
             "Accuracy": {
                 tstr: rpt_str(self.best_n_err_pt[TRAIN]),
                 vstr: rpt_str(self.best_n_err_pt[VALID]),
                 cstr: rpt_str(
-                    nmax(self.best_max_train_validation_n_err_pt[VALID],
-                         self.best_max_train_validation_n_err_pt[TRAIN]))
+                    nmax(self.best_minimax_n_err_pt[VALID],
+                         self.best_minimax_n_err_pt[TRAIN]))
             },
             "EvaluationFitness": evalfun(
                 1 - nvl(self.best_n_err_pt[VALID], 100) / 100,
@@ -428,7 +428,7 @@ class DecisionGD(DecisionBase):
             "Best epoch": {
                 tstr: nvl(self.best_n_err_pt_epoch_number[TRAIN], "None"),
                 vstr: nvl(self.best_n_err_pt_epoch_number[VALID], "None"),
-                cstr: nvl(self.best_max_train_validation_n_err_pt_epoch_number,
+                cstr: nvl(self.best_minimax_n_err_pt_epoch_number,
                           "None")
             }}
 
@@ -484,13 +484,11 @@ class DecisionGD(DecisionBase):
         minibatch_class = self.minibatch_class
         if (nmax(self.epoch_n_err_pt[minibatch_class],
                  self.epoch_n_err_pt[TRAIN], self.BIGNUM) <
-            nmax(self.best_max_train_validation_n_err_pt[minibatch_class],
-                 self.best_max_train_validation_n_err_pt[TRAIN], self.BIGNUM)):
+            nmax(self.best_minimax_n_err_pt[minibatch_class],
+                 self.best_minimax_n_err_pt[TRAIN], self.BIGNUM)):
             for i in (minibatch_class, TRAIN, TEST):
-                self.best_max_train_validation_n_err_pt[i] = (
-                    self.epoch_n_err_pt[i])
-            self.best_max_train_validation_n_err_pt_epoch_number = (
-                self.epoch_number)
+                self.best_minimax_n_err_pt[i] = self.epoch_n_err_pt[i]
+            self.best_minimax_n_err_pt_epoch_number = self.epoch_number
             return True
         return False
 
@@ -520,8 +518,9 @@ class DecisionGD(DecisionBase):
     def on_apply_data_from_master(self, data):
         self.improved <<= data["improved"]
         self.reset_statistics(self.minibatch_class)
-        self.min_validation_n_err_pt = 0
-        self.min_train_n_err_pt = 0
+        # To stop just after the first minibatch
+        self.best_minimax_n_err_pt[VALID] = 0
+        self.best_minimax_n_err_pt[TRAIN] = 0
 
     def on_apply_data_from_slave(self, data, slave):
         if self.minibatch_n_err:
@@ -538,7 +537,8 @@ class DecisionGD(DecisionBase):
                 "minibatch_confusion_matrix"]
 
     def stop_condition(self):
-        if all(nvl(self.best_n_err_pt[i], 0) <= 0 for i in (VALID, TRAIN)):
+        if all(nvl(self.best_minimax_n_err_pt[i], 0) <= 0
+               for i in (VALID, TRAIN)):
             return True
         if (self.epoch_number - self.improved_epoch_number >
                 self.fail_iterations):
@@ -552,8 +552,8 @@ class DecisionGD(DecisionBase):
                     self.epoch_number == 0):
                 self.warning("Number of errors equals to 0 before the training"
                              " has actually started => dropping into pdb...")
-                import pdb
-                pdb.set_trace()
+                # import pdb
+                # pdb.set_trace()
             ss.append("n_err %d of %d (%.2f%%)" %
                       (self.epoch_n_err[minibatch_class],
                        self.epoch_n_evaluated_samples[minibatch_class],
@@ -586,85 +586,118 @@ class DecisionMSE(DecisionGD):
     """Rules the gradient descent mean square error (MSE) learning process.
 
     Attributes:
-        epoch_min_mse: minimum mse by class for one epoch.
         epoch_metrics: metrics for an epoch (same as minibatch_metrics).
     """
     def __init__(self, workflow, **kwargs):
         super(DecisionMSE, self).__init__(workflow, **kwargs)
-        self.min_validation_mse = self.BIGNUM
-        self.min_validation_mse_epoch_number = -1
-        self.train_mse_on_min_validation_mse = self.BIGNUM
-        self.min_train_mse = self.BIGNUM
-        self.min_train_mse_epoch_number = -1
+
+        # Values for the current epoch
+        self.epoch_mse = [None] * 3
+
+        # Best achieved MSE, independently for each class
+        self.best_mse = [None] * 3
+        # and its epoch numbers
+        self.best_mse_epoch_number = [None] * 3
+        # MSE for other classes when the given class was the best
+        self.best_mse_others = [[None] * 3] * 3
+        self._store_best_mse_others = [False] * 3
+
+        # MSE at the epoch where
+        # max of train and validation MSE was the best
+        self.best_minimax_mse = [None] * 3
+        # and it's epoch number
+        self.best_minimax_mse_epoch_number = -1
+
         self.epoch_metrics = [None] * 3
-        self.epoch_min_mse = [self.BIGNUM] * 3
         self.root = kwargs.get("root", True)
         self.demand("minibatch_metrics", "minibatch_class", "class_lengths")
 
     def initialize(self, **kwargs):
         super(DecisionMSE, self).initialize(**kwargs)
-        self.epoch_min_mse[:] = (self.BIGNUM,) * 3
         self.initialize_arrays(self.minibatch_metrics, self.epoch_metrics)
 
     def get_metric_names(self):
         if self.testing:
             return set()
+        names = super(DecisionMSE, self).get_metric_names()
         mstr = "RMSE" if self.root else "MSE"
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
-        return {mstr, "Min %s epochs number" % mstr,
-                "%s %s on min %s %s" % (tstr, mstr, vstr, mstr)}
+        names.update({mstr, "Min %s epochs number" % mstr,
+                      "%s %s on min %s %s" % (tstr, mstr, vstr, mstr),
+                      "EvaluationFitness"})
+        return names
 
     def get_metric_values(self):
         if self.testing:
             return {}
+        values = super(DecisionMSE, self).get_metric_values()
         mstr = "RMSE" if self.root else "MSE"
         tstr = CLASS_NAME[TRAIN]
         vstr = CLASS_NAME[VALID]
+        cstr = "minimax(%s, %s)" % (tstr, vstr)
         evalfun = root.common.evaluation_transform
-        return {mstr: {tstr: "%.3f" % self.min_train_mse,
-                       vstr: "%.3f" % self.min_validation_mse},
-                "EvaluationFitness": evalfun(
-                    -self.min_validation_mse, -self.min_train_mse),
-                "Min %s epochs number" % mstr: {
-                    tstr: self.min_validation_mse_epoch_number,
-                    vstr: self.min_train_mse_epoch_number},
-                "%s %s on min %s %s" % (tstr, mstr, vstr, mstr):
-                self.train_mse_on_min_validation_mse}
+        values.update({
+            mstr: {tstr: "%.12f" % self.best_mse[TRAIN],
+                   vstr: "%.12f" % self.best_mse[VALID],
+                   cstr: "%.12f" %
+                   nmax(self.best_minimax_mse[VALID],
+                        self.best_minimax_mse[TRAIN])},
+            "EvaluationFitness":
+            evalfun(-self.best_minimax_mse[VALID], -self.best_minimax_mse[
+                    TRAIN]),
+            "Min %s epochs number" % mstr:
+            {tstr: self.best_mse_epoch_number[TRAIN],
+             vstr: self.best_mse_epoch_number[VALID],
+             cstr: self.best_minimax_mse_epoch_number},
+            "%s %s on min %s %s" % (tstr, mstr, vstr, mstr):
+            self.best_mse_others[VALID][TRAIN]})
+        return values
 
     def on_last_minibatch(self):
         super(DecisionMSE, self).on_last_minibatch()
 
-        # minibatch_metrics: [(R)MSE, min error, max ]
+        # minibatch_metrics: [SUM((R)MSE), min((R)MSE), max((R)MSE)]
 
         minibatch_class = self.minibatch_class
         self.minibatch_metrics.map_read()
-        self.epoch_min_mse[minibatch_class] = \
-            self.minibatch_metrics[0] / self.class_lengths[minibatch_class]
+
         # Copy metrics
         self.epoch_metrics[minibatch_class][:] = (
             self.minibatch_metrics.mem[:])
+
         # Compute average mse
         self.epoch_metrics[minibatch_class][0] = (
             self.epoch_metrics[minibatch_class][0] /
             self.class_lengths[minibatch_class])
+
         if self.epoch_number == 0:
             self.epoch_metrics[TRAIN][:] = self.epoch_metrics[VALID][:]
 
     def improve_condition(self):
-        if (self.epoch_min_mse[VALID] < self.min_validation_mse or
-                (self.epoch_min_mse[VALID] == self.min_validation_mse and
-                 self.epoch_min_mse[TRAIN] < self.min_train_mse)):
-            self.min_validation_mse = self.epoch_min_mse[VALID]
-            self.min_validation_mse_epoch_number = self.epoch_number
-            self.train_mse_on_min_validation_mse = self.epoch_min_mse[TRAIN]
+        for i, store in enumerate(self._store_best_mse_others):
+            if store:
+                self.best_mse_others[i][:] = (x[0] for x in self.epoch_metrics)
+                self._store_best_mse_others[i] = False
+
+        minibatch_class = self.minibatch_class
+        if (nmax(self.epoch_metrics[minibatch_class][0],
+                 self.epoch_metrics[TRAIN][0], self.BIGNUM) <
+            nmax(self.best_minimax_mse[minibatch_class],
+                 self.best_minimax_mse[TRAIN], self.BIGNUM)):
+            for i in (minibatch_class, TRAIN, TEST):
+                self.best_minimax_mse[i] = self.epoch_metrics[i][0]
+            self.best_minimax_mse_epoch_number = self.epoch_number
             return True
+
         return super(DecisionMSE, self).improve_condition()
 
     def train_improve_condition(self):
-        if self.epoch_min_mse[TRAIN] < self.min_train_mse:
-            self.min_train_mse = self.epoch_min_mse[TRAIN]
-            self.min_train_mse_epoch_number = self.epoch_number
+        if (nvl(self.epoch_metrics[TRAIN][0], self.BIGNUM) <
+                nvl(self.best_mse[TRAIN], self.BIGNUM)):
+            self.best_mse[TRAIN] = self.epoch_metrics[TRAIN][0]
+            self.best_mse_epoch_number[TRAIN] = self.epoch_number
+            self._store_best_mse_others[TRAIN] = True
             return True
         return super(DecisionMSE, self).train_improve_condition()
 
@@ -679,8 +712,8 @@ class DecisionMSE(DecisionGD):
     def on_apply_data_from_master(self, data):
         super(DecisionMSE, self).on_apply_data_from_master(data)
         # To stop just after the first minibatch
-        self.min_validation_mse = 0
-        self.min_train_mse = 0
+        self.best_minimax_mse[TRAIN] = 0
+        self.best_minimax_mse[VALID] = 0
 
     def on_apply_data_from_slave(self, data, slave):
         super(DecisionMSE, self).on_apply_data_from_slave(data, slave)
@@ -715,9 +748,9 @@ class DecisionMSE(DecisionGD):
             self.minibatch_metrics.mem[:] = 0
 
     def stop_condition(self):
-        if self.min_validation_mse <= 0:
+        if all(nvl(self.best_minimax_mse[i], 0) <= 0 for i in (VALID, TRAIN)):
             return True
-        if (self.epoch_number - self.min_validation_mse_epoch_number >
+        if (self.epoch_number - self.improved_epoch_number >
                 self.fail_iterations):
             return True
         return False
