@@ -8,7 +8,7 @@
     \ \_/ / |___| |___| |___/\__/ /
      \___/\____/\_____|____/\____/
 
-Created on Aug 4, 2014
+Created on Aug 3, 2015
 
 ███████████████████████████████████████████████████████████████████████████████
 
@@ -37,63 +37,65 @@ import numpy
 from veles.backends import NumpyDevice
 
 from veles.memory import Array
-from veles.znicz.cutter import Cutter, GDCutter
+from veles.znicz.summator import Summator, GDSummator
 import veles.prng as prng
 from veles.tests import AcceleratedTest, assign_backend
 
 
-class TestCutter(AcceleratedTest):
+class TestSummator(AcceleratedTest):
     ABSTRACT = True
 
     def setUp(self):
-        super(TestCutter, self).setUp()
-        self.input = numpy.zeros([25, 37, 43, 23], dtype=numpy.float32)
-        prng.get().fill(self.input)
+        super(TestSummator, self).setUp()
+        self.x = numpy.zeros([25, 37, 43, 23], dtype=numpy.float32)
+        prng.get().fill(self.x)
+        self.y = numpy.zeros([25, 37, 43, 23], dtype=numpy.float32)
+        prng.get().fill(self.y)
+
+    def _forward(self, device):
+        mul = Summator(self.parent)
+        mul.x = Array(self.x.copy())
+        mul.y = Array(self.y.copy())
+        mul.initialize(device)
+        mul.run()
+        mul.output.map_read()
+        return mul
 
     def _do_test(self, device):
-        cutter = Cutter(self.parent, padding=(2, 3, 4, 5))
-        cutter.input = Array(self.input.copy())
-        cutter.initialize(device)
-        cutter.run()
-        cutter.output.map_read()
-        return cutter.output.mem.copy()
+        return self._forward(device).output.mem.copy()
 
     def test_cpu_gpu(self):
         gpu = self._do_test(self.device)
         cpu = self._do_test(NumpyDevice())
         max_diff = numpy.fabs(gpu - cpu).max()
-        self.assertEqual(max_diff, 0)
+        self.assertLess(max_diff, 1.0e-5)
 
     def _do_test_gd(self, device):
-        cutter = Cutter(self.parent, padding=(2, 3, 4, 5))
-        cutter.input = Array(self.input.copy())
-        cutter.initialize(device)
-        cutter.run()
-        cutter.output.map_read()
-
-        gd = GDCutter(self.parent, padding=cutter.padding)
-        gd.input = cutter.input
-        gd.err_output = Array(cutter.output.mem.copy())
+        mul = self._forward(device)
+        gd = GDSummator(self.parent)
+        gd.err_output = Array(mul.output.mem.copy())
         numpy.square(gd.err_output.mem, gd.err_output.mem)  # modify
         gd.initialize(device)
         gd.run()
-        gd.err_input.map_read()
-        return gd.err_input.mem.copy()
+        gd.err_x.map_read()
+        gd.err_y.map_read()
+        return gd.err_x.mem.copy(), gd.err_y.mem.copy()
 
     def test_cpu_gpu_gd(self):
         gpu = self._do_test_gd(self.device)
         cpu = self._do_test_gd(NumpyDevice())
-        max_diff = numpy.fabs(gpu - cpu).max()
-        self.assertEqual(max_diff, 0)
+        max_diff = max(numpy.fabs(gpu[i] - cpu[i]).max()
+                       for i in range(len(gpu)))
+        self.assertLess(max_diff, 1.0e-5)
 
 
 @assign_backend("ocl")
-class OpenCLTestCutter(TestCutter):
+class OpenCLTestSummator(TestSummator):
     pass
 
 
 @assign_backend("cuda")
-class CUDATestCutter(TestCutter):
+class CUDATestSummator(TestSummator):
     pass
 
 
