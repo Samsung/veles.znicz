@@ -124,7 +124,7 @@ class Weights2D(plotter.Plotter):
 
     def prepare_pics(self, inp, transposed):
         pics = []
-        if type(inp) != numpy.ndarray or len(inp.shape) < 2:
+        if not isinstance(inp, numpy.ndarray) or len(inp.shape) < 2:
             raise ValueError("input should be a numpy array (2D at least)")
 
         inp = inp.reshape(inp.shape[0], inp.size // inp.shape[0])

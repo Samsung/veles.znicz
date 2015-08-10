@@ -178,11 +178,11 @@ def fill_tables(d):
                     continue
             if tag not in kanji.keys():
                 continue
-            if type(kanji[tag]) == str:
+            if isinstance(kanji[tag], str):
                 if len(kanji[tag]):
                     kanji[tag] += "\n"
                 kanji[tag] += sub.text
-            elif type(kanji[tag]) == int:
+            elif isinstance(kanji[tag], int):
                 kanji[tag] += int(sub.text)
             else:
                 raise Exception("Unknown type for kanji attribute found")
