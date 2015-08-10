@@ -848,7 +848,7 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units, from whom will be link last of\
             :class:`veles.znicz.nn_units.GradientDescentBase` descendant units
         """
-        if type(self.layers) != list:
+        if not isinstance(self.layers, (tuple, list)):
             raise error.BadFormatError("layers should be a list of dicts")
         self.gds[:] = (None,) * len(self.layers)
         first_gd = None

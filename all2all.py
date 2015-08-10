@@ -85,6 +85,7 @@ class All2All(nn_units.NNLayerBase):
         weights_stddev: magnitude of uniform weight distribution.
         weights_stddev: StdDev of normal weight distributtion
     """
+    __id__ = "58a5eadf-ae1e-498f-bf35-7d93939c4c86"
 
     MAPPING = {"all2all"}
 
@@ -302,6 +303,8 @@ class All2All(nn_units.NNLayerBase):
 class All2AllTanh(All2All):
     """All2All with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
     """
+    __id__ = "b3a2bd5c-3c01-46ef-978a-fef22e008f31"
+
     A = 1.7159
     B = 0.6666
     C = 9.0  # tanh(C) -> 1
@@ -327,6 +330,7 @@ class All2AllTanh(All2All):
 class All2AllRELU(All2All):
     """All2All with RELU activation f(x) = log(1.0 + exp(x)).
     """
+    __id__ = "5b7f36d8-f8c8-4eb7-8af3-75eb3cfca3fe"
 
     MAPPING = {"all2all_relu"}
 
@@ -348,6 +352,7 @@ class All2AllRELU(All2All):
 class All2AllStrictRELU(All2All):
     """All2All with RELU activation f(x) = max(x, 0).
     """
+    __id__ = "fe63baf0-4fe4-4cf3-bafb-ef1215bf27a8"
 
     MAPPING = {"all2all_str"}
 
@@ -370,6 +375,8 @@ class All2AllStrictRELU(All2All):
 class All2AllSigmoid(All2All):
     """All2All with Sigmoid activation f(x) = 1 / (1 + exp(-x)).
     """
+    __id__ = "a27974ec-1764-4944-925d-4862de237881"
+
     MAPPING = {"all2all_sigmoid"}
 
     def initialize(self, device, **kwargs):
@@ -405,6 +412,7 @@ class All2AllSoftmax(All2All):
         krn_sm_: kernel for softmax activation calculation.
         max_idx: indexes of element with maximum value for each sample.
     """
+    __id__ = "420219fc-3e1a-45b1-87f8-aaa0c1540de4"
 
     MAPPING = {"softmax"}
 

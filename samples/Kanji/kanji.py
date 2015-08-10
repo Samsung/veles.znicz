@@ -96,7 +96,7 @@ def run(load, main):
         image_saver_config=root.kanji.image_saver,
         loss_function=root.kanji.loss_function)
     if snapshot:
-        if type(w) == tuple:
+        if isinstance(w, tuple):
             logging.info("Will load weights")
             weights = w[0]
             bias = w[1]

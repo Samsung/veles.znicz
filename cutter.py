@@ -65,7 +65,7 @@ class CutterBase(Unit):
     def padding(self, value):
         if value is None:
             raise ValueError("padding may not be None")
-        if type(value) not in (tuple, list):
+        if not isinstance(value, (tuple, list)):
             raise TypeError("padding must either of type tuple or list")
         if len(value) != 4:
             raise ValueError(
