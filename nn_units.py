@@ -36,6 +36,7 @@ under the License.
 
 
 from __future__ import division
+from codecs import getwriter
 from collections import defaultdict
 import gc
 import numpy
@@ -149,6 +150,17 @@ class Forward(ForwardBase):
         self.forward_mode = False
         self.exports = ["weights", "bias", "include_bias",
                         "weights_transposed"]
+
+    def export(self):
+        data = {}
+        for attr in self.exports:
+            value = getattr(self, attr)
+            if value:
+                if isinstance(value, Array):
+                    value.map_read()
+                    value = value.mem
+                data[attr] = value
+        return data
 
     @property
     def forward_mode(self):
@@ -727,7 +739,8 @@ class NNWorkflow(AcceleratedWorkflow):
     def export(self, file_name):
         """Exports workflow for use on DTV.
         """
-        exported = [u for u in self if hasattr(u, "export")]
+        exported = [u for u in self if hasattr(u, "export") and
+                    not isinstance(u, SnapshotterBase)]
         if len(exported) == 0:
             raise ValueError("No units support export. Implement export() "
                              "method in at least one.")
@@ -749,7 +762,7 @@ class NNWorkflow(AcceleratedWorkflow):
         arrays = []
 
         def array_file_name(arr, index):
-            return "%04d_%s" % (index, "x".join(arr.shape))
+            return "%04d_%s" % (index, "x".join(str(x) for x in arr.shape))
 
         def export_numpy_array(arr):
             if isinstance(arr, numpy.ndarray):
@@ -760,8 +773,8 @@ class NNWorkflow(AcceleratedWorkflow):
         try:
             with tarfile.open(file_name, "w:gz") as tar:
                 io = six.BytesIO()
-                json.dump(obj, io, indent=4, sort_keys=True,
-                          default=export_numpy_array)
+                json.dump(obj, getwriter("utf-8")(getattr(io, "buffer", io)),
+                          indent=4, sort_keys=True, default=export_numpy_array)
                 ti = tarfile.TarInfo("contents.json")
                 ti.size = io.tell()
                 ti.mode = int("666", 8)
