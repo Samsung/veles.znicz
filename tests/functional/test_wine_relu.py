@@ -82,7 +82,7 @@ class TestWineRelu(StandardTest):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.initialize(
-            device=self.device, snapshot=False)
+            device=self.device)
         workflow.run()
         self.assertIsNone(workflow.thread_pool.failure)
 

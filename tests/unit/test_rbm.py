@@ -118,7 +118,7 @@ class TestRBMUnits(AcceleratedTest):
         evl.target = Array()
         evl.target.mem = test_data["ground_truth"]
         evl.batch_size = 128
-        evl.initialize(device=NumpyDevice(), snapshot=False)
+        evl.initialize(device=NumpyDevice())
         evl.rec.bias.mem[:] = test_data["vbias"].ravel()[:]
         prng.get().seed(1337)
         evl.run()
@@ -156,7 +156,7 @@ class TestRBMUnits(AcceleratedTest):
         gds.vbias.mem[:] = grad_data["vbias"][:].transpose()
         gds.vbias.initialize(self.device)
         gds.batch_size = grad_data["h1_out"].shape[0]
-        gds.initialize(device=NumpyDevice(), snapshot=False)
+        gds.initialize(device=NumpyDevice())
         prng.get().seed(1337)
         gds.run()
         diff1 = numpy.sum(numpy.abs(gds.h1.mem - grad_data["h1_out"]))

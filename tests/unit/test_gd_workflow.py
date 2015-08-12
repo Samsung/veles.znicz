@@ -255,7 +255,7 @@ class TestGDWorkflow(StandardTest, GDNumDiff):
                   else "GPU")
         launcher = DummyLauncher()
         w = Workflow(launcher, ConvForward=ConvForward, ConvGD=ConvGD)
-        w.initialize(device=device, snapshot=False)
+        w.initialize(device=device)
 
         w.conv_forward.weights.map_read()
         conv_weights = w.conv_forward.weights.mem.copy()

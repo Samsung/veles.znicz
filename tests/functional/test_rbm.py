@@ -76,7 +76,7 @@ class TestRBMworkflow(StandardTest):
                          'R_141014_learned.mat'))
         self.info("MNIST RBM TEST")
         workflow = MnistRBMWorkflow(self.parent)
-        workflow.initialize(device=self.device, snapshot=False)
+        workflow.initialize(device=self.device)
         workflow.forwards[1].weights.map_write()
         workflow.forwards[1].bias.map_write()
         workflow.evaluator.vbias.map_write()

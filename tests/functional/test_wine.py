@@ -73,7 +73,7 @@ class TestWine(StandardTest):
         workflow.initialize(
             learning_rate=root.wine.learning_rate,
             weights_decay=root.wine.weights_decay,
-            device=self.device, snapshot=False)
+            device=self.device)
         workflow.run()
         self.assertIsNone(workflow.thread_pool.failure)
 

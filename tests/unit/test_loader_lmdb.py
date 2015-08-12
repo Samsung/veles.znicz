@@ -48,7 +48,6 @@ from veles.znicz.loader.loader_lmdb import LMDBLoader
 class TestLMDBLoader(AcceleratedTest):
     def lmdb_speed(self, kwargs):
         loader = LMDBLoader(self.parent, **kwargs)
-        kwargs["snapshot"] = False
         loader.initialize(**kwargs)
         now = time.time()
         while not loader.train_ended:

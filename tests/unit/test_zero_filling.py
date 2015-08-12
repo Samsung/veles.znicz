@@ -53,7 +53,7 @@ class TestZeroFilling(AcceleratedTest):
 
         self.parent.end_point.link_from(zero_filler)
 
-        self.parent.initialize(device=self.device, snapshot=False)
+        self.parent.initialize(device=self.device)
 
         self.parent.run()
         self.assertIsNone(self.parent.thread_pool.failure)

@@ -139,7 +139,7 @@ class TestMnistConv(StandardTest):
             lr_adjuster_config=root.mnistr.lr_adjuster)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
-        workflow.initialize(device=self.device, snapshot=False)
+        workflow.initialize(device=self.device)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.run()

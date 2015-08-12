@@ -93,7 +93,7 @@ class TestMnistRelu(StandardTest):
         workflow.snapshotter.interval = 2 + 1
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
-        workflow.initialize(device=self.device, snapshot=False)
+        workflow.initialize(device=self.device)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.run()

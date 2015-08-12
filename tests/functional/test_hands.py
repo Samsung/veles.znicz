@@ -91,7 +91,7 @@ class TestHands(StandardTest):
             loader_name=root.hands.loader_name)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
-        workflow.initialize(device=self.device, snapshot=False)
+        workflow.initialize(device=self.device)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.run()

@@ -82,13 +82,13 @@ class TestMnistAll2All(StandardTest):
                                "gradient_moment": Range(0.0, 0.0, 0.95),
                                "gradient_moment_bias": Range(0.0, .0, 0.95)}}]}
         )
+        fix_config(root)
 
     @timeout(300)
     @multi_device()
     def test_mnist_all2all(self):
         self.info("Will test fully connectected mnist workflow")
 
-        fix_config(root)
         workflow = mnist_all2all.MnistWorkflow(
             self.parent,
             decision_config=root.mnistr.decision,
@@ -101,7 +101,7 @@ class TestMnistAll2All(StandardTest):
                          workflow.loader.minibatch_labels)
         workflow.snapshotter.time_interval = 0
         workflow.snapshotter.interval = 3 + 1
-        workflow.initialize(device=self.device, snapshot=False)
+        workflow.initialize(device=self.device)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.run()

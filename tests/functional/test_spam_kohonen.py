@@ -75,7 +75,7 @@ class TestSpamKohonen(StandardTest):
         self.info("Will test spam kohonen workflow")
 
         workflow = spam_kohonen.SpamKohonenWorkflow(self.parent)
-        workflow.initialize(device=self.device, snapshot=False)
+        workflow.initialize(device=self.device)
         workflow.run()
         self.assertIsNone(workflow.thread_pool.failure)
 

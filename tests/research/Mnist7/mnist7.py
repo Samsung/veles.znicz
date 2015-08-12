@@ -240,7 +240,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         self.plt_min[-1].redraw_plot = True
         self.plt_min[0].gate_block = self.decision.complete
 
-    def initialize(self, learning_rate, weights_decay, device, snapshot=False,
+    def initialize(self, learning_rate, weights_decay, device,
                    **kwargs):
         super(Mnist7Workflow, self).initialize(
             learning_rate=learning_rate, weights_decay=weights_decay,

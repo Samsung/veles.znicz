@@ -501,7 +501,7 @@ class ComplexTest(CaffeTestBase):
         self._create_gd_units(cur_iter)
         self.parent.end_point.link_from(self.parent["gd_conv1"])
 
-        self.parent.initialize(device=self.device, snapshot=False)
+        self.parent.initialize(device=self.device)
         self.info("self.parent.initialize() completed")
 
         self._load_labels_and_data(cur_iter)

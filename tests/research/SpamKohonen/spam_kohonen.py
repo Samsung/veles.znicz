@@ -300,9 +300,9 @@ class SpamKohonenWorkflow(nn_units.NNWorkflow):
             self.plotters[3].link_from(self.decision)
             self.plotters[3].gate_block = ~self.loader.epoch_ended
 
-    def initialize(self, device, snapshot=False, **kwargs):
+    def initialize(self, device, **kwargs):
         return super(SpamKohonenWorkflow, self).initialize(
-            device=device, snapshot=False)
+            device=device)
 
 
 def run(load, main):

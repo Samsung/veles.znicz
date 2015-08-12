@@ -69,7 +69,7 @@ class TestKohonen(StandardTest):
         self.info("Will test kohonen workflow")
 
         workflow = kohonen.KohonenWorkflow(self.parent)
-        workflow.initialize(device=self.device, snapshot=False)
+        workflow.initialize(device=self.device)
         workflow.run()
 
         diff = workflow.decision.weights_diff
