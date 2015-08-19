@@ -36,18 +36,15 @@ under the License.
 
 
 from __future__ import division
-from codecs import getwriter
 from collections import defaultdict
 import gc
 import numpy
 import logging
 import time
 import six
-import tarfile
 from zope.interface import implementer
 
 from veles.avatar import Avatar
-from veles.error import VelesException
 from veles.external.prettytable import PrettyTable
 from veles.distributable import IDistributable
 from veles.loader import Loader
@@ -736,76 +733,6 @@ class NNWorkflow(AcceleratedWorkflow):
                 ".EvaluatorBase or demand \"input\" and provide \"output\" "
                 "(got %s)." % type(value))
         self._evaluator = value
-
-    def package_export(self, file_name):
-        """Exports workflow for use on DTV.
-        """
-        exported = [u for u in self if hasattr(u, "package_export")]
-        if len(exported) == 0:
-            raise ValueError(
-                "No units support export. Implement package_export() method "
-                "in at least one.")
-        obj = {"workflow": self.name,
-               "checksum": self.checksum,
-               "units": [{"class": {"name": unit.__class__.__name__,
-                                    "uuid": unit.__class__.__id__},
-                          "data": unit.package_export()}
-                         for unit in exported]}
-        for index, unit in enumerate(exported):
-            obj["units"][index]["links"] = [
-                exported.index(u) for u in unit.derefed_links_to()
-                if u in exported]
-        # check the resulting graph's connectivity
-        fifo = [0]
-        seen = set()
-        while len(fifo) > 0:
-            i = fifo.pop(0)
-            seen.add(i)
-            links = obj["units"][i]["links"]
-            if len(links) == 0 and i < len(exported) - 1:
-                raise VelesException(
-                    "Unit %s is not connected to any other unit" % exported[i])
-            for c in links:
-                if c in seen:
-                    raise VelesException(
-                        "Cycles are not allowed (%s -> %s)" % (
-                            exported[i], exported[c]))
-            fifo.extend(links)
-
-        arrays = []
-
-        def array_file_name(arr, index):
-            return "%04d_%s" % (index, "x".join(map(str, arr.shape)))
-
-        def export_numpy_array(arr):
-            if isinstance(arr, numpy.ndarray):
-                arrays.append(arr)
-                return array_file_name(arr, len(arrays) - 1)
-            raise TypeError("Objects of class other than numpy.ndarray are "
-                            "not supported")
-
-        import json
-        try:
-            with tarfile.open(file_name, "w:gz") as tar:
-                io = six.BytesIO()
-                json.dump(obj, getwriter("utf-8")(getattr(io, "buffer", io)),
-                          indent=4, sort_keys=True, default=export_numpy_array)
-                ti = tarfile.TarInfo("contents.json")
-                ti.size = io.tell()
-                ti.mode = int("666", 8)
-                io.seek(0)
-                tar.addfile(ti, fileobj=io)
-                for index, arr in enumerate(arrays):
-                    io = six.BytesIO()
-                    numpy.save(io, arr)
-                    ti = tarfile.TarInfo(array_file_name(arr, index) + ".npy")
-                    ti.size = io.tell()
-                    ti.mode = int("666", 8)
-                    io.seek(0)
-                    tar.addfile(ti, fileobj=io)
-                self.info("Successfully exported package to %s", file_name)
-        except:
-            self.exception("Failed to export to %s", file_name)
 
 
 class NNSnapshotterBase(SnapshotterBase):
