@@ -112,6 +112,7 @@ class ImagenetAELoader(loader.Loader):
         self.file_samples = ""
         self.sx = kwargs.get("sx", 216)
         self.sy = kwargs.get("sy", 216)
+        self.channels = kwargs.get("channels", 4)
         self.names_labels_filename = kwargs.get("names_labels_filename", None)
         self.count_samples_filename = kwargs.get(
             "count_samples_filename", None)
@@ -223,7 +224,9 @@ class ImagenetAELoader(loader.Loader):
         self.minibatch_data.map_invalidate()
         self.minibatch_labels.map_invalidate()
 
-        sample_bytes = self.mean.mem.nbytes
+        sample = numpy.zeros(
+            [self.sy, self.sx, self.channels], dtype=numpy.uint8)
+        sample_bytes = sample.nbytes
 
         for index, index_sample in enumerate(idxs[:count]):
             self.file_samples.seek(int(index_sample) * sample_bytes)
@@ -497,7 +500,6 @@ class ImagenetAEWorkflow(StandardWorkflow):
             self.link_lr_adjuster(prev)
 
             last = self.lr_adjuster
-            self.decision.max_epochs += 15
 
             self.repeater.link_from(last)
 
@@ -542,7 +544,22 @@ class ImagenetAEWorkflow(StandardWorkflow):
             prev = gd_unit
 
         self.gds[0].need_err_input = False
-        self.repeater.link_from(self.gds[0])
+
+        prev = self.gds[0]
+
+        if self.is_standalone:
+            for unit in self.mse_plotter:
+                unit.unlink_all()
+                self.del_ref(unit)
+            del self.mse_plotter[:]
+            for weights_input in ("weights", "input", "output"):
+                name = "ae_weights_plotter_%s" % weights_input
+                self.unlink_unit(name)
+            prev = self.link_error_plotter(self.gds[0])
+            prev = self.link_weights_plotter("weights", prev)
+
+        self.link_lr_adjuster(prev)
+        self.repeater.link_from(self.lr_adjuster)
 
         self.rollback.reset()
         noise = float(self.fine_tuning_noise)
