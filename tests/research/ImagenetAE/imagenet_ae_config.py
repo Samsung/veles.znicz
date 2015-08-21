@@ -41,7 +41,7 @@ import os
 from veles.config import root
 
 
-LR = 0.000002
+LR = 0.0002
 WD = 0.0005
 ORTHO = 0.001
 GM = 0.9

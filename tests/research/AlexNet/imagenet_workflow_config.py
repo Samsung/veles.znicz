@@ -65,7 +65,7 @@ root.imagenet.loader.update({
     "channels": 3,
     "minibatch_size": 256,
     "normalization_type": "none",
-    "shuffle_limit": 10000000,
+    "shuffle_limit": 1,
     "original_labels_filename":
     os.path.join(
         root.imagenet.root_path,
