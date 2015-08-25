@@ -44,7 +44,7 @@ from veles.memory import Array
 from veles.tests import AcceleratedTest
 from veles.znicz import (activation, all2all, conv, evaluator, pooling,
                          normalization)
-from veles.znicz.standard_workflow import GradientUnitFactory
+from veles.znicz.gradient_unit_factory import GradientUnitFactory
 from veles.znicz.tests.functional import StandardTest
 from veles.znicz.tests.functional.test_caffe import CaffeTestBase
 
