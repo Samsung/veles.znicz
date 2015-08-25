@@ -55,6 +55,9 @@ from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.decision import DecisionsRegistry
 from veles.znicz.diff_stats import DiffStats
 from veles.znicz.evaluator import EvaluatorsRegistry
+# Important: do not remove unused imports! It will prevent MatchingObject
+# metaclass from adding the mapping in the corresponding modules
+from veles.znicz import gd, gd_conv, gd_pooling  # pylint: disable=W0611
 from veles.znicz.gd_pooling import GDPooling
 from veles.znicz.nn_rollback import NNRollback
 from veles.znicz.standard_workflow_base import BaseWorkflowConfig, \
