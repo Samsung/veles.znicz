@@ -37,6 +37,7 @@ from codecs import getreader
 import json
 import tarfile
 from tempfile import NamedTemporaryFile
+import zipfile
 
 from veles.backends import NumpyDevice
 from veles.config import root
@@ -101,21 +102,34 @@ class TestPackageExport(StandardTest):
             loss_function=root.mnistr.loss_function)
         workflow.initialize(device=self.device)
         workflow.run()
-        with NamedTemporaryFile(suffix="-veles-test-package.tar.gz") as fpkg:
-            workflow.package_export(fpkg.name)
-            fpkg.seek(0)
-            with tarfile.open(fileobj=fpkg) as tar:
-                contents = json.load(getreader("utf-8")(
-                    tar.extractfile("contents.json")))
-                files = tar.getnames()
+
+        def validate(contents, files):
             unit0 = contents["units"][0]
             self.assertEqual(unit0["class"]["uuid"], All2AllTanh.__id__)
             self.assertEqual(contents["units"][1]["class"]["uuid"],
                              All2AllSoftmax.__id__)
             for unit in contents["units"]:
                 for attr in ("bias", "weights"):
-                    self.assertTrue("%s.npy" % unit["data"][attr] in files)
+                    self.assertTrue("%s.npy" % unit["data"][attr][1:] in files)
             self.assertTrue(1 in unit0["links"])
+
+        with NamedTemporaryFile(suffix="-veles-test-package.tar.gz") as fpkg:
+            workflow.package_export(fpkg.name, archive_format="tgz")
+            fpkg.seek(0)
+            with tarfile.open(fileobj=fpkg, mode="r:gz") as tar:
+                contents_ = json.load(getreader("utf-8")(
+                    tar.extractfile("contents.json")))
+                files_ = tar.getnames()
+            validate(contents_, files_)
+        with NamedTemporaryFile(suffix="-veles-test-package.zip") as fpkg:
+            workflow.package_export(fpkg.name, archive_format="zip",
+                                    precision=16)
+            fpkg.seek(0)
+            with zipfile.ZipFile(fpkg) as azip:
+                contents_ = json.loads(azip.read(
+                    "contents.json").decode("utf-8"))
+                files_ = azip.namelist()
+            validate(contents_, files_)
 
 
 if __name__ == "__main__":
