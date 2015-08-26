@@ -98,7 +98,7 @@ class TestMnist7(StandardTest):
         workflow_from_snapshot.run()
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
-        self.assertEqual(err, 8774)
+        self.assertEqual(err, 8804)
         avg_mse = workflow_from_snapshot.decision.epoch_metrics[1][0]
         self.assertAlmostEqual(avg_mse, 0.759152, places=4)
         self.assertEqual(5, workflow_from_snapshot.loader.epoch_number)
