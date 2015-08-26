@@ -43,8 +43,10 @@ import veles.error as error
 from veles.plumbing import FireStarter
 # Important: do not remove unused imports! It will prevent MatchingObject
 # metaclass from adding the mapping in the corresponding modules
+from veles.znicz import activation
+from veles.znicz import dropout
 from veles.znicz import nn_units
-from veles.znicz import weights_zerofilling
+from veles.znicz import normalization
 from veles.loader.base import UserLoaderRegistry, LoaderMSEMixin
 from veles.znicz.all2all import All2AllSoftmax
 
