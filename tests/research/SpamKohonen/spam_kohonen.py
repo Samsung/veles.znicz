@@ -35,13 +35,13 @@ under the License.
 """
 
 import json
-import lzma
 import os
 
 import numpy
 import six
 from zope.interface import implementer
 
+from veles.compat import lzma
 from veles.config import root
 from veles.external.progressbar import ProgressBar
 from veles.interaction import Shell
