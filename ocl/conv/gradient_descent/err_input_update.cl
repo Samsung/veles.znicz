@@ -63,5 +63,8 @@ __kernel void DirectPack(__global const dtype *unpack_data, __global dtype *data
   }
 }
 
+__kernel void Scale(__global dtype *data, const dtype alpha) {
+  data[get_global_id(0)] *= alpha;
+}
 
 KERNEL_CLEAR(err_input_clear, dtype)

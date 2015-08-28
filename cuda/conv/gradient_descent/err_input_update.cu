@@ -62,3 +62,11 @@ __global__ void DirectPack(const dtype *unpack_data, dtype *data, const int limi
 #endif
   }
 }
+
+extern "C"
+__global__ void Scale(dtype *data, const dtype alpha, const int limit) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < limit) {
+    data[idx] *= alpha;
+  }
+}

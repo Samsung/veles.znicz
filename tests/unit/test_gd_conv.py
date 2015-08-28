@@ -75,6 +75,13 @@ class PatchedGDSigmoidConv(GDSigmoidConv, PatchedGradientDescentBase):
 class TestGDConv(AcceleratedTest, GDNumDiff):
     ABSTRACT = True
 
+    def setUp(self):
+        super(TestGDConv, self).setUp()
+        self.precision_threshold = {
+            numpy.float64: 1.0e-8,
+            numpy.float32: 1.0e-4,
+            numpy.float16: 1.0e-2}[self.dtype]
+
     def test_err_h_gpu(self):
         self._test_err_h(self.device)
 
@@ -173,18 +180,18 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                           [-1, 11, 25, 14, 3],
                           [14, 4, 13, 12, 5]]], dtype=dtype)
         max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
+        self.assertLess(max_diff, self.precision_threshold,
                         "Err_input differs by %.6f" % (max_diff))
         self.info("Err_input Ok")
 
         max_diff = numpy.fabs(weights_new.ravel() -
                               c.weights.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
+        self.assertLess(max_diff, self.precision_threshold,
                         "Weights differ by %.6f" % (max_diff))
         self.info("Weights Ok")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
+        self.assertLess(max_diff, self.precision_threshold,
                         "Bias differs by %.6f" % (max_diff))
         self.info("Bias Ok")
 
@@ -288,7 +295,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                           [-1.8, 2.8, -1.4, 7.15, -2.2],
                           [1.1, -1.1, -5.2, -1.7, 10.5]]], dtype=dtype)
         max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
+        self.assertLess(max_diff, self.precision_threshold,
                         "Err_input differs by %.6f\nTarget is:\n%s\nGot:\n%s" %
                         (max_diff, " ".join("%.2f" % x for x in t.ravel()),
                          " ".join("%.2f" % x for x in
@@ -297,12 +304,12 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
 
         max_diff = numpy.fabs(weights_new.ravel() -
                               c.weights.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
+        self.assertLess(max_diff, self.precision_threshold,
                         "Weights differ by %.6f" % (max_diff))
         self.info("Weights Ok")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
+        self.assertLess(max_diff, self.precision_threshold,
                         "Bias differs by %.6f" % (max_diff))
         self.info("Bias Ok")
 
@@ -423,9 +430,26 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         nz = numpy.count_nonzero(numpy.isnan(c.bias.mem))
         self.assertEqual(nz, 0, "NaNs encountered in bias")
 
-        err_input = c.err_input.mem.ravel()
+        err_input = c.err_input.mem.ravel().copy()
         weights_derivative = c.weights.mem - weights
         bias_derivative = c.bias.mem - bias
+
+        c.err_input_alpha = 0.21436598
+        c.err_input_beta = 0.123456789
+        c.weights.map_invalidate()
+        c.weights.mem[:] = weights
+        c.bias.map_invalidate()
+        c.bias.mem[:] = bias
+        c.err_output.map_invalidate()
+        c.err_output.mem[:] = err_output
+        c.run()
+        c.err_input.map_read()
+        max_diff = numpy.fabs(
+            c.err_input.mem.ravel() -
+            (err_input * c.err_input_beta +
+             err_input * c.err_input_alpha)).max()
+        self.assertLess(max_diff, self.precision_threshold,
+                        "err_input alpha/beta test failed")
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,

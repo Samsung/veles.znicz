@@ -189,13 +189,14 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.kx, self.ky, self.n_kernels),
             dtype=self._dtype)
 
-        self.krn_weights_ = self.get_kernel("weights_update")
-        self.krn_weights_.set_args(self.weights.devmem,
-                                   self.gradient_weights.devmem,
-                                   self.accumulated_gradient_weights.devmem,
-                                   self.gradient_weights_with_moment.devmem)
+        if self.need_gradient_weights:
+            self.krn_weights_ = self.get_kernel("weights_update")
+            self.krn_weights_.set_args(
+                self.weights.devmem, self.gradient_weights.devmem,
+                self.accumulated_gradient_weights.devmem,
+                self.gradient_weights_with_moment.devmem)
 
-        if self.include_bias:
+        if self.need_gradient_weights and self.include_bias:
             self.krn_bias_ = self.get_kernel("bias_update")
             self.krn_bias_.set_args(
                 self.err_output.devmem, self.bias.devmem,
@@ -203,7 +204,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.accumulated_gradient_bias.devmem,
                 self.gradient_bias_with_moment.devmem)
 
-        if self.factor_ortho:
+        if self.need_gradient_weights and self.factor_ortho:
             self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
@@ -216,6 +217,10 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         if self.need_err_input:
             self.krn_err_input_ = self.get_kernel("DirectPack")
+            self.krn_err_input_scale_ = self.get_kernel("Scale")
+            self.krn_err_input_scale_.set_arg(0, self.err_input.devmem)
+            self.np_err_input_alpha = numpy.ones(1, dtype=self._dtype)
+            self.np_err_input_beta = numpy.zeros(1, dtype=self._dtype)
 
         self.gemm_ = blas_class.gemm(self._dtype)
         self.np_one = numpy.ones(1, dtype=self._dtype)
@@ -226,15 +231,17 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         ocl_blas.OCLBLAS.attach_to_device(self.device)
         self._gpu_init(ocl_blas.OCLBLAS)
 
-        self._global_size_weights = (self.weights.size,)
-        self._local_size_weights = None
+        if self.need_gradient_weights:
+            self._global_size_weights = (self.weights.size,)
+            self._local_size_weights = None
 
-        if self.include_bias:
+        if self.need_gradient_weights and self.include_bias:
             self._global_size_bias = (self._side * self.reduce_size,)
             self._local_size_bias = (self.reduce_size,)
 
-        self._global_size_ortho = (self._other * self.reduce_size,)
-        self._local_size_ortho = (self.reduce_size,)
+        if self.need_gradient_weights:
+            self._global_size_ortho = (self._other * self.reduce_size,)
+            self._local_size_ortho = (self.reduce_size,)
 
         self._global_size_unpack = lambda size: (size,)
         self._local_size_unpack = None
@@ -251,6 +258,9 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
 
             self.krn_err_input_.set_arg(1, self.err_input.devmem)
 
+            self._global_size_err_input_scale = (self.err_input.size,)
+            self._local_size_err_input_scale = None
+
         self._process_err_input_subblock = (
             self._ocl_process_err_input_subblock)
         self._process_weights_subblock = (
@@ -261,17 +271,19 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
     def cuda_init(self):
         self._gpu_init(cublas.CUBLAS)
 
-        block_size = self.device.suggest_block_size(self.krn_weights_)
-        self._global_size_weights = (int(numpy.ceil(
-            self.weights.size / block_size)), 1, 1)
-        self._local_size_weights = (block_size, 1, 1)
+        if self.need_gradient_weights:
+            block_size = self.device.suggest_block_size(self.krn_weights_)
+            self._global_size_weights = (int(numpy.ceil(
+                self.weights.size / block_size)), 1, 1)
+            self._local_size_weights = (block_size, 1, 1)
 
         if self.include_bias:
             self._global_size_bias = (self._side, 1, 1)
             self._local_size_bias = (self.reduce_size, 1, 1)
 
-        self._global_size_ortho = (self._other, 1, 1)
-        self._local_size_ortho = (self.reduce_size, 1, 1)
+        if self.need_gradient_weights:
+            self._global_size_ortho = (self._other, 1, 1)
+            self._local_size_ortho = (self.reduce_size, 1, 1)
 
         block_size = self.device.suggest_block_size(self._kernel_)
         self._global_size_unpack = (
@@ -286,6 +298,13 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                 lambda size: (int(numpy.ceil(size / block_size)), 1, 1))
             self._local_size_err_input = (block_size, 1, 1)
 
+            block_size = self.device.suggest_block_size(
+                self.krn_err_input_scale_)
+            self._global_size_err_input_scale = (
+                int(numpy.ceil(self.err_input.size / block_size)), 1, 1)
+            self._local_size_err_input_scale = (block_size, 1, 1)
+            self.krn_err_input_scale_.set_arg(2, self.err_input.size)
+
         self._process_err_input_subblock = (
             self._cuda_process_err_input_subblock)
         self._process_weights_subblock = (
@@ -298,7 +317,15 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.unmap_vectors(self.err_input, self.err_output, self.weights)
         unpack_data = self.device.get_temp_buffer()
 
-        self._err_input_clear()
+        if not self.err_input_beta:
+            self._err_input_clear()
+        else:
+            self.np_err_input_beta[0] = self.err_input_beta
+            self.krn_err_input_scale_.set_arg(1, self.np_err_input_beta)
+            self.execute_kernel(
+                self._global_size_err_input_scale,
+                self._local_size_err_input_scale, self.krn_err_input_scale_)
+
         for i in range(0, self._batch_size, self.unpack_size):
             self._process_err_input_subblock(
                 i, min(self._batch_size - i, self.unpack_size), unpack_data)
@@ -309,11 +336,12 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                        self.err_output.itemsize)
         unpack_side = self._kernel_app_per_image * image_count
 
+        self.np_err_input_alpha[0] = self.err_input_alpha
         self.gemm_(
             self.device.blas, cublas.CUBLAS_OP_T if self.weights_transposed
             else cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_N,
             self._kernel_size, unpack_side, self.weights_shape[0],
-            self.np_one, self.weights.devmem,
+            self.np_err_input_alpha, self.weights.devmem,
             int(self.err_output.devmem) + output_offs,
             self.np_zero, unpack_data)
 
@@ -332,11 +360,12 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         output_offs = start_image * self.err_output.sample_size
         unpack_side = self._kernel_app_per_image * image_count
 
+        self.np_err_input_alpha[0] = self.err_input_alpha
         self.gemm_(
             self.device.blas, cublas.CUBLAS_OP_T if self.weights_transposed
             else cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_N,
             self._kernel_size, unpack_side, self.weights_shape[0],
-            self.np_one, self.weights.devmem,
+            self.np_err_input_alpha, self.weights.devmem,
             self.err_output.devmem,
             self.np_zero, unpack_data, offsetB=output_offs)
 
@@ -348,6 +377,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                             self._local_size_err_input, self.krn_err_input_)
 
     def gpu_weights_update(self):
+        if not self.need_gradient_weights:
+            return
         self.unmap_vectors(self.err_output, self.input, self.gradient_weights)
         unpack_data = self.device.get_temp_buffer()
 
@@ -420,6 +451,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.gradient_weights.devmem, offsetB=output_offs)
 
     def numpy_weights_update(self):
+        if not self.need_gradient_weights:
+            return
         self.input.map_read()
         self.err_output.map_read()
         self.weights.map_write()
@@ -501,7 +534,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.weights.mem += gradient
 
     def numpy_bias_update(self):
-        if not self.include_bias:
+        if not self.need_gradient_weights or not self.include_bias:
             return
 
         self.err_output.map_read()
@@ -520,9 +553,9 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                                                      self.n_kernels)
             gd_bias += numpy.add.reduce(out)
         # update bias
-        lr = self.learning_rate
-        factor_l12 = self.weights_decay
-        l1_vs_l2 = self.l1_vs_l2
+        lr = self.learning_rate_bias
+        factor_l12 = self.weights_decay_bias
+        l1_vs_l2 = self.l1_vs_l2_bias
 
         gd_bias_reg = -nn_units.GradientDescentBase.numpy_gradient_step(
             self.bias.mem, gd_bias, lr, factor_l12, l1_vs_l2)
@@ -560,7 +593,11 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         weights = (reshape_transposed(self.weights.mem)
                    if self.weights_transposed else self.weights.mem)
 
-        self.err_input.mem[:] = 0
+        if not self.err_input_beta:
+            self.err_input.mem[:] = 0
+        else:
+            self.err_input.mem *= self.err_input_beta
+        err_input = numpy.zeros_like(self.err_input.mem)
         # initialize sparse output error
         sparse_err_output = numpy.zeros((
             batch_size, sy_full - self.ky + 1, sx_full - self.kx + 1,
@@ -568,17 +605,19 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         for (batch, i, j, k), err in numpy.ndenumerate(self.err_output.mem):
             sparse_err_output[batch, i * self.sliding[1],
                               j * self.sliding[0], k] = err
-        err_sample = numpy.empty((sy_full - self.ky + 1,
-                                  sx_full - self.kx + 1))
+        err_sample = numpy.zeros(
+            (sy_full - self.ky + 1, sx_full - self.kx + 1),
+            dtype=err_input.dtype)
         for batch, k in product(range(batch_size), range(self.n_kernels)):
             err_sample[:] = sparse_err_output[batch, :, :, k]
             cur_kernel = weights[k].reshape(self.ky, self.kx, n_channels)
             for ch in range(n_channels):
                 err_input_full = convolve2d(err_sample, cur_kernel[:, :, ch],
                                             mode='full')
-                self.err_input.mem[batch, :, :, ch] += \
+                err_input[batch, :, :, ch] += \
                     err_input_full[self.padding[1]:(sy_full - self.padding[3]),
                                    self.padding[0]:(sx_full - self.padding[2])]
+        self.err_input.mem += err_input * self.err_input_alpha
 
     def gpu_run(self):
         """Do gradient descent for OpenCL and CUDA.
