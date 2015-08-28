@@ -75,11 +75,11 @@ class TestChannels(StandardTest):
                        "add_sobel": True,
                        "file_subtypes": ["png"],
                        "background_image":
-                       numpy.zeros([256, 256, 4], dtype=numpy.uint8),
+                       numpy.zeros([64, 64, 4], dtype=numpy.uint8),
                        "mirror": False,
                        "color_space": "HSV",
                        "background_color": (0, 0, 0, 0),
-                       "scale": (256, 256),
+                       "scale": (64, 64),
                        "scale_maintain_aspect_ratio": True,
                        "train_paths":
                        [os.path.join(root.common.dirs.datasets, "train")]},
@@ -124,7 +124,8 @@ class TestChannels(StandardTest):
         file_name = workflow.snapshotter.destination
 
         err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, 18)
+        # PIL Image for python2 and PIL for python3 returns different values
+        self.assertEqual(err, 12 if PY3 else 11)
         self.assertEqual(3, workflow.loader.epoch_number)
 
         # Garbage collection
@@ -154,7 +155,7 @@ class TestChannels(StandardTest):
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
         # PIL Image for python2 and PIL for python3 returns different values
-        self.assertEqual(err, 11 if PY3 else 11)
+        self.assertEqual(err, 10)
         self.assertEqual(4, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 
