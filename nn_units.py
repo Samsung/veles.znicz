@@ -52,7 +52,7 @@ from veles.memory import reshape_transposed, roundup, Array
 from veles.mutable import Bool
 from veles.accelerated_units import AcceleratedUnit, AcceleratedWorkflow
 import veles.prng as prng
-from veles.units import UnitCommandLineArgumentsRegistry
+from veles.units import UnitCommandLineArgumentsRegistry, nothing
 from veles.workflow import Repeater
 from veles.snapshotter import SnapshotterBase, SnapshotterToFile, \
     SnapshotterToDB
@@ -751,6 +751,69 @@ class NNWorkflow(AcceleratedWorkflow):
                 ".EvaluatorBase or demand \"input\" and provide \"output\" "
                 "(got %s)." % type(value))
         self._evaluator = value
+
+    def forward(self, end_unit):
+        """
+        This method can be used only for manualy running forward propagation
+        after construction, initializing and training the Workflow.
+        Please, do not construct workflows with it.
+        It is only for compatibility with other engines like Caffe.
+        """
+        self.info("Running Forward Propagation...")
+
+        self.stopped = False
+
+        for fwd in self.forwards:
+            fwd.gate_block <<= False
+
+        self.forwards[0].ignores_gate <<= True
+
+        self.start_point.unlink_after()
+        self.forwards[0].link_from(self.start_point)
+
+        self.end_point.unlink_before()
+        last_fwd = self[end_unit]
+        for ref_dst in last_fwd.links_to.keys():
+            ref_dst().gate_block = Bool(True)
+        self.end_point.link_from(last_fwd)
+        self.end_point.gate_block = Bool(False)
+
+        self.run_is_blocking = True
+        self.run()
+
+    def backward(self, start_unit):
+        """
+        This method can be used only for manualy running backward propagation
+        after construction, initializing and training the Workflow.
+        Please, do not construct workflows with it.
+        It is only for compatibility with other engines like Caffe.
+        """
+        self.info("Running Backward Propagation...")
+
+        self.stopped = False
+
+        for gd in self.gds:
+            gd.gate_skip <<= False
+            gd.gate_block <<= False
+            if self.testing:
+                gd.gpu_weights_update = nothing
+                gd.gpu_bias_update = nothing
+
+        start_u = self[start_unit]
+        start_u.ignores_gate <<= True
+
+        self.start_point.unlink_after()
+        start_u.link_from(self.start_point)
+
+        self.end_point.unlink_before()
+        last_gd = self.gds[0]
+        for ref_dst in last_gd.links_to.keys():
+            ref_dst().gate_block = Bool(True)
+        self.end_point.link_from(last_gd)
+        self.end_point.gate_block = Bool(False)
+
+        self.run_is_blocking = True
+        self.run()
 
 
 class NNSnapshotterBase(SnapshotterBase):
