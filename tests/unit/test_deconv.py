@@ -67,6 +67,10 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         self.this_dir = os.path.dirname(__file__)
         if not len(self.this_dir):
             self.this_dir = "."
+        self.precision_threshold = {
+            numpy.float64: 1.5e-4,
+            numpy.float32: 1.5e-2,
+            numpy.float16: 1.5e-1}[self.dtype]
 
     def test_fixed(self):
         inp = numpy.ones([1, 4, 4, 1], dtype=self.dtype)
@@ -157,13 +161,29 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         gd.weights.map_read()
         nz = numpy.count_nonzero(numpy.isnan(gd.weights.mem))
         self.assertEqual(nz, 0, "NaNs encountered in weights")
-        err_input = gd.err_input.mem
+        err_input = gd.err_input.mem.copy()
         weights_derivative = gd.weights.mem - weights
+
+        gd.err_input_alpha = 0.21436598
+        gd.err_input_beta = 0.123456789
+        gd.weights.map_invalidate()
+        gd.weights.mem[:] = weights
+        gd.err_output.map_invalidate()
+        gd.err_output.mem[:] = err_output
+        gd.run()
+        gd.err_input.map_read()
+        max_diff = numpy.fabs(
+            gd.err_input.mem -
+            (err_input * gd.err_input_beta +
+             err_input * gd.err_input_alpha)).max()
+        self.assertLess(max_diff, self.precision_threshold,
+                        "err_input alpha/beta test failed")
+
         self.numdiff_check_gd(forward, inp, weights, None, target,
                               err_input, weights_derivative, None,
                               self.info, self.assertLess,
                               mean=False,
-                              threshold=1.0e-3)
+                              threshold=self.precision_threshold)
 
     def _test_deconv(self, device, forward, weights_transposed):
         rnd.get().seed("%s/seed" % self.this_dir,
