@@ -675,6 +675,12 @@ class DecisionMSE(DecisionGD):
             self.epoch_metrics[TRAIN][:] = self.epoch_metrics[VALID][:]
 
     def improve_condition(self):
+        if (nvl(self.epoch_metrics[VALID][0], self.BIGNUM) <
+                nvl(self.best_mse[VALID], self.BIGNUM)):
+            self.best_mse[VALID] = self.epoch_metrics[VALID][0]
+            self.best_mse_epoch_number[VALID] = self.epoch_number
+            self._store_best_mse_others[VALID] = True
+
         for i, store in enumerate(self._store_best_mse_others):
             if store:
                 self.best_mse_others[i][:] = (x[0] for x in self.epoch_metrics)
