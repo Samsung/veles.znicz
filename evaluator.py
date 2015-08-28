@@ -464,6 +464,8 @@ class EvaluatorMSE(EvaluatorBase):
             self.execute_kernel(self._global_size_find_closest_(),
                                 self._local_size_find_closest,
                                 self.krn_find_closest_)
+            self.n_err.map_write()
+            self.n_err.mem[1] += batch_size
 
     def ocl_run(self):
         return self._gpu_run()
@@ -522,6 +524,7 @@ class EvaluatorMSE(EvaluatorBase):
                                         axis=1).argmin()
                 if lbl != labels[i]:
                     self.n_err.mem[0] += 1
+                self.n_err.mem[1] += 1
 
     def merge_output(self):
         if not isinstance(self.normalizer, NoneNormalizer):
