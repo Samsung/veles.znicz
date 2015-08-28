@@ -325,6 +325,7 @@ class GradientDescentBase(AcceleratedUnit):
         self.ocl_set_const_args = True
         self.weights = None
         self.bias = None
+        self.output = None
         self.demand("input", "err_output")
         self.learning_rate = kwargs.get("learning_rate", 0.01)
         self.learning_rate_bias = kwargs.get("learning_rate_bias",
@@ -337,8 +338,22 @@ class GradientDescentBase(AcceleratedUnit):
         self.gradient_moment_bias = kwargs.get("gradient_moment_bias",
                                                self.gradient_moment)
         self.weights_transposed = kwargs.get("weights_transposed", False)
+
+        # err_input = alpha * new_err_input + beta * err_input
+        self.err_input_alpha = kwargs.get("err_input_alpha", 1.0)
+        self.err_input_beta = kwargs.get("err_input_beta", 0.0)
+
+        # Calculate err_input or not
+        # (when False during initialize, memory will not be allocated)
         self.need_err_input = kwargs.get("need_err_input", True)
+        # Calculate gradient for weights and bias or not
+        # (when False during initialize, memory will not be allocated)
+        self.need_gradient_weights = kwargs.get("need_gradient_weights", True)
+
+        # Use bias or not
         self.include_bias = kwargs.get("include_bias", True)
+
+        # Experimental regularization
         self.factor_ortho = kwargs.get("factor_ortho", 0)
         self.col_sums = Array()  # for orthogonalization
 
@@ -404,13 +419,14 @@ class GradientDescentBase(AcceleratedUnit):
         self.gradient_moment_bias = kwargs.get("gradient_moment_bias",
                                                self.gradient_moment_bias)
 
-        if self.weights:
+        if self.need_gradient_weights and self.weights:
             if not self.gradient_weights:
                 self.gradient_weights.reset(numpy.zeros_like(self.weights.mem))
             else:
                 assert self.gradient_weights.size == self.weights.size
 
-        if self.weights and self.accumulate_gradient:
+        if (self.need_gradient_weights and self.weights and
+                self.accumulate_gradient):
             if not self.accumulated_gradient_weights:
                 self.accumulated_gradient_weights.reset(
                     numpy.zeros_like(self.weights.mem))
@@ -418,7 +434,8 @@ class GradientDescentBase(AcceleratedUnit):
                 assert (self.accumulated_gradient_weights.size ==
                         self.weights.size)
 
-        if self.weights and (self.gradient_moment or not self.is_standalone):
+        if (self.need_gradient_weights and self.weights and
+                (self.gradient_moment or not self.is_standalone)):
             if not self.gradient_weights_with_moment:
                 self.gradient_weights_with_moment.reset(
                     numpy.zeros_like(self.weights.mem))
@@ -426,18 +443,19 @@ class GradientDescentBase(AcceleratedUnit):
                 assert self.gradient_weights_with_moment.size == \
                     self.weights.size
 
-        if (self.include_bias and self.bias and
+        if (self.need_gradient_weights and self.include_bias and self.bias and
             (not self.gradient_bias or
              self.gradient_bias.size != self.bias.size)):
             self.gradient_bias.reset(numpy.zeros_like(self.bias.mem))
 
-        if (self.include_bias and self.bias and self.accumulate_gradient and
+        if (self.need_gradient_weights and self.include_bias and self.bias and
+            self.accumulate_gradient and
             (not self.accumulated_gradient_bias or
              self.accumulated_gradient_bias.size != self.bias.size)):
             self.accumulated_gradient_bias.reset(numpy.zeros_like(
                 self.bias.mem))
 
-        if (self.include_bias and self.bias and
+        if (self.need_gradient_weights and self.include_bias and self.bias and
                 (self.gradient_moment_bias or not self.is_standalone)):
             if not self.gradient_bias_with_moment:
                 self.gradient_bias_with_moment.reset(
@@ -452,7 +470,7 @@ class GradientDescentBase(AcceleratedUnit):
             else:
                 assert self.err_input.shape == self.input.shape
 
-        if self.weights:
+        if self.need_gradient_weights and self.weights:
             side = self.weights_shape[0]
             other = self.weights.size // side
             if self.factor_ortho:
@@ -464,16 +482,16 @@ class GradientDescentBase(AcceleratedUnit):
             self.reduce_size = roundup(min(self.reduce_size, other), 32)
             self.weights.initialize(self.device)
 
-        for vec in self.bias, self.input, self.err_input:
-            if vec:
-                vec.initialize(self.device)
         self.init_vectors(
-            self.err_output,
-            self.gradient_weights, self.gradient_bias,
+            self.err_output, self.weights, self.bias, self.input, self.output,
+            self.err_input, self.gradient_weights, self.gradient_bias,
             self.accumulated_gradient_weights, self.accumulated_gradient_bias,
             self.gradient_weights_with_moment, self.gradient_bias_with_moment)
 
     def gpu_weights_update(self):
+        if not self.need_gradient_weights:
+            return
+
         self.unmap_vectors(
             self.input, self.err_output, self.weights,
             self.gradient_weights, self.accumulated_gradient_weights,
@@ -504,7 +522,7 @@ class GradientDescentBase(AcceleratedUnit):
             self.krn_weights_)
 
     def gpu_bias_update(self):
-        if not self.include_bias:
+        if not self.need_gradient_weights or not self.include_bias:
             return
 
         self.unmap_vectors(
