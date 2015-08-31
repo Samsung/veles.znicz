@@ -62,3 +62,37 @@ class LabelsPrinter(Unit):
             table.add_row(*reversed(row))
         self.info("Results:\n%s", table)
         self.info("Max to mean ratio: %.1f", numpy.max(mem) / numpy.mean(mem))
+
+
+@implementer(IUnit)
+class ResultWriter(Unit):
+    def __init__(self, workflow, **kwargs):
+        super(ResultWriter, self).__init__(workflow, **kwargs)
+        self.demand("input", "minibatch_size", "reversed_labels_mapping",
+                    "input_path")
+        self.output_path = kwargs["output_path"]
+        self.index = 0
+
+    def initialize(self, **kwargs):
+        self.info("Writing to %s" % self.output_path)
+        self._output_file_ = open(self.output_path, "w")
+        self._input_file_ = open(self.input_path[0], "r")
+        self.input_lines = self._input_file_.readlines()
+        self.input_lines.sort()
+
+    def stop(self):
+        self._output_file_.close()
+        self._input_file_.close()
+        self.info("Finished writing to %s" % self.output_path)
+
+    def run(self):
+        self.input.map_read()
+        for labels in self.input.mem[:]:
+            labels = [(v, i) for i, v in enumerate(labels)]
+            line = self.input_lines[self.index]
+            labels.sort(reverse=True)
+            labels_int = labels[0][1]
+            self._output_file_.write(
+                "%s\t%s\n" %
+                (line[:-1], str(self.reversed_labels_mapping[labels_int])))
+            self.index += 1
