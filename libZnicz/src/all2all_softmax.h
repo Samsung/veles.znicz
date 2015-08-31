@@ -26,11 +26,15 @@ namespace znicz {
  */
 class All2AllSoftmax : public All2All {
  public:
-  virtual std::string Name() const noexcept override final;
+  explicit All2AllSoftmax(const std::shared_ptr<Engine>& engine)
+      : All2All(engine) {}
+  virtual const std::string& Uuid() const noexcept override final;
 
  protected:
-  virtual void ApplyActivationFunction(float* data,
-                                       size_t length) const override final;
+  virtual void ApplyActivationFunction() const override final;
+
+ private:
+  static const std::string uuid_;
 };
 
 DECLARE_UNIT(All2AllSoftmax);

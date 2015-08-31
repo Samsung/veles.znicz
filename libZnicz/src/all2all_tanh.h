@@ -26,7 +26,9 @@ namespace znicz {
  */
 class All2AllTanh : public All2All {
  public:
-  virtual std::string Name() const noexcept override final;
+  explicit All2AllTanh(const std::shared_ptr<Engine>& engine)
+      : All2All(engine) {}
+  virtual const std::string& Uuid() const noexcept override final;
 
  protected:
   /** @brief Activation function used by the neural network layer.
@@ -35,8 +37,7 @@ class All2AllTanh : public All2All {
    *  @details Tanh activation function:
    *      f(x) = 1.7159 * tanh(0.6666 * x)
    */
-  virtual void ApplyActivationFunction(float* data,
-                                       size_t length) const override final;
+  virtual void ApplyActivationFunction() const override final;
 
  private:
   /** @brief Scale of the input vector
@@ -45,6 +46,7 @@ class All2AllTanh : public All2All {
   /** @brief Scale of the output vector
    */
   static constexpr float kScaleY = 1.7159;
+  static const std::string uuid_;
 };
 
 DECLARE_UNIT(All2AllTanh);

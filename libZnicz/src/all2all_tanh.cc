@@ -14,24 +14,28 @@
 #include <cmath>
 #include <cstdlib>
 #include <simd/memory.h>
-#include <simd/arithmetic-inl.h>
-#include <veles/make_unique.h>
+#include <simd/arithmetic.h>
 #include "src/all2all_tanh.h"
 
 namespace veles {
 namespace znicz {
 
-std::string All2AllTanh::Name() const noexcept {
-  return "All2AllTanh";
+const std::string All2AllTanh::uuid_ = "b3a2bd5c-3c01-46ef-978a-fef22e008f31";
+
+const std::string& All2AllTanh::Uuid() const noexcept {
+  return uuid_;
 }
 
-void All2AllTanh::ApplyActivationFunction(float* data, size_t length) const {
-  auto tmp = std::uniquify(mallocf(length), std::free);
-  real_multiply_scalar(data, length, kScaleX, tmp.get());
-  for(size_t i = 0; i < length; ++i) {
-    tmp.get()[i] = std::tanh(tmp.get()[i]);
+void All2AllTanh::ApplyActivationFunction() const {
+  auto out = reinterpret_cast<float*>(output());
+  int length = weights_.shape[1];
+  real_multiply_scalar(out, length, kScaleX, out);
+  for (int i = 0; i < length; i++) {
+    // TODO(v.markovtsev): consider adding vectorized tanh calculation to libSimd
+    // https://varietyofsound.wordpress.com/2011/02/14/efficient-tanh-computation-using-lamberts-continued-fraction/
+    out[i] = std::tanh(out[i]);
   }
-  real_multiply_scalar(tmp.get(), length, kScaleY, data);
+  real_multiply_scalar(out, length, kScaleY, out);
 }
 
 REGISTER_UNIT(All2AllTanh);

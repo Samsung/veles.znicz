@@ -30,6 +30,7 @@
 								<option id="gnu.c.compiler.option.include.paths.1369339968" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/libVeles/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/libVeles/simd/inc}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.342605218" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
@@ -41,6 +42,7 @@
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/tests/google&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/libVeles/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/libVeles/simd/inc}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.900762215" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 							</tool>

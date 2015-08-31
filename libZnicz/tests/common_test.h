@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <veles/unit.h>
 #include <veles/unit_factory.h>
-#include <simd/inc/simd/memory.h>
+#include <simd/memory.h>
 
 class CommonTest
     : public ::testing::Test,

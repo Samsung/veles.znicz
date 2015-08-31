@@ -27,21 +27,7 @@
 
 mypath=$(pwd)
 
-if [ ! -e "simd/autogen.sh" ]; then
-	user=$(git remote -v | grep -oE '//[^@]+' -m1 | cut -c3-)
-    sed -i "/$user/b; s/ssh:\/\//ssh:\/\/$user@/g" ../.gitmodules
-    cd ..
-    git submodule update --init	libZnicz/simd
-else
-	cd ..
-    git submodule update libZnicz/simd
-fi
-cd "$mypath"
-
 isubuntu="$(uname -v|grep Ubuntu)"
-
-echo "\$(dirname \$0)/configure \$@ --disable-simd-fftf --disable-tests --disable-doxygen" > simd/configure.gnu
-chmod +x simd/configure.gnu
 
 check_prog() {
     printf "Checking for $1... "

@@ -29,19 +29,6 @@ AC_SUBST(INTERFACE_VERSION, [0])
 AC_SUBST(REVISION_NUMBER, [$(cd $srcdir && git rev-list HEAD --count)])
 AC_SUBST(AGE_NUMBER, [0])
 
-# Check whether to use the built-in libSimd
-AC_ARG_WITH([built-in-simd],
-    AS_HELP_STRING([--with-built-in-simd], [use statically linked embedded libSimd]), [
-    SIMD_LIBS="\$(top_builddir)/simd/src/libSimd.la"
-    SIMD_DIR=simd
-    AC_CONFIG_SUBDIRS([simd])
-    CPPFLAGS="$CPPFLAGS -I\$(top_srcdir)/simd/inc"    
-], [
-    # Check for installed SIMD
-    PKG_CHECK_MODULES([SIMD], [Simd >= 1.0])
-])
-AC_SUBST([SIMD_DIR])
-
 # Get libVeles headers
 AC_ARG_WITH([veles-headers],
     AS_HELP_STRING([--with-veles-headers], [take Veles include files from this path]), [
@@ -52,16 +39,24 @@ AC_ARG_WITH([veles-headers],
     ]) 
 ])
 
+# Get libSimd headers
+AC_ARG_WITH([simd-headers],
+    AS_HELP_STRING([--with-simd-headers], [take libSimd include files from this path]), [
+    AS_IF([test $(echo "$with_simd_headers" | cut -c1) != '/'], [
+        SIMD_CFLAGS="-I\$(abs_top_builddir)/$with_simd_headers"
+    ], [
+        SIMD_CFLAGS="-I$with_simd_headers"
+    ])
+])
+
 # Get libVeles build root
 AC_ARG_WITH([veles-build-root],
     AS_HELP_STRING([--with-veles-build-root], [link with Veles in this path]), [
     AS_IF([test $(echo "$with_veles_build_root" | cut -c1) != '/' -a "x$with_veles_build_root" != "xno"], [
-        VELES_LIBS="\$(abs_top_builddir)/$with_veles_build_root/src/libVeles.la \
-        \$(abs_top_builddir)/$with_veles_build_root/libarchive/libarchive.la"
+        VELES_LIBS="\$(abs_top_builddir)/$with_veles_build_root/src/libVeles.la"
     ], [
         AS_IF([test "x$with_veles_build_root" != "xno"], [
-            VELES_LIBS="$with_veles_build_root/src/libVeles.la \
-                $with_veles_build_root/libarchive/libarchive.la"
+            VELES_LIBS="$with_veles_build_root/src/libVeles.la"
         ])
     ])
 ])
@@ -71,7 +66,7 @@ AS_IF([test "x$with_veles_headers" = "x" -o "x$with_veles_build_root" = "x"], [
     PKG_CHECK_MODULES([VELES], [Veles >= 1.0])
 ])
 
-CPPFLAGS="$CPPFLAGS $VELES_CFLAGS"
+CPPFLAGS="$CPPFLAGS $VELES_CFLAGS $SIMD_CFLAGS"
 
 # Check whether to use nice Eina logging
 AC_ARG_ENABLE([eina-logging],
@@ -100,9 +95,7 @@ AC_CONFIG_COMMANDS([Creating workflow_files directory in tests],
     [mkdir -p tests/workflow_files])
 
 AM_COND_IF([TESTS], [
-    AC_CONFIG_LINKS([tests/workflow_files/workflow.tar.gz:tests/workflow_files/workflow.tar.gz
-        tests/workflow_files/workflow2.tar.gz:tests/workflow_files/workflow2.tar.gz
-        tests/workflow_files/channels_workflow.tar.gz:tests/workflow_files/channels_workflow.tar.gz])
+    AC_CONFIG_LINKS([tests/workflow_files/mnist.zip:tests/workflow_files/mnist.zip])
 ])
 
 AC_OUTPUT
@@ -110,8 +103,8 @@ AC_OUTPUT
 AC_DEFUN([ZNICZ_PRINT_STATUS], [
 echo
 echo -e "${COLOR_WHITE}$PACKAGE_NAME options:${COLOR_RESET}"
-echo -e "  built_in_simd......: $(color_yes_no ${with_built_in_simd:-no})"
 echo -e "  veles_headers......: ${COLOR_CYAN}${with_veles_headers:-no}${COLOR_RESET}"
+echo -e "  simd_headers......: ${COLOR_CYAN}${with_simd_headers:-no}${COLOR_RESET}"
 echo -e "  veles_build_root...: ${COLOR_CYAN}${with_veles_build_root:-no}${COLOR_RESET}"
 echo -e "  eina_logging............: $(color_yes_no ${enable_eina_logging:-yes})"
 echo -e "  built_in_eina_logging...: $(color_yes_no ${with_built_in_eina_logging:-no})"

@@ -35,7 +35,7 @@ lib_LTLIBRARIES = libZnicz.la
 libZnicz_la_SOURCES = $(SOURCES)
 
 # Used libraries
-libZnicz_la_LIBADD = @VELES_LIBS@ @SIMD_LIBS@
+libZnicz_la_LIBADD = @VELES_LIBS@
 
 libZnicz_la_CPPFLAGS = $(AM_CPPFLAGS) -fPIC
 

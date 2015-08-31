@@ -26,14 +26,18 @@ namespace znicz {
  */
 class All2AllLinear : public All2All {
  public:
-  virtual std::string Name() const noexcept override final;
+  explicit All2AllLinear(const std::shared_ptr<Engine>& engine)
+      : All2All(engine) {}
+  virtual const std::string& Uuid() const noexcept override final;
 
  protected:
   /** @details Linear activation function, does nothing on the input data:
    *      f(x) = x
    */
-  virtual void ApplyActivationFunction(float*,  size_t) const override final {
-  }
+  virtual void ApplyActivationFunction() const override final {}
+
+ private:
+  static const std::string uuid_;
 };
 
 DECLARE_UNIT(All2AllLinear);

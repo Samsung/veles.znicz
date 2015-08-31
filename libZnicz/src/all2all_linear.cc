@@ -15,8 +15,10 @@
 namespace veles {
 namespace znicz {
 
-std::string All2AllLinear::Name() const noexcept {
-  return "All2All";
+const std::string All2AllLinear::uuid_ = "58a5eadf-ae1e-498f-bf35-7d93939c4c86";
+
+const std::string& All2AllLinear::Uuid() const noexcept {
+  return uuid_;
 }
 
 REGISTER_UNIT(All2AllLinear);
