@@ -185,7 +185,7 @@ root.imagenet_ae.update({
              "gradient_moment": GMAA, "gradient_moment_bias": GMBAA}},
      {"type": "dropout", "dropout_ratio": 0.5},
      {"type": "softmax",
-      "->": {"output_sample_shape": 201,
+      "->": {"output_sample_shape": 200,
              "weights_filling": "gaussian", "weights_stddev": 0.01,
              "bias_filling": "constant", "bias_stddev": 0},
       "<-": {"learning_rate": LRAA, "learning_rate_bias": LRBAA,
