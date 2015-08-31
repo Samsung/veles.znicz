@@ -1166,6 +1166,7 @@ class ForwardWorkflowExtractor(Unit, TriviallyDistributable):
         self.loader_name = kwargs["loader_name"]
         self.loader_config = kwargs["loader_config"]
         self.result_unit_factory = kwargs["result_unit_factory"]
+        self.result_unit_config = kwargs.get("result_unit_config")
         self.cyclic = kwargs.get("cyclic", False)
         self.forward_workflow = False  # StandardWorkflow, enable mutable links
 
@@ -1175,7 +1176,8 @@ class ForwardWorkflowExtractor(Unit, TriviallyDistributable):
     def run(self):
         self.forward_workflow = self.workflow.extract_forward_workflow(
             loader_name=self.loader_name, loader_config=self.loader_config,
-            result_unit_factory=self.result_unit_factory, cyclic=self.cyclic)
+            result_unit_factory=self.result_unit_factory,
+            result_unit_config=self.result_unit_config, cyclic=self.cyclic)
 
     def apply_data_from_slave(self, data, slave):
         if not self.gate_block:
