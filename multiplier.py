@@ -53,11 +53,13 @@ class Multiplier(AcceleratedUnit):
         self.demand("x", "y")
 
     def initialize(self, device, **kwargs):
+        if not self.output and (self.x or self.y):
+            self.output.reset(
+                numpy.zeros_like(self.x.mem if self.x else self.y.mem))
+        if not self.x or not self.y:
+            return True
         super(Multiplier, self).initialize(device, **kwargs)
-        if not self.output:
-            self.output.reset(numpy.zeros_like(self.x.mem))
-        else:
-            assert self.output.shape == self.x.shape
+        assert self.output.shape == self.x.shape == self.y.shape
         self.init_vectors(self.x, self.y, self.output)
 
     def init_unpickled(self):
