@@ -53,10 +53,12 @@ AC_ARG_WITH([simd-headers],
 AC_ARG_WITH([veles-build-root],
     AS_HELP_STRING([--with-veles-build-root], [link with Veles in this path]), [
     AS_IF([test $(echo "$with_veles_build_root" | cut -c1) != '/' -a "x$with_veles_build_root" != "xno"], [
-        VELES_LIBS="\$(abs_top_builddir)/$with_veles_build_root/src/libVeles.la"
+        VELES_LIBS="\$(abs_top_builddir)/$with_veles_build_root/src/libVeles.la \
+        \$(abs_top_builddir)/$with_veles_build_root/simd/src/libSimd.la"
     ], [
         AS_IF([test "x$with_veles_build_root" != "xno"], [
-            VELES_LIBS="$with_veles_build_root/src/libVeles.la"
+            VELES_LIBS="$with_veles_build_root/src/libVeles.la \
+            $with_veles_build_root/simd/src/libSimd.la"
         ])
     ])
 ])

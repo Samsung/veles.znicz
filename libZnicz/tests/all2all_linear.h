@@ -7,25 +7,42 @@
  *  This code partially conforms to <a href="http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml">Google C++ Style Guide</a>.
  *
  *  @section Copyright
- *  Copyright 2013 Samsung R&D Institute Russia
+ *  Copyright © 2013 Samsung R&D Institute Russia
+ *
+ *  @section License
+ *  Licensed to the Apache Software Foundation (ASF) under one
+ *  or more contributor license agreements.  See the NOTICE file
+ *  distributed with this work for additional information
+ *  regarding copyright ownership.  The ASF licenses this file
+ *  to you under the Apache License, Version 2.0 (the
+ *  "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an
+ *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *  KIND, either express or implied.  See the License for the
+ *  specific language governing permissions and limitations
+ *  under the License.
  */
 
 #ifndef TESTS_ALL2ALL_LINEAR_H_
 #define TESTS_ALL2ALL_LINEAR_H_
 
 #include "tests/all2all.h"
+#include "src/all2all_linear.h"
 
-class All2AllLinear : public All2AllTest {
- protected:
-  All2AllLinear() : All2AllTest("All2All") {
-  }
-  virtual void SetUp() override;
+namespace veles {
+
+namespace znicz {
+
+class All2AllLinearTest : public All2AllTest<All2AllLinear> {
 };
 
-class All2AllLinearSquare : public All2AllLinear,
-                            public ::testing::WithParamInterface<size_t> {
- protected:
-  virtual void SetUp() override;
-};
+}
+
+}
 
 #endif  // TESTS_ALL2ALL_H_
