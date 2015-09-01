@@ -7,50 +7,49 @@
  *  This code partially conforms to <a href="http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml">Google C++ Style Guide</a>.
  *
  *  @section Copyright
- *  Copyright 2013 Samsung R&D Institute Russia
+ *  Copyright © 2013 Samsung R&D Institute Russia
+ *
+ *  @section License
+ *  Licensed to the Apache Software Foundation (ASF) under one
+ *  or more contributor license agreements.  See the NOTICE file
+ *  distributed with this work for additional information
+ *  regarding copyright ownership.  The ASF licenses this file
+ *  to you under the Apache License, Version 2.0 (the
+ *  "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an
+ *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *  KIND, either express or implied.  See the License for the
+ *  specific language governing permissions and limitations
+ *  under the License.
  */
 
 #include "tests/all2all_linear.h"
 #include <vector>
 #include "src/all2all_linear.h"
 
-void All2AllLinear::SetUp() {
-  float weights[kInputs * kOutputs] = {1, 2.1, 33,
-                                         4, 55, 6 };
-  float bias[kOutputs] = {433, 42.9};
-  Initialize(kInputs, kOutputs, weights, bias);
+namespace veles {
+
+namespace znicz {
+
+TEST_F(All2AllLinearTest, Execution) {
+  height_ = 5;
+  width_ = 3;
+  // transposed
+  weights_ = CreateFloatArray({ 1, 0, 2, 1, -1,
+                                3, 1, 0, 2,  3,
+                               -1, 2, 0, 1,  3});
+  bias_ = CreateFloatArray({ 10, -10, 5 });
+  Initialize();
+  Verify({ 1, 2, 3, 2, 1 }, { 18, 2, 13 });
 }
 
-TEST_F(All2AllLinear, Execution) {
-  std::vector<float> expected = {1964.362, 2800.2};
-  TestExecution(expected.begin(), expected.end());
 }
 
-void All2AllLinearSquare::SetUp() {
-  size_t count = GetParam();
-  Initialize(count, count);
 }
-
-TEST_P(All2AllLinearSquare, ExecutionIdentity) {
-  size_t count = GetParam();
-  auto weights = CreateFloatArray(count * count);
-  for (size_t i = 0; i < count; ++i) {
-    weights.get()[(count + 1) * i] = kValueOne;
-  }
-  unit()->SetParameter("weights", weights);
-  std::vector<float> expected(count, kValueInputInit);
-  TestExecution(expected.begin(), expected.end());
-}
-
-TEST_P(All2AllLinearSquare, ExecutionBias) {
-  size_t count = GetParam();
-  auto bias = CreateFloatArray(count * count, kValueOther);
-  unit()->SetParameter("bias", bias);
-  std::vector<float> expected(count, kValueOther);
-  TestExecution(expected.begin(), expected.end());
-}
-
-INSTANTIATE_TEST_CASE_P(All2AllLinearSquareTests, All2AllLinearSquare,
-                        ::testing::Values(1, 5, 199));
 
 #include "tests/google/src/gtest_main.cc"
