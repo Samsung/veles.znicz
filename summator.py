@@ -45,7 +45,7 @@ from veles.memory import Array
 
 @implementer(ICUDAUnit, IOpenCLUnit, INumpyUnit)
 class Summator(AcceleratedUnit):
-    """Multiplies two vectors pointwise.
+    """Sums two vectors pointwise.
     """
     def __init__(self, workflow, **kwargs):
         super(Summator, self).__init__(workflow, **kwargs)
@@ -53,13 +53,15 @@ class Summator(AcceleratedUnit):
         self.demand("x", "y")
 
     def initialize(self, device, **kwargs):
+        if ((not self.output and (self.x or self.y)) or
+                (self.x and self.output.shape[0] != self.x.shape[0]) or
+                (self.y and self.output.shape[0] != self.y.shape[0])):
+            self.output.reset(
+                numpy.zeros_like(self.x.mem if self.x else self.y.mem))
+        if not self.x or not self.y:
+            return True
         super(Summator, self).initialize(device, **kwargs)
-
-        if self.output:
-            assert self.output.shape[1:] == self.x.shape[1:]
-        if not self.output or self.output.shape[0] != self.x.shape[0]:
-            self.output.reset(numpy.zeros_like(self.x.mem))
-
+        assert self.output.shape == self.x.shape == self.y.shape
         self.init_vectors(self.x, self.y, self.output)
 
     def init_unpickled(self):
@@ -108,7 +110,7 @@ class Summator(AcceleratedUnit):
 
 @implementer(ICUDAUnit, IOpenCLUnit, INumpyUnit)
 class GDSummator(AcceleratedUnit):
-    """Gradient descent for Multiplier.
+    """Gradient descent for Summator.
     """
     def __init__(self, workflow, **kwargs):
         super(GDSummator, self).__init__(workflow, **kwargs)

@@ -245,6 +245,57 @@ class NNLayerBase(Forward):
         self.execute_kernel(self._global_size, self._local_size)
 
 
+class FullyConnectedOutput(object):
+    """Contains properties for fully connected layer's output.
+    """
+    def __init__(self, *args, **kwargs):
+        super(FullyConnectedOutput, self).__init__(*args, **kwargs)
+        self.output_sample_shape = kwargs.get("output_sample_shape", tuple())
+        self.output_samples_number = kwargs.get("output_samples_number")
+        self.output_dtype = kwargs.get("output_dtype")
+
+    @property
+    def output_sample_shape(self):
+        return self._output_sample_shape
+
+    @output_sample_shape.setter
+    def output_sample_shape(self, value):
+        assert not self.is_initialized, \
+            "Cannot set output_sample_shape after initialize() was called"
+        self._set_output_sample_shape(value)
+
+    def _set_output_sample_shape(self, value):
+        if isinstance(value, int):
+            self._output_sample_shape = (value,)
+        elif hasattr(value, "shape"):
+            self._output_sample_shape = value.shape[1:]
+        elif hasattr(value, "__iter__"):
+            self._output_sample_shape = tuple(value)
+        else:
+            raise TypeError("Unsupported output_sample_shape type: %s" %
+                            type(value))
+
+    @property
+    def output_samples_number(self):
+        if self.input:
+            return self.input.shape[0]
+        return self._output_samples_number
+
+    @output_samples_number.setter
+    def output_samples_number(self, value):
+        if value is not None and not isinstance(value, int):
+            raise TypeError("output_samples_number must be an integer")
+        self._output_samples_number = value
+
+    @property
+    def output_shape(self):
+        return (self.output_samples_number,) + self.output_sample_shape
+
+    @property
+    def neurons_number(self):
+        return int(numpy.prod(self.output_sample_shape))
+
+
 class GradientDescentWithActivation(AcceleratedUnit):
     hide_from_registry = True
 
