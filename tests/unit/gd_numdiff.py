@@ -52,18 +52,21 @@ class GDNumDiff(object):
         """Checks derivative by numeric differentiation based on MSE to target.
 
         Parameters:
-            forward: forward unit instance, should have input attribute
-                     of type Array where input.mem.shape[0] is the batch size.
+            forward: forward unit instance.
             vector_to_check: vector on which to do numeric differentiation.
             vector_value_map: dictionary of vectors to set => its values,
                               should contain vector_to_check.
             vector_output: output vector to compute MSE based on target.
             target: target numpy array for MSE criteria.
-            derivative: numpy array of derivative to check
-                        (computed by backward unit).
+            derivative_to_check: numpy array of derivative to check
+                                 (computed by backward unit).
             logging_info: pointer to logging function
                           (logging.info for example).
             assertLess: pointer to assertLess function.
+            error_function: on which to compute derivative.
+            batch_size: batch size, will go as parameter to error_function.
+            limit: limit in partial derivatives to check.
+            threshold: threshold of derivative correctness.
         """
         for v in vector_value_map.keys():
             if v is None or v.mem is None:
