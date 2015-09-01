@@ -87,11 +87,19 @@ class TestChannels(StandardTest):
             "loader_name": "full_batch_auto_label_file_image",
             "layers": [{"type": "all2all_tanh",
                         "<-": {"learning_rate": 0.01,
-                               "weights_decay": 0.00005},
+                               "weights_decay": 0.00005,
+                               "weights_decay_bias": 0.0005,
+                               "gradient_moment": 0.9,
+                               "gradient_moment_bias": 0.9,
+                               "learning_rate_bias": 0.02},
                         "->": {"output_sample_shape": 100}},
                        {"type": "softmax",
                         "->": {"output_sample_shape": 8},
                         "<-": {"learning_rate": 0.01,
+                               "weights_decay_bias": 0.0005,
+                               "gradient_moment": 0.9,
+                               "gradient_moment_bias": 0.9,
+                               "learning_rate_bias": 0.02,
                                "weights_decay": 0.00005}}]})
 
     @timeout(800)
