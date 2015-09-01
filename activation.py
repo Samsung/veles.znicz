@@ -60,6 +60,8 @@ class ActivationForward(Forward, Activation):
     MAPPING = set()
 
     def initialize(self, device, **kwargs):
+        if not self.input:
+            return True
         super(ActivationForward, self).initialize(device, **kwargs)
 
         if not self.output:
@@ -220,6 +222,7 @@ class ForwardTanh(ActivationForward):
 
     def numpy_run(self):
         _, out = self.numpy_prerun(make_raveled=False, copy_in2out=True)
+        out *= 0.6666
         numpy.tanh(out, out)
         out *= 1.7159
 
