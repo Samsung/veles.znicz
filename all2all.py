@@ -46,11 +46,11 @@ from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.error as error
 from veles.memory import reshape, Array
 import veles.ocl_blas as ocl_blas
-import veles.znicz.nn_units as nn_units
+from veles.znicz.nn_units import FullyConnectedOutput, NNLayerBase
 
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
-class All2All(nn_units.NNLayerBase):
+class All2All(FullyConnectedOutput, NNLayerBase):
     """All2All with linear activation f(x) = x.
 
     Must be assigned before initialize():
@@ -91,59 +91,15 @@ class All2All(nn_units.NNLayerBase):
 
     def __init__(self, workflow, **kwargs):
         super(All2All, self).__init__(workflow, **kwargs)
-        self.output_sample_shape = kwargs.get("output_sample_shape", tuple())
-        self.output_samples_number = kwargs.get("output_samples_number")
-        self.output_dtype = kwargs.get("output_dtype")
         self.activation_mode = "ACTIVATION_LINEAR"
         self.exports.append("activation_mode")
         self._global_size = None
         self._local_size = None
-        self.demand("input", "output_sample_shape", "output_samples_number")
+        self.demand("input", "output_sample_shape")
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
         self.sources_["all2all/forward"] = {}
-
-    @property
-    def output_sample_shape(self):
-        return self._output_sample_shape
-
-    @output_sample_shape.setter
-    def output_sample_shape(self, value):
-        assert not self.is_initialized, \
-            "Cannot set output_sample_shape after initialize() was called"
-        self._set_output_sample_shape(value)
-
-    def _set_output_sample_shape(self, value):
-        if isinstance(value, int):
-            self._output_sample_shape = (value,)
-        elif hasattr(value, "shape"):
-            self._output_sample_shape = value.shape[1:]
-        elif hasattr(value, "__iter__"):
-            self._output_sample_shape = tuple(value)
-        else:
-            raise TypeError("Unsupported output_sample_shape type: %s" %
-                            type(value))
-
-    @property
-    def output_samples_number(self):
-        if self.input:
-            return self.input.shape[0]
-        return self._output_samples_number
-
-    @output_samples_number.setter
-    def output_samples_number(self, value):
-        if value is not None and not isinstance(value, int):
-            raise TypeError("output_samples_number must be an integer")
-        self._output_samples_number = value
-
-    @property
-    def output_shape(self):
-        return (self.output_samples_number,) + self.output_sample_shape
-
-    @property
-    def neurons_number(self):
-        return int(numpy.prod(self.output_sample_shape))
 
     def get_weights_magnitude(self):
         """
@@ -169,17 +125,26 @@ class All2All(nn_units.NNLayerBase):
 
     def initialize(self, device, **kwargs):
         if not self.input:
-            assert self.output_samples_number is not None, \
-                "self.input is not initialized and output_samples_number was "\
-                "not specified => unable to validate/create output"
+            if self.output:
+                if self.output_samples_number is None:
+                    self.warning(
+                        "input is not initialized and output_samples_number "
+                        "was not specified => unable to validate output")
+                    return True
+                assert self.output.shape[1:] == self.output_shape[1:]
             if not self.output or self.output.shape[0] != self.output_shape[0]:
-                assert self.output_dtype is not None, \
-                    "self.input is not initialized and output_dtype was " \
-                    "not specified => unable to create output"
+                if self.output_samples_number is None:
+                    self.warning(
+                        "input is not initialized and output_samples_number "
+                        "was not specified => unable to create output")
+                    return True
+                if self.output_dtype is None:
+                    self.warning(
+                        "input is not initialized and output_dtype was "
+                        "not specified => unable to create output")
+                    return True
                 self.output.reset(numpy.zeros(
                     self.output_shape, self.output_dtype))
-            else:
-                assert self.output.shape[1:] == self.output_shape[1:]
             return True
 
         super(All2All, self).initialize(device=device, **kwargs)

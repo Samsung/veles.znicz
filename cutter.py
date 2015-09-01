@@ -259,7 +259,7 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
             self.padding[0]:self.padding[0] + self.output_shape[2], :] = out
 
 
-@implementer(ICUDAUnit, IOpenCLUnit)
+@implementer(ICUDAUnit, IOpenCLUnit, INumpyUnit)
 class Cutter1D(AcceleratedUnit):
     """Cuts the specified interval from each 1D sample of input batch
     into output.
@@ -270,19 +270,17 @@ class Cutter1D(AcceleratedUnit):
         super(Cutter1D, self).__init__(workflow, **kwargs)
         self.alpha = kwargs.get("alpha")
         self.beta = kwargs.get("beta")
-        self.input_offset = kwargs.get("input_offset", -1)
         self.output_offset = kwargs.get("output_offset", 0)
-        self.length = kwargs.get("length", -1)
         self.output = Array()
-        self.demand("alpha", "beta", "input")
+        self.demand("alpha", "beta", "input", "input_offset")
+        # TODO: add input_offset and length to demand and not to crash lstm
+        # TODO: unit test
 
     def init_unpickled(self):
         super(Cutter1D, self).init_unpickled()
         self.sources_["cutter"] = {}
 
     def initialize(self, device, **kwargs):
-        if self.input_offset < 0 or self.length < 0:
-            return True
         super(Cutter1D, self).initialize(device, **kwargs)
 
         # TODO: add correct assert to ability to change output_shape[0],
@@ -347,3 +345,17 @@ class Cutter1D(AcceleratedUnit):
 
     def ocl_run(self):
         return self._gpu_run()
+
+    def numpy_run(self):
+        self.input.map_read()
+        self.output.map_write()
+        out = self.output.matrix[
+            :, self.output_offset:self.output_offset + self.length]
+        if self.beta:
+            out *= self.beta
+        else:
+            out[:] = 0
+        out += (
+            self.input.matrix[
+                :, self.input_offset:self.input_offset + self.length] *
+            self.alpha)
