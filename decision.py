@@ -195,6 +195,8 @@ class DecisionBase(Unit):
         if self.max_epochs is not None:
             self.info("Will allow max %d epochs", self.max_epochs)
         if self.testing:
+            self.improved <<= False
+            self.train_improved <<= False
             self.complete <<= False
 
     def run(self):
