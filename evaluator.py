@@ -121,14 +121,15 @@ class EvaluatorBase(AcceleratedUnit, TriviallyDistributable):
 
     def run(self):
         if self.testing:
-            self.output.map_read()
             self.merge_output()
             return
         return super(EvaluatorBase, self).run()
 
     def merge_output(self):
+        self.output.map_read()
         self.merged_output[self.offset - self.batch_size:self.offset] = \
             self.output[:self.batch_size]
+        self.output.unmap()
 
     def get_metric_names(self):
         if self.testing:
@@ -185,6 +186,8 @@ class EvaluatorSoftmax(EvaluatorBase):
         self.n_err = Array()
         self.max_err_output_sum = Array()
         self.demand("labels", "max_idx")
+        if self.testing:
+            self.demand("labels_mapping", "class_keys", "indices")
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
@@ -307,6 +310,19 @@ class EvaluatorSoftmax(EvaluatorBase):
             self.err_output.mem[batch_size:] = 0.0
         self.n_err[0] += batch_size - n_ok
         self.n_err[1] += n_total
+
+    def get_metric_values(self):
+        output_labels = {}
+        for index, labels in enumerate(self.merged_output[:]):
+            labels = [(v, i) for i, v in enumerate(labels)]
+            labels.sort(reverse=True)
+            labels_int = labels[0][1]
+            output_label = str(self.labels_mapping[labels_int])
+            output_labels[self.class_keys[0][index]] = output_label
+
+        if self.testing:
+            return {"Output": output_labels}
+        return {}
 
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
