@@ -52,7 +52,7 @@ class TestChannels(StandardTest):
     def setUpClass(cls):
         root.channels.update({
             "decision": {"fail_iterations": 50,
-                         "max_epochs": 3},
+                         "max_epochs": 1},
             "downloader": {
                 "url":
                 "https://s3-eu-west-1.amazonaws.com/veles.forge/"
@@ -132,10 +132,8 @@ class TestChannels(StandardTest):
         file_name = workflow.snapshotter.destination
 
         err = workflow.decision.epoch_n_err[1]
-        # Varies depending on Pillow version (assumed)
-        self.assertLessEqual(err, 12)
-        self.assertGreaterEqual(err, 11)
-        self.assertEqual(3, workflow.loader.epoch_number)
+        self.assertEqual(err, 14)
+        self.assertEqual(1, workflow.loader.epoch_number)
 
         # Garbage collection
         del workflow
@@ -148,7 +146,7 @@ class TestChannels(StandardTest):
         workflow_from_snapshot = SnapshotterToFile.import_(file_name)
         workflow_from_snapshot.workflow = self.parent
         self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
-        workflow_from_snapshot.decision.max_epochs = 4
+        workflow_from_snapshot.decision.max_epochs = 3
         workflow_from_snapshot.decision.complete <<= False
         self.assertTrue(workflow_from_snapshot.loader.force_numpy)
         self.assertEqual(workflow_from_snapshot.evaluator.labels,
@@ -163,9 +161,8 @@ class TestChannels(StandardTest):
         self.assertIsNone(workflow_from_snapshot.thread_pool.failure)
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
-        # PIL Image for python2 and PIL for python3 can return different values
-        self.assertEqual(err, 10)
-        self.assertEqual(4, workflow_from_snapshot.loader.epoch_number)
+        self.assertEqual(err, 5)
+        self.assertEqual(3, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 
 
