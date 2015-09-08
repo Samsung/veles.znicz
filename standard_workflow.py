@@ -251,24 +251,31 @@ class StandardWorkflow(StandardWorkflowBase):
         wf.link_loader(start_unit)
         wf.loader.derive_from(self.real_loader)
         if cyclic:
-            assert hasattr(wf.loader, "complete"), \
-                "The specified loader does not have \"complete\" flag."
+            if not hasattr(wf.loader, "complete"):
+                self.warning(
+                    "The specified loader does not have \"complete\" flag. "
+                    "Will set complete to epoch_ended")
+                wf.loader.complete = wf.loader.epoch_ended
             wf.end_point.link_from(wf.loader).gate_block = ~wf.loader.complete
         wf.link_forwards(("input", "minibatch_data"), wf.loader)
         if cyclic:
             wf.forwards[0].gate_block = wf.loader.complete
         result_unit_config = self.config2kwargs(result_unit_config)
-        wf.result_unit = result_unit_factory(wf, **result_unit_config) \
-            .link_from(wf.forwards[-1])
-        wf.result_unit.link_attrs(wf.forwards[-1], ("input", "output"))
-        wf.result_unit.link_attrs(
-            wf.loader, ("labels_mapping", "reversed_labels_mapping"))
-        if self.loss_function == "mse":
-            wf.result_unit.link_attrs(wf.loader, "target_normalizer")
-        if cyclic:
-            wf.repeater.link_from(wf.result_unit)
+        if result_unit_factory is not None:
+            wf.result_unit = result_unit_factory(wf, **result_unit_config) \
+                .link_from(wf.forwards[-1])
+            wf.result_unit.link_attrs(wf.forwards[-1], ("input", "output"))
+            wf.result_unit.link_attrs(
+                wf.loader, ("labels_mapping", "reversed_labels_mapping"))
+            if self.loss_function == "mse":
+                wf.result_unit.link_attrs(wf.loader, "target_normalizer")
+            last_unit = wf.result_unit
         else:
-            wf.link_end_point(wf.result_unit)
+            last_unit = wf.forwards[-1]
+        if cyclic:
+            wf.repeater.link_from(last_unit)
+        else:
+            wf.link_end_point(last_unit)
         self.debug("Importing forwards...")
         for fwd_exp, fwd_imp in zip(self.forwards, wf.forwards):
             fwd_imp.apply_data_from_master(
