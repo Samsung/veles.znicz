@@ -37,8 +37,6 @@ under the License.
 """
 
 
-import json
-import pickle
 import os
 
 import numpy
@@ -46,16 +44,14 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-from veles.memory import Array
 from veles.mutable import Bool
-import veles.opencl_types as opencl_types
 import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
-import veles.loader as loader
 from veles.normalization import NoneNormalizer
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
 import veles.znicz.image_saver as image_saver
+from veles.znicz.loader.imagenet_loader import ImagenetLoaderBase
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.pooling as pooling
@@ -101,148 +97,23 @@ class Destroyer(Unit):
         pass
 
 
-@implementer(loader.ILoader)
-class ImagenetAELoader(loader.Loader):
+class ImagenetAELoader(ImagenetLoaderBase):
     MAPPING = "imagenet_ae_loader"
-    """loads imagenet from samples.dat, labels.pickle"""
+
     def __init__(self, workflow, **kwargs):
         super(ImagenetAELoader, self).__init__(workflow, **kwargs)
-        self.mean = Array()
-        self.rdisp = Array()
-        self.file_samples = ""
-        self.sx = kwargs.get("sx", 216)
-        self.sy = kwargs.get("sy", 216)
-        self.channels = kwargs.get("channels", 4)
-        self.names_labels_filename = kwargs.get("names_labels_filename", None)
-        self.count_samples_filename = kwargs.get(
-            "count_samples_filename", None)
-        self.matrixes_filename = kwargs.get("matrixes_filename", None)
-        self.samples_filename = kwargs.get("samples_filename", None)
         self.target_normalizer = NoneNormalizer
 
-    def init_unpickled(self):
-        super(ImagenetAELoader, self).init_unpickled()
-        self.original_labels = None
-
-    def initialize(self, **kwargs):
-        self.normalizer.reset()
-        super(ImagenetAELoader, self).initialize(**kwargs)
-        self.minibatch_labels.reset(numpy.zeros(
-            self.max_minibatch_size, dtype=numpy.int32))
-
-    def __getstate__(self):
-        state = super(ImagenetAELoader, self).__getstate__()
-        state["original_labels"] = None
-        state["file_samples"] = None
-        return state
-
     def load_data(self):
-        self.original_labels = []
-
-        if (not os.path.exists(self.names_labels_filename) or
-                self.names_labels_filename is None):
-            raise OSError(
-                "names_labels_filename %s does not exist or None."
-                " Please specify path to file with labels. If you don't have "
-                "pickle with labels, generate it with preparation_imagenet.py"
-                % self.names_labels_filename)
-        if (not os.path.exists(self.count_samples_filename) or
-                self.count_samples_filename is None):
-            raise OSError(
-                "count_samples_filename %s does not exist or None. Please "
-                "specify path to file with count of samples. If you don't "
-                "have json file with count of samples, generate it with "
-                "preparation_imagenet.py" % self.count_samples_filename)
-        if (not os.path.exists(self.samples_filename) or
-                self.samples_filename is None):
-            raise OSError(
-                "samples_filename %s does not exist or None. Please "
-                "specify path to file with samples. If you don't "
-                "have dat file with samples, generate it with "
-                "preparation_imagenet.py" % self.samples_filename)
-        if (not os.path.exists(self.matrixes_filename) or
-                self.matrixes_filename is None):
+        super(ImagenetAELoader, self).load_data()
+        if (self.matrixes_filename is None or
+                not os.path.exists(self.matrixes_filename)):
             raise OSError(
                 "matrixes_filename %s does not exist or None. Please "
                 "specify path to file with mean and disp matrixes. If you "
                 "don't have pickle file with mean and disp matrixes, generate"
                 " it with preparation_imagenet.py" % self.matrixes_filename)
-
-        with open(self.names_labels_filename, "rb") as fin:
-            for lbl in pickle.load(fin):
-                self.original_labels.append(int(lbl))
-                self.labels_mapping[int(lbl)] = int(lbl)
-        self.info("Labels (min max count): %d %d %d",
-                  numpy.min(self.original_labels),
-                  numpy.max(self.original_labels),
-                  len(self.original_labels))
-
-        with open(self.count_samples_filename, "r") as fin:
-            for key, value in (json.load(fin)).items():
-                set_type = {"test": 0, "val": 1, "train": 2}
-                self.class_lengths[set_type[key]] = value
-        self.info("Class Lengths: %s", str(self.class_lengths))
-
-        if self.total_samples != len(self.original_labels):
-            raise error.Bug(
-                "Number of labels missmatches sum of class lengths")
-
-        with open(self.matrixes_filename, "rb") as fin:
-            matrixes = pickle.load(fin)
-
-        self.mean.mem = matrixes[0]
-        self.rdisp.mem = matrixes[1].astype(
-            opencl_types.dtypes[root.common.engine.precision_type])
-        if numpy.count_nonzero(numpy.isnan(self.rdisp.mem)):
-            raise ValueError("rdisp matrix has NaNs")
-        if numpy.count_nonzero(numpy.isinf(self.rdisp.mem)):
-            raise ValueError("rdisp matrix has Infs")
-        if self.mean.shape != self.rdisp.shape:
-            raise ValueError("mean.shape != rdisp.shape")
-        if self.mean.shape[0] != self.sy or self.mean.shape[1] != self.sx:
-            raise ValueError("mean.shape != (%d, %d)" % (self.sy, self.sx))
-
-        self.file_samples = open(self.samples_filename, "rb")
-        if (self.file_samples.seek(0, 2) // (self.sx * self.sy * 4) !=
-                len(self.original_labels)):
-            raise error.Bug("Wrong data file size")
-
-    def create_minibatch_data(self):
-        sh = [self.max_minibatch_size]
-        sh.extend(self.mean.shape)
-        self.minibatch_data.mem = numpy.zeros(sh, dtype=numpy.uint8)
-
-    def fill_indices(self, start_offset, count):
-        self.minibatch_indices.map_invalidate()
-        idxs = self.minibatch_indices.mem
-        self.shuffled_indices.map_read()
-        idxs[:count] = self.shuffled_indices[start_offset:start_offset + count]
-
-        if self.is_master:
-            return True
-
-        self.minibatch_data.map_invalidate()
-        self.minibatch_labels.map_invalidate()
-
-        sample = numpy.zeros(
-            [self.sy, self.sx, self.channels], dtype=numpy.uint8)
-        sample_bytes = sample.nbytes
-
-        for index, index_sample in enumerate(idxs[:count]):
-            self.file_samples.seek(int(index_sample) * sample_bytes)
-            self.file_samples.readinto(self.minibatch_data.mem[index])
-            self.minibatch_labels.mem[index] = self.original_labels[
-                int(index_sample)]
-
-        if count < len(idxs):
-            idxs[count:] = self.class_lengths[1]  # no data sample is there
-            self.minibatch_data.mem[count:] = self.mean.mem
-            self.minibatch_labels.mem[count:] = 0  # 0 is no data
-
-        return True
-
-    def fill_minibatch(self):
-        raise error.Bug("Control should not go here")
+        self.load_mean()
 
 
 class ImagenetAEWorkflow(StandardWorkflow):
