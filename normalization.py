@@ -108,10 +108,10 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
     def initialize(self, device, **kwargs):
         super(LRNormalizerForward, self).initialize(device, **kwargs)
 
-        if not self.output:
+        if self.output:
+            assert self.output.shape[1:] == self.input.shape[1:]
+        if not self.output or self.output.shape[0] != self.input.shape[0]:
             self.output.reset(numpy.zeros_like(self.input.mem))
-        else:
-            assert self.output.shape == self.input.shape
 
         self._num_of_chans = self.input.mem.shape[3]
         self.init_vectors(self.input, self.output)

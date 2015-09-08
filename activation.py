@@ -64,10 +64,10 @@ class ActivationForward(Forward, Activation):
             return True
         super(ActivationForward, self).initialize(device, **kwargs)
 
-        if not self.output:
+        if self.output:
+            assert self.output.shape[1:] == self.input.shape[1:]
+        if not self.output or self.output.shape[0] != self.input.shape[0]:
             self.output.reset(numpy.zeros_like(self.input.mem))
-        else:
-            assert self.output.shape == self.input.shape
 
         self.init_vectors(self.input, self.output)
 
@@ -141,10 +141,12 @@ class ActivationBackward(GradientDescentBase, Activation):
     def initialize(self, device, **kwargs):
         super(ActivationBackward, self).initialize(device=device, **kwargs)
 
-        if not self.err_input:
+        if self.err_input:
+            assert self.err_input.shape[1:] == self.err_output.shape[1:]
+
+        if (not self.err_input or
+                self.err_input.shape[0] != self.err_output.shape[0]):
             self.err_input.reset(numpy.zeros_like(self.err_output.mem))
-        else:
-            assert self.err_input.shape == self.err_output.shape
 
         if self.input:
             self.input.initialize(self.device)

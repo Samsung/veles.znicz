@@ -107,10 +107,11 @@ class DropoutForward(Forward, Dropout):
             low=DropoutForward.MIN_RANDOM_STATE,
             high=DropoutForward.MAX_RANDOM_STATE,
             size=self.input.size * 4).astype(numpy.uint32)
-        if not self.output:
+
+        if self.output:
+            assert self.output.shape[1:] == self.input.shape[1:]
+        if not self.output or self.output.shape[0] != self.input.shape[0]:
             self.output.reset(numpy.zeros_like(self.input.mem))
-        else:
-            assert self.output.shape == self.input.shape
 
         self.init_vectors(self.input, self.output, self.states, self.mask)
 

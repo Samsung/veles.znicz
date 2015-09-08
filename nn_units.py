@@ -465,10 +465,11 @@ class GradientDescentBase(AcceleratedUnit):
 
         dtype = self.err_output.dtype
         if self.need_err_input:
-            if not self.err_input:
+            if self.err_input:
+                assert self.err_input.shape[1:] == self.input.shape[1:]
+            if (not self.err_input or
+                    self.err_input.shape[0] != self.input.shape[0]):
                 self.err_input.reset(numpy.zeros(self.input.shape, dtype))
-            else:
-                assert self.err_input.shape == self.input.shape
 
         if self.need_gradient_weights and self.weights:
             side = self.weights_shape[0]
