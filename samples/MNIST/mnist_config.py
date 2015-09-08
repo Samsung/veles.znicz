@@ -36,6 +36,7 @@ under the License.
 """
 
 
+import os
 from veles.config import root
 from veles.genetics import Range
 
@@ -51,7 +52,8 @@ root.mnistr.update({
                     #         "UID=test;PWD=test",
                     },
     "loader": {"minibatch_size": Range(60, 1, 1000), "force_numpy": False,
-               "normalization_type": "linear"},
+               "normalization_type": "linear",
+               "data_path": os.path.join(root.common.dirs.datasets, "MNIST")},
     "weights_plotter": {"limit": 64},
     "layers": [{"name": "fc_tanh1",
                 "type": "all2all_tanh",

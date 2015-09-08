@@ -36,6 +36,8 @@ under the License.
 """
 
 
+import os
+
 from veles.config import root
 
 
@@ -44,6 +46,7 @@ root.mnist7.update({
     "snapshotter": {"prefix": "mnist7", "time_interval": 0, "interval": 1},
     "loader": {"minibatch_size": 60, "force_numpy": False,
                "normalization_type": "linear",
+               "data_path": os.path.join(root.common.dirs.datasets, "MNIST"),
                "target_normalization_type": "none",
                "target_normalization_parameters": {"dict": True}},
     "weights_plotter": {"limit": 25},

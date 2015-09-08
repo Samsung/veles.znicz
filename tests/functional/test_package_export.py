@@ -33,8 +33,10 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
+
 from codecs import getreader
 import json
+import os
 import tarfile
 from tempfile import NamedTemporaryFile
 import zipfile
@@ -61,7 +63,9 @@ class TestPackageExport(StandardTest):
             "snapshotter": {"interval": 100},
             "loader": {"minibatch_size": Range(60, 1, 1000),
                        "force_numpy": False,
-                       "normalization_type": "linear"},
+                       "normalization_type": "linear",
+                       "data_path":
+                       os.path.join(root.common.dirs.datasets, "MNIST")},
             "layers": [{"type": "all2all_tanh",
                         "->": {"output_sample_shape": Range(100, 10, 500),
                                "weights_filling": "uniform",

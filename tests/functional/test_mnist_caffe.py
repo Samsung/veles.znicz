@@ -34,6 +34,8 @@ under the License.
 """
 
 
+import os
+
 from veles.config import root
 from veles.snapshotter import SnapshotterToFile
 from veles.tests import timeout, multi_device
@@ -57,7 +59,9 @@ class TestMnistCaffe(StandardTest):
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "mnist_caffe_test"},
             "loader": {"minibatch_size": 64, "force_numpy": False,
-                       "normalization_type": "linear"},
+                       "normalization_type": "linear",
+                       "data_path":
+                       os.path.join(root.common.dirs.datasets, "MNIST")},
             "layers": [{"type": "conv",
                         "->": {"n_kernels": 20, "kx": 5, "ky": 5,
                                "sliding": (1, 1), "weights_filling": "uniform",

@@ -36,6 +36,7 @@ under the License.
 """
 
 
+import os
 from veles.config import root
 
 
@@ -54,7 +55,8 @@ root.mnistr.update({
     "snapshotter": {"prefix": "mnist_conv", "time_interval": 0,
                     "compression": ""},
     "loader": {"minibatch_size": 6, "force_numpy": False,
-               "normalization_type": "linear"},
+               "normalization_type": "linear",
+               "data_path": os.path.join(root.common.dirs.datasets, "MNIST")},
     "weights_plotter": {"limit": 64},
     "layers": [{"name": "conv1",
                 "type": "conv",
