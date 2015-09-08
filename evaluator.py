@@ -185,6 +185,8 @@ class EvaluatorSoftmax(EvaluatorBase):
         self.n_err = Array()
         self.max_err_output_sum = Array()
         self.demand("labels", "max_idx")
+        if self.testing:
+            self.demand("labels_mapping")
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
@@ -307,6 +309,47 @@ class EvaluatorSoftmax(EvaluatorBase):
             self.err_output.mem[batch_size:] = 0.0
         self.n_err[0] += batch_size - n_ok
         self.n_err[1] += n_total
+
+    def get_metric_values(self):
+        output_labels = []
+        for index, labels in enumerate(self.merged_output[:]):
+            max_value = 0
+            for label_index, value in enumerate(labels):
+                if value >= max_value:
+                    max_value = value
+                    max_index = label_index
+            output_labels.append(self.labels_mapping[max_index])
+
+        if self.testing:
+            return {"Output": output_labels}
+        return {}
+
+
+class EvaluatorImageSoftmax(EvaluatorSoftmax):
+
+    MAPPING = "evaluator_image_softmax"
+
+    """Evaluator for nn softmax output from the batch labels.
+    """
+    def __init__(self, workflow, **kwargs):
+        super(EvaluatorImageSoftmax, self).__init__(workflow, **kwargs)
+        if self.testing:
+            self.demand("class_keys")
+
+    def get_metric_values(self):
+        output_labels = {}
+        for index, labels in enumerate(self.merged_output[:]):
+            max_value = 0
+            for label_index, value in enumerate(labels):
+                if value >= max_value:
+                    max_value = value
+                    max_index = label_index
+            output_labels[self.class_keys[TEST][
+                index]] = self.labels_mapping[max_index]
+
+        if self.testing:
+            return {"Output": output_labels}
+        return {}
 
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
