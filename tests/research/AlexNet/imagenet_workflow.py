@@ -37,14 +37,82 @@ under the License.
 """
 
 
+import cv2
+import numpy
+import os
+
 from veles.config import root
+import veles.prng as prng
 from veles.znicz.standard_workflow import StandardWorkflow
 
-from .imagenet_pickle_loader import ImagenetLoader  # pylint: disable=W0611
+from veles.znicz.loader.imagenet_loader import ImagenetLoaderBase
 from veles.znicz.loader import loader_lmdb  # pylint: disable=W0611
 
 
 root.common.ThreadPool.maxthreads = 3
+
+
+class ImagenetLoader(ImagenetLoaderBase):
+    MAPPING = "imagenet_pickle_loader"
+
+    def __init__(self, workflow, **kwargs):
+        super(ImagenetLoader, self).__init__(workflow, **kwargs)
+        self.crop_size_sx = kwargs.get("crop_size_sx", 227)
+        self.crop_size_sy = kwargs.get("crop_size_sy", 227)
+        self.do_mirror = False
+        self.mirror = kwargs.get("mirror", False)
+        self.final_sy = self.crop_size_sy
+        self.final_sx = self.crop_size_sx
+        self.has_mean_file = False
+
+    def load_data(self):
+        super(ImagenetLoader, self).load_data()
+        if self.matrixes_filename and os.path.exists(self.matrixes_filename):
+            self.load_mean()
+            self.has_mean_file = True
+
+    def transform_sample(self, sample):
+        if self.has_mean_file:
+            sample = self.deduct_mean(sample)
+        if self.crop_size_sx and self.crop_size_sy:
+            sample = self.cut_out(sample)
+        if self.do_mirror:
+            sample = self.mirror_sample(sample)
+        return sample
+
+    def deduct_mean(self, sample):
+        sample = sample.astype(self.rdisp.dtype)
+        sample -= self.mean.mem
+        return sample
+
+    def mirror_sample(self, sample):
+        mirror_sample = numpy.zeros_like(sample)
+        cv2.flip(sample, 1, mirror_sample)
+        return mirror_sample
+
+    def cut_out(self, sample):
+        if self.minibatch_class == 2:
+            rand = prng.get()
+            h_off = rand.randint(
+                sample.shape[0] - self.crop_size_sy + 1)
+            w_off = rand.randint(
+                sample.shape[1] - self.crop_size_sx + 1)
+        else:
+            h_off = (sample.shape[0] - self.crop_size_sy) / 2
+            w_off = (sample.shape[1] - self.crop_size_sx) / 2
+        sample = sample[
+            h_off:h_off + self.crop_size_sy,
+            w_off:w_off + self.crop_size_sx, :self.channels]
+        return sample
+
+    def fill_data(self, index, index_sample, sample):
+        self._file_samples_.readinto(sample)
+        rand = prng.get()
+        self.do_mirror = self.mirror and bool(rand.randint((2)))
+        image = self.transform_sample(sample)
+        self.minibatch_data.mem[index] = image
+        self.minibatch_labels.mem[
+            index] = self._original_labels_[int(index_sample)]
 
 
 class ImagenetWorkflow(StandardWorkflow):
@@ -55,7 +123,6 @@ class ImagenetWorkflow(StandardWorkflow):
     def create_workflow(self):
         self.link_repeater(self.start_point)
         self.link_loader(self.repeater)
-        # self.link_avatar()
         self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)

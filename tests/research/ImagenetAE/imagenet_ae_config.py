@@ -81,6 +81,7 @@ root.imagenet_ae.update({
                "series": "DET",
                "minibatch_size": 120,
                "path": os.path.join(root.common.dirs.datasets, "AlexNet"),
+               "channels": 4,
                "sx": 216,
                "sy": 216},
     "image_saver": {"out_dirs":
@@ -215,7 +216,7 @@ root.imagenet_ae.snapshotter.prefix = (
     "imagenet_ae_%s" % root.imagenet_ae.loader.year)
 imagenet_data_path = os.path.join(
     imagenet_base_path, str(root.imagenet_ae.loader.year))
-root.imagenet_ae.loader.names_labels_filename = os.path.join(
+root.imagenet_ae.loader.original_labels_filename = os.path.join(
     imagenet_data_path, "original_labels_%s_%s.pickle" %
     (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
 root.imagenet_ae.loader.count_samples_filename = os.path.join(
