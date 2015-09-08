@@ -165,11 +165,11 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
                     "Expected padding %s but got %s" % (padding, self.padding))
             self._create_hits(output_shape)
 
-        if not self.output:
+        if self.output:
+            assert self.output.shape[1:] == output_shape[1:]
+        if not self.output or self.output.shape[0] != output_shape[0]:
             self.output.reset(numpy.zeros(output_shape,
                                           dtype=self._dtype))
-        else:
-            assert self.output.shape == output_shape
 
         self._output_shape = output_shape
 

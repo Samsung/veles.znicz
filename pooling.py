@@ -70,15 +70,12 @@ class PoolingBase(Unit):
 
     def __init__(self, workflow, **kwargs):
         super(PoolingBase, self).__init__(workflow, **kwargs)
-        self._output_shape = tuple()
         self._out_sxy = tuple()
 
     @property
     def output_shape(self):
-        if self._output_shape == tuple():
-            self._output_shape = (self.input_batch_size, self.out_sy,
-                                  self.out_sx, self.n_channels)
-        return self._output_shape
+        return self.input_batch_size, self.out_sy, self.out_sx, \
+            self.n_channels
 
     @property
     def output_size(self):
@@ -163,12 +160,11 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
         super(Pooling, self).initialize(device=device, **kwargs)
 
         if not self._no_output:
-            if not self.output:
-                self.output.reset(numpy.zeros(self.output_shape,
-                                              dtype=self.input.dtype))
-            else:
-                assert self.output.shape == self.output_shape, \
-                    "%s != %s" % (self.output.shape, self.output_shape)
+            if self.output:
+                assert self.output.shape[1:] == self.output_shape[1:]
+            if not self.output or self.output_shape[0] != self.output.shape[0]:
+                self.output.reset(
+                    numpy.zeros(self.output_shape, self.input.dtype))
             self.output.initialize(self.device)
 
         self.input.initialize(self.device)
@@ -278,11 +274,12 @@ class OffsetPooling(Pooling):
 
         if self._no_output:
             return
-        if not self.input_offset:
+        if self.input_offset:
+            assert self.input_offset.shape[1:] == self.output.shape[1:]
+        if (not self.input_offset or
+                self.input_offset.shape[0] != self.output.shape[0]):
             self.input_offset.reset(numpy.zeros(self.output.shape,
                                                 dtype=numpy.int32))
-        else:
-            assert self.input_offset.shape == self.output.shape
         self.input_offset.initialize(self.device)
 
     def set_args(self, *args):

@@ -172,10 +172,10 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
 
         output_shape = (self._batch_size, self._ky_app, self._kx_app,
                         self.n_kernels)
-        if not self.output:
+        if self.output:
+            assert self.output.shape[1:] == output_shape[1:]
+        if not self.output or output_shape[0] != self.output.shape[0]:
             self.output.reset(numpy.zeros(output_shape, self.input.dtype))
-        else:
-            assert self.output.shape == output_shape
 
         assert self._kernel_app_per_image * self.n_kernels == \
             self.output.sample_size

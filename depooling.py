@@ -87,11 +87,13 @@ class Depooling(nn_units.Forward):
         if self.output_offset.dtype != numpy.int32:
             raise error.BadFormatError("output_offset.dtype != numpy.int32")
 
-        if not self.output:
+        if self.output:
+            assert self.output.shape[1:] == self.output_shape_source.shape[1:]
+
+        if (not self.output or
+                self.output.shape[0] != self.output_shape_source.shape[0]):
             self.output.reset(numpy.zeros(self.output_shape_source.shape,
                                           dtype=self.input.dtype))
-        else:
-            assert self.output.shape == self.output_shape_source.shape
 
         self.init_vectors(self.input, self.output_offset, self.output)
 

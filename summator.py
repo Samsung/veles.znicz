@@ -54,10 +54,12 @@ class Summator(AcceleratedUnit):
 
     def initialize(self, device, **kwargs):
         super(Summator, self).initialize(device, **kwargs)
-        if not self.output:
+
+        if self.output:
+            assert self.output.shape[1:] == self.x.shape[1:]
+        if not self.output or self.output.shape[0] != self.x.shape[0]:
             self.output.reset(numpy.zeros_like(self.x.mem))
-        else:
-            assert self.output.shape == self.x.shape
+
         self.init_vectors(self.x, self.y, self.output)
 
     def init_unpickled(self):
@@ -116,14 +118,15 @@ class GDSummator(AcceleratedUnit):
 
     def initialize(self, device, **kwargs):
         super(GDSummator, self).initialize(device, **kwargs)
-        if not self.err_x:
+
+        if self.err_x:
+            assert self.err_x.shape[1:] == self.err_output.shape[1:]
+        if not self.err_x or self.err_x.shape[0] != self.err_output.shape[0]:
             self.err_x.reset(numpy.zeros_like(self.err_output.mem))
-        else:
-            assert self.err_x.shape == self.err_output.shape
-        if not self.err_y:
+        if self.err_y:
+            assert self.err_y.shape[1:] == self.err_output.shape[1:]
+        if not self.err_y or self.err_y.shape[0] != self.err_output.shape[0]:
             self.err_y.reset(numpy.zeros_like(self.err_output.mem))
-        else:
-            assert self.err_y.shape == self.err_output.shape
         self.init_vectors(self.err_x, self.err_y, self.err_output)
 
     def cuda_init(self):

@@ -126,10 +126,10 @@ class Cutter(nn_units.Forward, CutterBase):
             raise error.BadFormatError("Resulted output shape is empty")
         self.output_shape = shape
 
-        if not self.output:
+        if self.output:
+            assert self.output.shape[1:] == self.output_shape[1:]
+        if not self.output or self.output.shape[0] != self.output_shape[0]:
             self.output.reset(numpy.zeros(self.output_shape, self.input.dtype))
-        else:
-            assert self.output.shape == self.output_shape
 
         for vec in self.input, self.output:
             vec.initialize(self.device)
@@ -202,10 +202,11 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
                 "Computed err_output size differs from an assigned one")
         self.output_shape = sh
 
-        if not self.err_input:
+        if self.err_input:
+            assert self.err_input.shape[1:] == self.input.shape[1:]
+        if (not self.err_input or
+                self.err_input.shape[0] != self.input.shape[0]):
             self.err_input.reset(numpy.zeros_like(self.input.mem))
-        else:
-            assert self.err_input.shape == self.input.shape
 
         self.init_vectors(self.err_output, self.err_input)
 
@@ -284,6 +285,8 @@ class Cutter1D(AcceleratedUnit):
             return True
         super(Cutter1D, self).initialize(device, **kwargs)
 
+        # TODO: add correct assert to ability to change output_shape[0],
+        # TODO: i.e. minibatch size
         if not self.output:
             self.output.reset(
                 numpy.zeros(
