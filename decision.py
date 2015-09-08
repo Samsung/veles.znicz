@@ -554,8 +554,8 @@ class DecisionGD(DecisionBase):
                     self.epoch_number == 0):
                 self.warning("Number of errors equals to 0 before the training"
                              " has actually started => dropping into pdb...")
-                # import pdb
-                # pdb.set_trace()
+                import pdb
+                pdb.set_trace()
             ss.append("n_err %d of %d (%.2f%%)" %
                       (self.epoch_n_err[minibatch_class],
                        self.epoch_n_evaluated_samples[minibatch_class],
