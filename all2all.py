@@ -219,10 +219,10 @@ class All2All(nn_units.NNLayerBase):
     def _create_output(self):
         if self.output and self.output.shape == self.output_shape:
             return
-        if not self.output:
+        if self.output:
+            assert self.output.shape[1:] == self.output_shape[1:]
+        if not self.output or self.output_shape[0] != self.output.shape[0]:
             self.output.reset(numpy.zeros(self.output_shape, self.input.dtype))
-        else:
-            assert self.output.shape == self.output_shape
 
     def _gpu_init(self, blas_class):
         dtype = self.input.dtype
