@@ -185,6 +185,8 @@ class EvaluatorSoftmax(EvaluatorBase):
         self.n_err = Array()
         self.max_err_output_sum = Array()
         self.demand("labels", "max_idx")
+        if self.testing:
+            self.demand("labels_mapping", "class_keys")
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
@@ -307,6 +309,21 @@ class EvaluatorSoftmax(EvaluatorBase):
             self.err_output.mem[batch_size:] = 0.0
         self.n_err[0] += batch_size - n_ok
         self.n_err[1] += n_total
+
+    def get_metric_values(self):
+        output_labels = {}
+        for index, labels in enumerate(self.merged_output[:]):
+            max_value = 0
+            for label_index, value in enumerate(labels):
+                if value >= max_value:
+                    max_value = value
+                    max_index = label_index
+            output_labels[self.class_keys[0][  # 0 is for TEST samples
+                index]] = self.labels_mapping[max_index]
+
+        if self.testing:
+            return {"Output": output_labels}
+        return {}
 
 
 @implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
