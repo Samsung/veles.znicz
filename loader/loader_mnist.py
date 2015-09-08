@@ -35,25 +35,15 @@ under the License.
 """
 
 
+import gzip
+import numpy
 import os
 import struct
-
-import numpy
+import wget
 from zope.interface import implementer
 
-from veles.config import root
 import veles.error as error
 from veles.loader import FullBatchLoader, IFullBatchLoader, TEST, VALID, TRAIN
-
-
-mnist_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "MNIST"))
-if not os.access(mnist_dir, os.W_OK):
-    # Fall back to ~/.veles/MNIST
-    mnist_dir = os.path.join(root.common.dirs.datasets, "MNIST")
-test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
-test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
-train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
-train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 
 @implementer(IFullBatchLoader)
@@ -62,33 +52,52 @@ class MnistLoader(FullBatchLoader):
     """
     MAPPING = "mnist_loader"
 
+    def __init__(self, workflow, **kwargs):
+        super(MnistLoader, self).__init__(workflow, **kwargs)
+        self.data_path = kwargs["data_path"]
+        self.test_labels = os.path.join(
+            self.data_path, "t10k-labels.idx1-ubyte")
+        self.test_data = os.path.join(self.data_path, "t10k-images.idx3-ubyte")
+        self.train_labels = os.path.join(
+            self.data_path, "train-labels.idx1-ubyte")
+        self.train_data = os.path.join(
+            self.data_path, "train-images.idx3-ubyte")
+        self.url = "http://yann.lecun.com/exdb/mnist"
+
+    def load_dataset(self):
+        """
+        Loads dataset from internet
+        """
+        if not os.path.exists(self.data_path):
+            os.mkdir(self.data_path)
+        if (os.path.exists(self.test_data) and
+                os.path.exists(self.test_labels) and
+                os.path.exists(self.train_data) and
+                os.path.exists(self.train_labels)):
+            return
+
+        self.info(
+            "Some files in %s does not exist, downloading from %s...",
+            self.data_path, self.url)
+
+        files = {"train-images-idx3-ubyte.gz": "train-images.idx3-ubyte",
+                 "train-labels-idx1-ubyte.gz": "train-labels.idx1-ubyte",
+                 "t10k-images-idx3-ubyte.gz": "t10k-images.idx3-ubyte",
+                 "t10k-labels-idx1-ubyte.gz": "t10k-labels.idx1-ubyte"}
+
+        for index, (k, v) in enumerate(sorted(files.items())):
+            self.info("%d/%d", index + 1, len(files))
+            wget.download("%s/%s" % (self.url, k), self.data_path)
+            print("")
+            with open(os.path.join(self.data_path, v), "wb") as fout:
+                gz_file = os.path.join(self.data_path, k)
+                with gzip.GzipFile(gz_file) as fin:
+                    fout.write(fin.read())
+                os.remove(gz_file)
+
     def load_original(self, offs, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """
-        if not os.path.exists(mnist_dir):
-            url = "http://yann.lecun.com/exdb/mnist"
-            self.warning("%s does not exist, downloading from %s...",
-                         mnist_dir, url)
-
-            import gzip
-            import wget
-
-            files = {"train-images-idx3-ubyte.gz": "train-images.idx3-ubyte",
-                     "train-labels-idx1-ubyte.gz": "train-labels.idx1-ubyte",
-                     "t10k-images-idx3-ubyte.gz": "t10k-images.idx3-ubyte",
-                     "t10k-labels-idx1-ubyte.gz": "t10k-labels.idx1-ubyte"}
-
-            os.mkdir(mnist_dir)
-            for index, (k, v) in enumerate(sorted(files.items())):
-                self.info("%d/%d", index + 1, len(files))
-                wget.download("%s/%s" % (url, k), mnist_dir)
-                print("")
-                with open(os.path.join(mnist_dir, v), "wb") as fout:
-                    gz_file = os.path.join(mnist_dir, k)
-                    with gzip.GzipFile(gz_file) as fin:
-                        fout.write(fin.read())
-                    os.remove(gz_file)
-
         # Reading labels:
         with open(labels_fnme, "rb") as fin:
             header, = struct.unpack(">i", fin.read(4))
@@ -151,5 +160,14 @@ class MnistLoader(FullBatchLoader):
         self.create_originals((28, 28))
         self.original_labels[:] = (0 for _ in range(len(self.original_labels)))
         self.info("Loading from original MNIST files...")
-        self.load_original(0, 10000, test_label_dir, test_image_dir)
-        self.load_original(10000, 60000, train_label_dir, train_image_dir)
+        self.load_dataset()
+        if not (os.path.exists(self.test_data) and
+                os.path.exists(self.test_labels) and
+                os.path.exists(self.train_data) and
+                os.path.exists(self.train_labels)):
+            raise OSError(
+                "There are no data in %s. Failed to load data from url: %s. "
+                "Please download MNIST dataset manualy in folder %s" %
+                (self.data_path, self.url, self.data_path))
+        self.load_original(0, 10000, self.test_labels, self.test_data)
+        self.load_original(10000, 60000, self.train_labels, self.train_data)
