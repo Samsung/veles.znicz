@@ -34,6 +34,8 @@ under the License.
 """
 
 
+import os
+
 from veles.config import root
 from veles.genetics import Range, fix_config
 from veles.snapshotter import SnapshotterToFile
@@ -55,7 +57,9 @@ class TestMnistAll2All(StandardTest):
             "weights_plotter": {"limit": 0},
             "loader": {"minibatch_size": Range(60, 1, 1000),
                        "force_numpy": False,
-                       "normalization_type": "linear"},
+                       "normalization_type": "linear",
+                       "data_path":
+                       os.path.join(root.common.dirs.datasets, "MNIST")},
             "layers": [{"type": "all2all_tanh",
                         "->": {"output_sample_shape": Range(100, 10, 500),
                                "weights_filling": "uniform",

@@ -35,6 +35,8 @@ under the License.
 """
 
 
+import os
+
 from veles.config import root
 
 
@@ -45,7 +47,8 @@ root.mnist_ae.update({
     "snapshotter": {"prefix": "mnist_ae", "time_interval": 0,
                     "compression": "", "interval": 1},
     "loader": {"minibatch_size": 100, "force_numpy": False,
-               "normalization_type": "linear"},
+               "normalization_type": "linear",
+               "data_path": os.path.join(root.common.dirs.datasets, "MNIST")},
     "learning_rate": 0.000001,
     "weights_decay": 0.00005,
     "gradient_moment": 0.00001,
