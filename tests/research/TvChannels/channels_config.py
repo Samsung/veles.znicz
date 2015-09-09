@@ -69,9 +69,11 @@ root.channels.update({
                [os.path.join(root.common.dirs.datasets, "train")]},
     "loss_function": "softmax",
     "loader_name": "full_batch_auto_label_file_image",
-    "layers": [{"type": "all2all_tanh",
+    "layers": [{"name": "fc_tanh1",
+                "type": "all2all_tanh",
                 "<-": {"learning_rate": 0.01, "weights_decay": 0.00005},
                 "->": {"output_sample_shape": 100}},
-               {"type": "softmax",
+               {"name": "fc_softmax2",
+                "type": "softmax",
                 "->": {"output_sample_shape": 8},
                 "<-": {"learning_rate": 0.01, "weights_decay": 0.00005}}]})

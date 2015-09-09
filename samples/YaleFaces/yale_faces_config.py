@@ -74,8 +74,10 @@ root.yalefaces.update({
                "normalization_type": "mean_disp",
                "train_paths":
                [os.path.join(root.common.dirs.datasets, "CroppedYale")]},
-    "layers": [{"type": "all2all_tanh",
+    "layers": [{"name": "fc_tanh1",
+                "type": "all2all_tanh",
                 "->": {"output_sample_shape": 100},
                 "<-": {"learning_rate": 0.01, "weights_decay": 0.00005}},
-               {"type": "softmax",
+               {"name": "fc_softmax2",
+                "type": "softmax",
                 "<-": {"learning_rate": 0.01, "weights_decay": 0.00005}}]})

@@ -108,7 +108,7 @@ root.stl.update({
                {"name": "pool3", "type": "avg_pooling",
                 "->": {"kx": 3, "ky": 3, "sliding": (2, 2)}},
 
-               {"name": "a2asm4", "type": "softmax",
+               {"name": "fc_softmax4", "type": "softmax",
                 "->": {"output_sample_shape": 10,
                        "weights_filling": "gaussian", "weights_stddev": 0.01,
                        "bias_filling": "constant", "bias_stddev": 0},
