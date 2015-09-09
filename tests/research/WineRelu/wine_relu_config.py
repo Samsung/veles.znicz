@@ -53,8 +53,10 @@ root.wine_relu.update({
     "loader": {"minibatch_size": 10, "force_numpy": False,
                "dataset_file":
                os.path.join(root.common.dirs.datasets, "wine/wine.txt.gz")},
-    "layers": [{"type": "all2all_relu",
+    "layers": [{"name": "fc_relu1",
+                "type": "all2all_relu",
                 "->": {"output_sample_shape": 10},
                 "<-": {"learning_rate": 0.03, "weights_decay": 0.0}},
-               {"type": "softmax",
+               {"name": "fc_softmax2",
+                "type": "softmax",
                 "<-": {"learning_rate": 0.03, "weights_decay": 0.0}}]})
