@@ -45,17 +45,20 @@ from veles.znicz.tests.functional import StandardTest
 class TestWine(StandardTest):
     @classmethod
     def setUpClass(cls):
-        # We must test how snapshotting works, at least one-way
-        data_path = os.path.abspath(
-            os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                "samples/Wine"))
         root.wine.update({
             "decision": {"fail_iterations": 200,
                          "snapshot_prefix": "wine"},
+            "downloader": {
+                "url":
+                "https://s3-eu-west-1.amazonaws.com/veles.forge/WineRelu/"
+                "wine.tar",
+                "directory": root.common.dirs.datasets,
+                "files": ["wine"]},
             "snapshotter": {"interval": 13, "time_interval": 0},
             "loader": {"minibatch_size": 10,
-                       "dataset_file": os.path.join(data_path, "wine.txt.gz"),
+                       "dataset_file":
+                       os.path.join(root.common.dirs.datasets,
+                                    "wine/wine.txt.gz"),
                        "force_numpy": False},
             "learning_rate": 0.3,
             "weights_decay": 0.0,

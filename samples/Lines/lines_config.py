@@ -41,19 +41,11 @@ import os
 
 from veles.config import root
 
-"""
-train = os.path.join(root.common.dirs.datasets,
-                     "Lines/LINES_10_500_NOISY_min_valid/learning")
-valid = os.path.join(root.common.dirs.datasets,
-                     "Lines/LINES_10_500_NOISY_min_valid/test")
-"""
-train = os.path.join(root.common.dirs.datasets,
-                     "lines_min/learn")
-valid = os.path.join(root.common.dirs.datasets,
-                     "lines_min/test")
 
-root.lines.mcdnnic_parameters = {
-    "<-": {"learning_rate": 0.01}}
+train = os.path.join(root.common.dirs.datasets, "lines_min/learn")
+valid = os.path.join(root.common.dirs.datasets, "lines_min/test")
+
+root.lines.mcdnnic_parameters = {"<-": {"learning_rate": 0.01}}
 
 root.lines.update({
     "loader_name": "full_batch_auto_label_file_image",
