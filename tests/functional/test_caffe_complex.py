@@ -34,17 +34,18 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
-import numpy
 import os
 import tarfile
+
+import numpy
 
 from veles.compat import IntEnum
 from veles.memory import Array
 from veles.tests import AcceleratedTest
 from veles.znicz import (activation, all2all, conv, evaluator, pooling,
                          normalization)
-from veles.znicz.gradient_unit_factory import GradientUnitFactory
+from veles.znicz.tests.functional.gradient_unit_factory import \
+    GradientUnitFactory
 from veles.znicz.tests.functional import StandardTest
 from veles.znicz.tests.functional.test_caffe import CaffeTestBase
 
