@@ -37,24 +37,21 @@ under the License.
 
 
 import os
-from veles.config import root, get
-
-
-root.common.update = {"disable.plotting": True}
-
-root.common.engine.backend = "ocl"
-data_path = "/usr/share/veles/data"
-if not os.path.exists(data_path):
-    data_path = os.path.abspath(get(
-        root.wine.loader.base, os.path.dirname(__file__)))
+from veles.config import root
 
 
 root.wine.update({
     "decision": {"fail_iterations": 200,
                  "max_epochs": 100},
+    "downloader": {
+        "url":
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/WineRelu/wine.tar",
+        "directory": root.common.dirs.datasets,
+        "files": ["wine"]},
     "snapshotter": {"prefix": "wine", "interval": 10, "time_interval": 0},
     "loader": {"minibatch_size": 10,
-               "dataset_file": os.path.join(data_path, "wine.txt.gz"),
+               "dataset_file":
+               os.path.join(root.common.dirs.datasets, "wine/wine.txt.gz"),
                "force_numpy": False},
     "learning_rate": 0.3,
     "weights_decay": 0.0,

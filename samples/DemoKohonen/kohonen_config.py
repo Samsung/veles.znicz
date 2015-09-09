@@ -36,22 +36,25 @@ under the License.
 
 
 import os
-from veles.config import root, get
+from veles.config import root
 
 root.common.engine.backend = "ocl"
-data_path = "/usr/share/veles/data"
-if not os.path.exists(data_path):
-    data_path = os.path.abspath(get(
-        root.kohonen.loader.base, os.path.dirname(__file__)))
+
 
 root.kohonen.update({
     "forward": {"shape": (8, 8),
                 "weights_stddev": 0.05,
                 "weights_filling": "uniform"},
+    "downloader": {
+        "url":
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/Kohonen/kohonen.tar",
+        "directory": root.common.dirs.datasets,
+        "files": ["kohonen"]},
     "decision": {"snapshot_prefix": "kohonen",
                  "epochs": 200},
     "loader": {"minibatch_size": 10,
-               "dataset_file": os.path.join(data_path, "kohonen.txt.gz"),
+               "dataset_file": os.path.join(root.common.dirs.datasets,
+                                            "kohonen/kohonen.txt.gz"),
                "force_numpy": True},
     "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.005),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.005)}})
