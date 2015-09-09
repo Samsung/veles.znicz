@@ -39,6 +39,7 @@ import numpy
 from zope.interface import implementer
 
 from veles.config import root
+from veles.downloader import Downloader
 import veles.error as error
 from veles.interaction import Shell
 import veles.znicz.nn_plotting_units as nn_plotting_units
@@ -79,7 +80,13 @@ class KohonenWorkflow(nn_units.NNWorkflow):
         kwargs["name"] = kwargs.get("name", "Kohonen")
         super(KohonenWorkflow, self).__init__(workflow, **kwargs)
 
-        self.repeater.link_from(self.start_point)
+        self.downloader = Downloader(
+            self, url=root.kohonen.downloader.url,
+            directory=root.kohonen.downloader.directory,
+            files=root.kohonen.downloader.files)
+        self.downloader.link_from(self.start_point)
+
+        self.repeater.link_from(self.downloader)
 
         self.loader = KohonenLoader(
             self, name="Kohonen fullbatch loader",

@@ -48,19 +48,24 @@ root.common.engine.backend = "ocl"
 class TestKohonen(StandardTest):
     @classmethod
     def setUpClass(cls):
-        data_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "samples/DemoKohonen")
         root.kohonen.update({
             "forward": {"shape": (8, 8),
                         "weights_stddev": 0.05,
                         "weights_filling": "uniform"},
+            "downloader": {
+                "url":
+                "https://s3-eu-west-1.amazonaws.com/veles.forge/Kohonen/"
+                "kohonen.tar",
+                "directory": root.common.dirs.datasets,
+                "files": ["kohonen"]},
             "decision": {"snapshot_prefix": "kohonen",
                          "epochs": 160},
             "loader": {
                 "minibatch_size": 10,
                 "force_numpy": False,
-                "dataset_file": os.path.join(data_path, "kohonen.txt.gz")},
+                "dataset_file":
+                os.path.join(root.common.dirs.datasets,
+                             "kohonen/kohonen.txt.gz")},
             "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.01),
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.01)}})
 

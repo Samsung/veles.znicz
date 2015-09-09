@@ -38,6 +38,7 @@ under the License.
 
 import os
 import sys
+from veles.downloader import Downloader
 
 from veles.config import root
 from veles.znicz.nn_units import NNSnapshotterToFile
@@ -70,7 +71,13 @@ class WineWorkflow(nn_units.NNWorkflow):
         super(WineWorkflow, self).__init__(workflow, **kwargs)
         layers = kwargs["layers"]
 
-        self.repeater.link_from(self.start_point)
+        self.downloader = Downloader(
+            self, url=root.wine.downloader.url,
+            directory=root.wine.downloader.directory,
+            files=root.wine.downloader.files)
+        self.downloader.link_from(self.start_point)
+
+        self.repeater.link_from(self.downloader)
 
         self.loader = WineLoader(
             self, minibatch_size=root.wine.loader.minibatch_size,
