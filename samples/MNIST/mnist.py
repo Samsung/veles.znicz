@@ -114,6 +114,10 @@ class MnistWorkflow(StandardWorkflow):
             root.mnistr.layers, root.mnistr.weights_plotter.limit,
             "gradient_weights", last))
 
+    def on_workflow_finished(self):
+        super(MnistWorkflow, self).on_workflow_finished()
+        self.package_export("mnist.zip", precision=16)
+
 
 def run(load, main):
     load(MnistWorkflow,
