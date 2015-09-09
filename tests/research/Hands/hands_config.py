@@ -64,8 +64,10 @@ root.hands.update({
                "background_color": (0,),
                "normalization_type": "linear",
                "validation_paths": validation_dir},
-    "layers": [{"type": "all2all_tanh",
+    "layers": [{"name": "fc_tanh1",
+                "type": "all2all_tanh",
                 "->": {"output_sample_shape": 30},
                 "<-": {"learning_rate": 0.008, "weights_decay": 0.0}},
-               {"type": "softmax",
+               {"name": "fc_softmax2",
+                "type": "softmax",
                 "<-": {"learning_rate": 0.008, "weights_decay": 0.0}}]})
