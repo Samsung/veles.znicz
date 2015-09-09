@@ -99,7 +99,8 @@ root.imagenet_ae.update({
     "fine_tuning_noise": 1.0e-6,
     "layers":
     [{"type": "ae_begin"},  # 216
-     {"type": "conv",
+     {"name": "conv1",
+      "type": "conv",
       "->": {"n_kernels": 108, "kx": 9, "ky": 9, "sliding": (3, 3),
              "weights_filling": FILLING,
              "weights_stddev": STDDEV_CONV},
@@ -109,14 +110,16 @@ root.imagenet_ae.update({
              "factor_ortho": ORTHO,
              "gradient_moment": GM, "gradient_moment_bias": GM,
              "l1_vs_l2": L1_VS_L2}},
-     {"type": "stochastic_abs_pooling",
+     {"name": "pool1",
+      "type": "stochastic_abs_pooling",
       "->": {"kx": 3, "ky": 3, "sliding": (3, 3)}},  # 69
      {"type": "ae_end"},
 
-     {"type": "activation_mul"},
+     {"name": "mul1", "type": "activation_mul"},
 
      {"type": "ae_begin"},  # 23
-     {"type": "conv",
+     {"name": "conv2",
+      "type": "conv",
       "->": {"n_kernels": 192, "kx": 5, "ky": 5, "sliding": (1, 1),
              "padding": (2, 2, 2, 2), "weights_filling": FILLING,
              "weights_stddev": STDDEV_CONV},
@@ -126,14 +129,16 @@ root.imagenet_ae.update({
              "factor_ortho": ORTHO,
              "gradient_moment": GM, "gradient_moment_bias": GM,
              "l1_vs_l2": L1_VS_L2}},
-     {"type": "stochastic_abs_pooling",
+     {"name": "pool2",
+      "type": "stochastic_abs_pooling",
       "->": {"padding": (2, 2, 2, 2), "kx": 2, "ky": 2, "sliding": (2, 2)}},
      {"type": "ae_end"},
 
-     {"type": "activation_mul"},
+     {"name": "mul2", "type": "activation_mul"},
 
      {"type": "ae_begin"},  # 13
-     {"type": "conv",
+     {"name": "conv3",
+      "type": "conv",
       "->": {"n_kernels": 224, "kx": 5, "ky": 5, "sliding": (1, 1),
              "padding": (2, 2, 2, 2), "weights_filling": FILLING,
              "weights_stddev": STDDEV_CONV},
@@ -145,10 +150,11 @@ root.imagenet_ae.update({
              "l1_vs_l2": L1_VS_L2}},
      {"type": "ae_end"},
 
-     {"type": "activation_mul"},
+     {"name": "mul3", "type": "activation_mul"},
 
      {"type": "ae_begin"},  # 13
-     {"type": "conv",
+     {"name": "conv4",
+      "type": "conv",
       "->": {"n_kernels": 256, "kx": 3, "ky": 3, "sliding": (1, 1),
              "padding": (1, 1, 1, 1), "weights_filling": FILLING,
              "weights_stddev": STDDEV_CONV},
@@ -158,13 +164,14 @@ root.imagenet_ae.update({
              "factor_ortho": ORTHO,
              "gradient_moment": GM, "gradient_moment_bias": GM,
              "l1_vs_l2": L1_VS_L2}},
-     {"type": "stochastic_abs_pooling",
+     {"name": "pool4", "type": "stochastic_abs_pooling",
       "->": {"kx": 2, "ky": 2, "sliding": (2, 2)}},  # 6
      {"type": "ae_end"},
 
-     {"type": "activation_mul"},
+     {"name": "mul4", "type": "activation_mul"},
 
-     {"type": "all2all_tanh",
+     {"name": "fc_tanh5",
+      "type": "all2all_tanh",
       "->": {"output_sample_shape": 4096, "weights_filling": "gaussian",
              "bias_filling": "constant", "weights_stddev": STDDEV_AA,
              "bias_stddev": 0.1},
@@ -173,8 +180,9 @@ root.imagenet_ae.update({
              "weights_decay": WDAA, "weights_decay_bias": WDBAA,
              "factor_ortho": ORTHOAA, "l1_vs_l2": L1_VS_L2,
              "gradient_moment": GMAA, "gradient_moment_bias": GMBAA}},
-     {"type": "dropout", "dropout_ratio": 0.5},
-     {"type": "all2all_tanh",
+     {"name": "drop5", "type": "dropout", "dropout_ratio": 0.5},
+     {"name": "fc_tanh6",
+      "type": "all2all_tanh",
       "->": {"output_sample_shape": 4096,
              "weights_filling": "gaussian", "weights_stddev": STDDEV_AA,
              "bias_filling": "constant", "bias_stddev": 0.1},
@@ -183,8 +191,9 @@ root.imagenet_ae.update({
              "weights_decay": WDAA, "weights_decay_bias": WDBAA,
              "factor_ortho": ORTHOAA, "l1_vs_l2": L1_VS_L2,
              "gradient_moment": GMAA, "gradient_moment_bias": GMBAA}},
-     {"type": "dropout", "dropout_ratio": 0.5},
-     {"type": "softmax",
+     {"name": "drop6", "type": "dropout", "dropout_ratio": 0.5},
+     {"name": "fc_softmax7",
+      "type": "softmax",
       "->": {"output_sample_shape": 200,
              "weights_filling": "gaussian", "weights_stddev": 0.01,
              "bias_filling": "constant", "bias_stddev": 0},
