@@ -41,13 +41,13 @@ from veles import memory
 from veles.znicz.gd import GradientDescent
 
 
-class RPropAll2All(GradientDescent):
-    MAPPING = {"rprop_all2all"}
+class GDRProp(GradientDescent):
+    MAPPING = {"rprop_gd"}
     """
     Only CPU version is implemented
     """
     def __init__(self, workflow, **kwargs):
-        super(RPropAll2All, self).__init__(workflow, **kwargs)
+        super(GDRProp, self).__init__(workflow, **kwargs)
         self.initial_learning_rate = 0.01
         self.min_learning_rate = 10 ** -6
         self.max_learning_rate = 1
@@ -58,7 +58,7 @@ class RPropAll2All(GradientDescent):
         self.bias_lrs = memory.Array()
 
     def initialize(self, device, **kwargs):
-        super(RPropAll2All, self).initialize(device=device, **kwargs)
+        super(GDRProp, self).initialize(device=device, **kwargs)
         self.weight_lrs.mem = numpy.zeros(
             shape=self.weights.mem.shape, dtype=self.weights.mem.dtype)
         self.bias_lrs.mem = numpy.zeros(
