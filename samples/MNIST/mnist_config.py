@@ -42,9 +42,11 @@ from veles.genetics import Range
 
 
 root.mnistr.update({
+    "export_wf": True,
+    "package_name": os.path.join(root.common.dirs.user, "mnist.zip"),
     "lr_adjuster": {"do": False},
     "decision": {"fail_iterations": 50,
-                 "max_epochs": 1000000000},
+                 "max_epochs": 2},
     "loss_function": "softmax",
     "loader_name": "mnist_loader",
     "snapshotter": {"prefix": "mnist", "time_interval": 0, "compression": "gz",

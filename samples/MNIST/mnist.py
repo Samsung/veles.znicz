@@ -56,6 +56,12 @@ class MnistWorkflow(StandardWorkflow):
     (Convolutional, Fully connected, different parameters) in configuration
     file.
     """
+    def __init__(self, workflow, **kwargs):
+        super(MnistWorkflow, self).__init__(workflow, **kwargs)
+        self.export_wf = kwargs.get("export_wf", False)
+        self.package_name = kwargs.get(
+            "package_name", os.path.join(root.common.dirs.user, "mnist.zip"))
+
     def link_mnist_weights_plotter(self, layers, limit, weights_input, parent):
         self.mnist_weights_plotter = []
         prev_channels = 1
@@ -116,7 +122,8 @@ class MnistWorkflow(StandardWorkflow):
 
     def on_workflow_finished(self):
         super(MnistWorkflow, self).on_workflow_finished()
-        self.package_export("mnist.zip", precision=16)
+        if self.export_wf:
+            self.package_export(self.package_name, precision=16)
 
 
 def run(load, main):
@@ -125,6 +132,8 @@ def run(load, main):
          snapshotter_config=root.mnistr.snapshotter,
          loader_name=root.mnistr.loader_name,
          loader_config=root.mnistr.loader,
+         export_wf=root.mnistr.export_wf,
+         package_name=root.mnistr.package_name,
          layers=root.mnistr.layers,
          loss_function=root.mnistr.loss_function,
          lr_adjuster_config=root.mnistr.lr_adjuster)

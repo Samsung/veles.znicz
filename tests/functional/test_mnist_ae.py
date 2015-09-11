@@ -34,6 +34,8 @@ under the License.
 """
 
 
+import os
+
 from veles.config import root
 from veles.snapshotter import SnapshotterToFile
 from veles.tests import timeout, multi_device
@@ -50,7 +52,9 @@ class TestMnistAE(StandardTest):
                          "max_epochs": 3},
             "snapshotter": {"prefix": "mnist", "time_interval": 0,
                             "interval": 4, "compression": ""},
-            "loader": {"minibatch_size": 100, "force_numpy": False,
+            "loader": {"data_path":
+                       os.path.join(root.common.dirs.datasets, "MNIST"),
+                       "minibatch_size": 100, "force_numpy": False,
                        "normalization_type": "linear"},
             "learning_rate": 0.000001,
             "weights_decay": 0.00005,
