@@ -42,6 +42,8 @@ from veles.genetics import Range
 
 
 root.mnistr.update({
+    "export_wf": True,
+    "package_name": os.path.join(root.common.dirs.user, "mnist.zip"),
     "lr_adjuster": {"do": False},
     "decision": {"fail_iterations": 50,
                  "max_epochs": 1000000000},

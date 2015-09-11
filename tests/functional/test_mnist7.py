@@ -33,6 +33,9 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
+
+import os
+
 from veles.config import root
 from veles.snapshotter import SnapshotterToFile
 from veles.tests import timeout, multi_device
@@ -47,7 +50,9 @@ class TestMnist7(StandardTest):
             "decision": {"fail_iterations": 25, "max_epochs": 2},
             "snapshotter": {"prefix": "mnist7_test", "interval": 3,
                             "time_interval": 0},
-            "loader": {"minibatch_size": 60, "force_numpy": False,
+            "loader": {"data_path":
+                       os.path.join(root.common.dirs.datasets, "MNIST"),
+                       "minibatch_size": 60, "force_numpy": False,
                        "normalization_type": "linear",
                        "target_normalization_type": "none",
                        "target_normalization_parameters": {"dict": True}},
