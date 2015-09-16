@@ -34,6 +34,8 @@ under the License.
 """
 
 
+import os
+
 from veles.config import root
 from veles.snapshotter import SnapshotterToFile
 from veles.tests import timeout, multi_device
@@ -48,7 +50,9 @@ class TestSamplesMnist(StandardTest):
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": 0,
                          "snapshot_prefix": "samples_mnist_test"},
-            "loader": {"minibatch_size": 88, "normalization_type": "linear"},
+            "loader": {"minibatch_size": 88, "normalization_type": "linear",
+                       "data_path":
+                       os.path.join(root.common.dirs.datasets, "MNIST")},
             "learning_rate": 0.028557478339518444,
             "weights_decay": 0.00012315096341168246,
             "layers": [364, 10],
