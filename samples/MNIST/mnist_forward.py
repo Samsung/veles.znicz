@@ -32,41 +32,18 @@ if __name__ == "__main__":
     launcher.testing = True
     launcher.workflow.plotters_are_enabled = False
 
-    # Delete and unlink avatar
-    launcher.workflow.loader.unlink_all()
-    launcher.workflow.del_ref(launcher.workflow.loader)
+    new_loader = launcher.workflow.change_unit(
+        loader.name,
+        FileListImageLoader(
+            launcher.workflow,
+            minibatch_size=10, scale=(28, 28), shuffle_limit=0,
+            background_color=(0,), color_space="GRAY",
+            normalization_type="linear",
+            base_directory=os.path.join(data_path, "mnist_test"),
+            path_to_test_text_file=[os.path.join(data_path,
+                                                 "mnist_test.txt")]))
 
-    # Delete and unlink loader
-    loader.unlink_all()
-    launcher.workflow.del_ref(loader)
-
-    # Create new loader
-    launcher.workflow.loader = FileListImageLoader(
-        launcher.workflow,
-        minibatch_size=10, scale=(28, 28), shuffle_limit=0,
-        background_color=(0,), color_space="GRAY",
-        normalization_type="linear",
-        base_directory=os.path.join(data_path, "mnist_test"),
-        path_to_test_text_file=[os.path.join(data_path, "mnist_test.txt")])
-    launcher.workflow.loader._normalizer = normalizer
-
-    # Link new loader
-    launcher.workflow.loader.link_from(launcher.workflow.repeater)
-    launcher.workflow.forwards[0].link_from(launcher.workflow.loader)
-    launcher.workflow.forwards[0].link_attrs(
-        launcher.workflow.loader, ("input", "minibatch_data"))
-
-    launcher.workflow.evaluator.link_attrs(
-        launcher.workflow.loader,
-        "class_keys",
-        ("batch_size", "minibatch_size"),
-        ("labels", "minibatch_labels"),
-        ("max_samples_per_epoch", "total_samples"),
-        "class_lengths", ("offset", "minibatch_offset"))
-    launcher.workflow.decision.link_attrs(
-        launcher.workflow.loader, "minibatch_class", "last_minibatch",
-        "minibatch_size", "class_lengths", "epoch_ended", "epoch_number")
-
+    new_loader._normalizer = normalizer
     launcher.workflow.evaluator.labels_mapping = labels_mapping
 
     launcher.boot()
