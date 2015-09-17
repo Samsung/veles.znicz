@@ -95,11 +95,11 @@ class MnistWorkflow(StandardWorkflow):
     def create_workflow(self):
         self.link_repeater(self.start_point)
 
-        # Use Avatar:
-        self.link_loader(self.start_point)
-        self.link_avatar()
-        # or just Loader:
-        # self.link_loader(self.repeater)
+        # Link Loader:
+        self.link_loader(self.repeater)
+        # Or use Avatar:
+        # self.link_loader(self.start_point)
+        # self.link_avatar()
 
         self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
