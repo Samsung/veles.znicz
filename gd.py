@@ -643,7 +643,7 @@ class GDStrictRELU(nn_units.GradientDescentWithActivation, GradientDescent):
         self.sources_["gradient_descent_strict_relu"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
-        return super(GDRELU, self).initialize(device=device, **kwargs)
+        return super(GDStrictRELU, self).initialize(device=device, **kwargs)
 
 
 class GDSigmoid(nn_units.GradientDescentWithActivation, GradientDescent):
