@@ -51,7 +51,7 @@ except ImportError:
 __versioninfo__ = 0, 8, 2
 __version__ = ".".join(map(str, __versioninfo__))
 __license__ = "Apache 2.0"
-__copyright__ = "© 2013-215 Samsung Electronics Co., Ltd."
+__copyright__ = "© 2013-2015 Samsung Electronics Co., Ltd."
 
 try:
     __git__ = "$Commit$"
