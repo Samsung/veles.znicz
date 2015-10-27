@@ -589,6 +589,7 @@ class BackwardTanhLog(ActivationBackward):
 class ForwardSinCos(ActivationForward):
     """Forward pass for y = sin(x) if idx(x) is odd else cos(x).
     """
+    __id__ = "8c1f85cf-57b8-43ec-a28c-aa423b98160a"
 
     kernel_name = "forward_sincos"
     MAPPING = {"activation_sincos"}

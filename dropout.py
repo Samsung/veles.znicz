@@ -84,6 +84,8 @@ class DropoutForward(Forward, Dropout):
     """
     Forward propagation of dropout layer.
     """
+    __id__ = "c4117362-3c89-41bf-ba7d-a6b1bb0d8331"
+
     MIN_RANDOM_STATE = 0
     MAX_RANDOM_STATE = 0x100000000
     MAPPING = {"dropout"}
