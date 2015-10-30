@@ -1123,7 +1123,7 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.loader.saver.MinibatchesSaver` unit.
         """
-        if self.loss_function == "softmax":
+        if self.loss_function == "softmax" or self.loss_function is None:
             self.data_saver = MinibatchesSaver(
                 self, **self.config.data_saver).link_from(*parents)
         else:
