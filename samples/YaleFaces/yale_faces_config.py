@@ -74,7 +74,7 @@ root.yalefaces.update({
                "background_color": (0,),
                "normalization_type": "mean_disp",
                "train_paths":
-                   [os.path.join(root.common.dirs.datasets, "CroppedYale")]},
+               [os.path.join(root.common.dirs.datasets, "CroppedYale")]},
     "layers": [{"name": "fc_tanh1",
                 "type": "all2all_tanh",
                 "->": {"output_sample_shape": 100},
