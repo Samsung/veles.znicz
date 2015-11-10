@@ -35,6 +35,7 @@ under the License.
 
 
 import os
+import sys
 import unittest
 
 from veles.config import root
@@ -115,7 +116,12 @@ class TestMnistAll2All(StandardTest):
 
         data_path = os.path.join(root.common.dirs.datasets, "mnist_test")
 
-        launcher = veles(path_to_model, **kwargs)  # pylint: disable=E1102
+        try:
+            launcher = veles(path_to_model, **kwargs)  # pylint: disable=E1102
+        except TypeError:
+            print("Failed to import veles package for %s"
+                  % str(sys.version_info))
+            return
 
         normalizer = launcher.workflow.loader.normalizer
         labels_mapping = launcher.workflow.loader.labels_mapping
