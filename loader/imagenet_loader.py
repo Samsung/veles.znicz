@@ -60,9 +60,9 @@ class ImagenetLoaderBase(loader.Loader):
         self.mean = Array()
         self.rdisp = Array()
         self._file_samples_ = ""
-        self.sx = kwargs["sx"]
-        self.sy = kwargs["sy"]
-        self.channels = kwargs["channels"]
+        self.sx = kwargs.get("sx", 256)
+        self.sy = kwargs.get("sy", 256)
+        self.channels = kwargs.get("channels", 3)
         self.original_labels_filename = kwargs.get("original_labels_filename")
         self.count_samples_filename = kwargs.get("count_samples_filename")
         self.matrixes_filename = kwargs.get("matrixes_filename")
@@ -72,7 +72,6 @@ class ImagenetLoaderBase(loader.Loader):
 
     def initialize(self, **kwargs):
         self._original_labels_ = []
-        self.normalizer.reset()
         super(ImagenetLoaderBase, self).initialize(**kwargs)
         self.minibatch_labels.reset(numpy.zeros(
             self.max_minibatch_size, dtype=numpy.int32))
@@ -99,15 +98,16 @@ class ImagenetLoaderBase(loader.Loader):
                 "specify path to file with samples. If you don't "
                 "have dat file with samples, generate it with "
                 "preparation_imagenet.py" % self.samples_filename)
-
         with open(self.original_labels_filename, "rb") as fin:
-            for lbl in pickle.load(fin):
-                self._original_labels_.append(lbl)
-                self.labels_mapping[int(lbl)] = int(lbl)
-        self.info("Labels (min max count): %d %d %d",
-                  numpy.min(self._original_labels_),
-                  numpy.max(self._original_labels_),
-                  len(self._original_labels_))
+            for lbls in pickle.load(fin):
+                txt_lbl, int_lbl = lbls
+                self._original_labels_.append(txt_lbl)
+                self.labels_mapping[txt_lbl] = int(int_lbl)
+
+        for _ in range(len(self.labels_mapping)):
+            self.reversed_labels_mapping.append(None)
+        for key, val in self.labels_mapping.items():
+            self.reversed_labels_mapping[val] = key
 
         with open(self.count_samples_filename, "r") as fin:
             for key, value in (json.load(fin)).items():

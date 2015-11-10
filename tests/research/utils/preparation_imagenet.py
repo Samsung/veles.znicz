@@ -58,6 +58,7 @@ from PIL import Image
 import os
 import scipy.misc
 import sys
+import time
 
 from veles.compat import from_none
 from veles.config import root
@@ -152,6 +153,7 @@ If you want tro check the result, run "test_load_data" command. You can
 prepare validation set with "save_validation_to_forward" command after
 training Neural Network. And use it in ImagenetForward workflow, for example.
     """
+
     def __init__(self, **kwargs):
         super(PreparationImagenet, self).__init__(**kwargs)
         self.rect = kwargs.get("rect", root.prep_imagenet.rect)
@@ -183,6 +185,9 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
             root.prep_imagenet.root_path, "classes_200_2014_DET.json")
         self.threshold_val = 1
         self.threshold_train = 8
+        self.path_to_categories = os.path.join(
+            root.prep_imagenet.root_path, "indices_to_categories.txt")
+        self.num_word = []
 
     def initialize(self):
         self.map_items = root.prep_imagenet.MAPPING[
@@ -586,14 +591,39 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
         original_labels_dir = root.prep_imagenet.file_original_labels
         count_samples_dir = root.prep_imagenet.file_count_samples
         self.info(
-            "Will remove old files:\n %s\n %s\n %s\n" %
+            "Will remove old files :\n %s\n %s\n %s\n in 15 seconds. "
+            "Make sure you want to continue" %
             (original_data_dir, original_labels_dir, count_samples_dir))
+
+        time.sleep(15)
+
         if os.path.exists(original_data_dir):
             os.remove(original_data_dir)
         if os.path.exists(original_labels_dir):
             os.remove(original_labels_dir)
         if os.path.exists(count_samples_dir):
             os.remove(count_samples_dir)
+
+        diff_nums = []
+        diff_words = []
+        with open(self.path_to_categories, "r") as word_lab:
+            for line in word_lab:
+                num = line[:line.find("\t")]
+                word = line[line.find("\t") + 1:line.find("\n")]
+                if num not in diff_nums:
+                    diff_nums.append(num)
+                if word not in diff_words:
+                    diff_words.append(word)
+                if len(diff_nums) - len(diff_words) == 1:
+                    word += num
+                    diff_words.append(word)
+                assert len(diff_nums) == len(diff_words)
+                self.num_word.append((num, word))
+
+        fnme = root.prep_imagenet.file_text_to_int_labels
+        with open(fnme, 'r') as fp:
+            self.labels_int_txt = json.load(fp)
+
         self.file_samples = open(original_data_dir, "wb")
         if self.series == "DET":
             set_type = TRAIN
@@ -648,17 +678,22 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
 
         self.file_samples.close()
 
+    def get_word_label_from_num(self, label_num):
+        label_word = None
+        for num, word in self.num_word:
+            if num == label_num:
+                label_word = word
+        return label_word
+
     def get_original_labels_and_data(self, txt_labels, sample, set_type):
-        text_to_int_labels_dir = root.prep_imagenet.file_text_to_int_labels
-        with open(text_to_int_labels_dir, "r") as fin:
-            labels_int_txt = json.load(fin)
-        int_labels = [labels_int_txt[txt_label] for txt_label in txt_labels]
-        if self.series != "DET" and len(int_labels) > 1:
-            self.error("Too mach labels for image")
+        if self.series != "DET" and len(txt_labels) > 1:
+            self.error("Too much labels for image")
         else:
-            for int_label in int_labels:
+            for txt_label in txt_labels:
+                word_label = self.get_word_label_from_num(txt_label)
+                int_label = self.labels_int_txt[txt_label]
                 sample.tofile(self.file_samples)
-                self.original_labels.append(int_label)
+                self.original_labels.append((word_label, int_label - 1))
                 self.count_samples[set_type] += 1
 
     def transform_matrixes(self, s_sum, s_count):
@@ -730,34 +765,7 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
         path_to_ind_labels = os.path.join(
             root.prep_imagenet.root_path, "text_to_int_labels_%s_%s.json"
             % (root.prep_imagenet.root_name, root.prep_imagenet.series))
-        self.info("label %s" % label)
-        label_num = None
-        if self.series == "img":
-            with open(path_to_ind_labels, "r") as ind_lab:
-                labels_to_int = json.load(ind_lab)
-                for label_txt, label_int in labels_to_int.items():
-                    if label == label_int:
-                        label_num = label_txt
-        if self.series == "DET":
-            with open(self.path_to_labels_word, "r") as labels_word:
-                label_cat = json.load(labels_word)
-                for (ind, label_w) in label_cat:
-                    if label == ind:
-                        label_num = label_w
-        self.info("label num %s" % label_num)
-        path_to_categories = os.path.join(root.prep_imagenet.root_path,
-                                          "indices_to_categories.txt")
-        num_word = []
-        label_word = None
-        with open(path_to_categories, "r") as word_lab:
-            for line in word_lab:
-                num = line[:line.find("\t")]
-                word = line[line.find("\t") + 1:line.find("\n")]
-                num_word.append((num, word))
-        for num, word in num_word:
-            if num == label_num:
-                label_word = word
-        self.info("categories %s" % label_word)
+        self.info("label %s" % str(label))
         self.file_samples = open(path_data, "rb")
         if self.series == "DET":
             sample = numpy.zeros([216, 216, 4], dtype=numpy.uint8)
@@ -827,6 +835,7 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
         self.initialize()
         getattr(self, root.prep_imagenet.command_to_run)()
         self.info("End of job")
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
