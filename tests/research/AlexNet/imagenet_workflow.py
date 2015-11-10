@@ -40,6 +40,7 @@ under the License.
 import cv2
 import numpy
 import os
+from veles.loader.interactive import InteractiveLoader
 
 from veles.config import root
 import veles.prng as prng
@@ -117,6 +118,44 @@ class ImagenetLoader(ImagenetLoaderBase):
         self.minibatch_labels.mem[
             index] = self.labels_mapping[
             self._original_labels_[int(index_sample)]]
+
+
+class InteractiveImagenetLoader(InteractiveLoader, ImagenetLoader):
+    MAPPING = "interactive_imagenet"
+    DISABLE_INTERFACE_VERIFICATION = True
+
+    def derive_from(self, loader):
+        super(InteractiveImagenetLoader, self).derive_from(loader)
+
+        self.do_mirror = False
+        self.has_mean_file = True
+        if self.matrixes_filename and os.path.exists(self.matrixes_filename):
+            self.load_mean()
+
+    def load_data(self):
+        InteractiveLoader.load_data(self)
+
+    def create_minibatch_data(self):
+        InteractiveLoader.create_minibatch_data(self)
+
+    def fill_minibatch(self):
+        InteractiveLoader.fill_minibatch(self)
+
+    def _feed(self, data):
+        data = data[0]
+        data = cv2.resize(
+            data, (self.sx, self.sy), interpolation=cv2.INTER_LANCZOS4)
+        data = self.transform_sample(data)
+        self.minibatch_data.mem[0] = data
+
+    def fill_indices(self, start_offset, count):
+        for v in (self.minibatch_data, self.minibatch_labels,
+                  self.minibatch_indices):
+            v.map_invalidate()
+        self.shuffled_indices.map_read()
+        self.minibatch_indices.mem[:count] = self.shuffled_indices[
+            start_offset:start_offset + count]
+        return False
 
 
 class ImagenetWorkflow(StandardWorkflow):
