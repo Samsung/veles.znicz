@@ -51,7 +51,9 @@ root.yalefaces.update({
     "name_workflow": "FullyConnected_YaleFaces",
     "decision": {"fail_iterations": 50, "max_epochs": 1000},
     "loss_function": "softmax",
-    "loader_name": "minibatches_loader",
+    "loader_name": "full_batch_auto_label_file_image",
+    # TODO: change "loader_name" to "minibatches_loader" after
+    # TODO: fix MinibatchesLoader
     "snapshotter": {"prefix": "yalefaces", "interval": 1, "time_interval": 0},
     "publisher": {
         "backends": {
@@ -62,9 +64,17 @@ root.yalefaces.update({
         }
     },
     "loader": {"minibatch_size": 40, "force_numpy": False,
-               "file_name": os.path.join(root.common.dirs.datasets,
-                                         "yale_faces_minibatches.sav"),
-               "shuffle_limit": numpy.iinfo(numpy.uint32).max},
+               "validation_ratio": 0.15,
+               "file_subtypes": ["x-portable-graymap"],
+               "ignored_files": [".*Ambient.*"],
+               "shuffle_limit": numpy.iinfo(numpy.uint32).max,
+               "add_sobel": False,
+               "mirror": False,
+               "color_space": "GRAY",
+               "background_color": (0,),
+               "normalization_type": "mean_disp",
+               "train_paths":
+                   [os.path.join(root.common.dirs.datasets, "CroppedYale")]},
     "layers": [{"name": "fc_tanh1",
                 "type": "all2all_tanh",
                 "->": {"output_sample_shape": 100},
