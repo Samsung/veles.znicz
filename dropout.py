@@ -48,6 +48,7 @@ from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
 from veles.distributable import IDistributable, TriviallyDistributable
 from veles.memory import eq_addr, ravel, Array
 import veles.prng as random_generator
+from veles.units import IUnit, Unit
 from veles.znicz.nn_units import Forward, GradientDescentBase
 
 
@@ -84,6 +85,8 @@ class DropoutForward(Forward, Dropout):
     """
     Forward propagation of dropout layer.
     """
+    __id__ = "c4117362-3c89-41bf-ba7d-a6b1bb0d8331"
+
     MIN_RANDOM_STATE = 0
     MAX_RANDOM_STATE = 0x100000000
     MAPPING = {"dropout"}
@@ -240,3 +243,23 @@ class DropoutBackward(GradientDescentBase, Dropout):
 
     def cuda_run(self):
         self._gpu_run()
+
+
+@implementer(IUnit)
+class DropoutFixer(Unit):
+    # TODO: This is temporary fix. Need to remove it after fixing Dropout
+    # TODO: for real
+    def __init__(self, workflow, **kwargs):
+        super(DropoutFixer, self).__init__(workflow, **kwargs)
+        self.drops_ = None
+
+    def initialize(self, **kwargs):
+        self.drops_ = []
+        for u in self.workflow:
+            if isinstance(u, DropoutForward):
+                self.drops_.append(u)
+
+    def run(self):
+        mode = (not self.workflow.loader.minibatch_class == 2)
+        for u in self.drops_:
+            u.forward_mode = mode
