@@ -180,6 +180,8 @@ class StandardWorkflow(StandardWorkflowBase):
         # Add forwards units
         self.link_forwards(("input", "minibatch_data"), self.loader)
 
+        self.fix_dropout()
+
         # Add evaluator unit
         self.link_evaluator(self.forwards[-1])
 
@@ -260,6 +262,7 @@ class StandardWorkflow(StandardWorkflowBase):
         wf.link_forwards(("input", "minibatch_data"), wf.loader)
         if cyclic:
             wf.forwards[0].gate_block = wf.loader.complete
+        wf.fix_dropout()
         result_unit_config = self.config2kwargs(result_unit_config)
         if result_unit_factory is not None:
             wf.result_unit = result_unit_factory(wf, **result_unit_config) \
@@ -278,6 +281,7 @@ class StandardWorkflow(StandardWorkflowBase):
             wf.link_end_point(last_unit)
         self.debug("Importing forwards...")
         for fwd_exp, fwd_imp in zip(self.forwards, wf.forwards):
+            fwd_imp.forward_mode = True
             fwd_imp.apply_data_from_master(
                 fwd_exp.generate_data_for_slave(None))
         return wf

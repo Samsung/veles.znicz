@@ -164,6 +164,7 @@ class ImagenetWorkflow(StandardWorkflow):
         self.link_repeater(self.start_point)
         self.link_loader(self.repeater)
         self.link_forwards(("input", "minibatch_data"), self.loader)
+        self.fix_dropout()
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
         self.link_snapshotter(self.decision)
