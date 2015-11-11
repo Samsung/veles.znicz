@@ -46,7 +46,7 @@ class LabelsPrinter(Unit):
     def __init__(self, workflow, **kwargs):
         super(LabelsPrinter, self).__init__(workflow, **kwargs)
         self.top_number = kwargs.get("top_number", 5)
-        self.demand("input", "labels_mapping")
+        self.demand("input")
 
     def initialize(self, **kwargs):
         pass
@@ -54,7 +54,10 @@ class LabelsPrinter(Unit):
     def run(self):
         self.input.map_read()
         mem = self.input.mem[0]
-        labels = [(v, i) for i, v in enumerate(mem)]
+        labels = [
+            (v, self.reversed_labels_mapping[i] if
+             hasattr(self, "reversed_labels_mapping") else i)
+            for i, v in enumerate(mem)]
         labels.sort(reverse=True)
         table = PrettyTable("label", "value")
         table.float_format = ".5"
