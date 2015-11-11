@@ -109,10 +109,7 @@ class ImagenetLoader(ImagenetLoaderBase):
     def fill_data(self, index, index_sample, sample):
         self._file_samples_.readinto(sample)
         rand = prng.get()
-        if self.minibatch_class == 2:
-            self.do_mirror = self.mirror and bool(rand.randint((2)))
-        else:
-            self.do_mirror = self.mirror
+        self.do_mirror = self.mirror and bool(rand.randint((2)))
         image = self.transform_sample(sample)
         self.minibatch_data.mem[index] = image
         self.minibatch_labels.mem[
