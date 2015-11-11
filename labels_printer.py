@@ -56,7 +56,8 @@ class LabelsPrinter(Unit):
         mem = self.input.mem[0]
         labels = [
             (v, self.reversed_labels_mapping[i] if
-             hasattr(self, "reversed_labels_mapping") else i)
+             (hasattr(self, "reversed_labels_mapping") and
+              len(self.reversed_labels_mapping) > 0) else i)
             for i, v in enumerate(mem)]
         labels.sort(reverse=True)
         table = PrettyTable("label", "value")
