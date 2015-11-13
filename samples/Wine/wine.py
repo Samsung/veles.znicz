@@ -90,9 +90,13 @@ class WineWorkflow(nn_units.NNWorkflow):
         del self.forwards[:]
         for i, layer in enumerate(layers):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_sample_shape=(layer,))
+                aa = all2all.All2AllTanh(
+                    self, output_sample_shape=(layer,),
+                    weights_stddev=0.05, bias_stddev=0.05)
             else:
-                aa = all2all.All2AllSoftmax(self, output_sample_shape=(layer,))
+                aa = all2all.All2AllSoftmax(
+                    self, output_sample_shape=(layer,),
+                    weights_stddev=0.05, bias_stddev=0.05)
             self.forwards.append(aa)
             if i:
                 self.forwards[-1].link_from(self.forwards[-2])

@@ -122,7 +122,7 @@ class TestYaleFaces(StandardTest):
     def test_yale_faces_gpu(self):
         self.info("Will test fully connectected yale_faces workflow")
 
-        errors = (239, 167, 222)
+        errors = (96, 57, 111)
         self.info("Will run workflow with double")
         root.common.engine.precision_type = "double"
 

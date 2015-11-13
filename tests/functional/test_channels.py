@@ -132,7 +132,7 @@ class TestChannels(StandardTest):
         file_name = workflow.snapshotter.destination
 
         err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, 14)
+        self.assertEqual(err, 6)
         self.assertEqual(1, workflow.loader.epoch_number)
 
         # Garbage collection
@@ -161,7 +161,7 @@ class TestChannels(StandardTest):
         self.assertIsNone(workflow_from_snapshot.thread_pool.failure)
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
-        self.assertEqual(err, 5)
+        self.assertEqual(err, 4)
         self.assertEqual(3, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 

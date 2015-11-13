@@ -139,7 +139,7 @@ class TestMnistCaffe(StandardTest):
         file_name = workflow.snapshotter.destination
 
         err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, 143)
+        self.assertEqual(err, 135)
         self.assertEqual(3, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
@@ -157,7 +157,7 @@ class TestMnistCaffe(StandardTest):
         self.assertIsNone(workflow_from_snapshot.thread_pool.failure)
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
-        self.assertEqual(err, 112)
+        self.assertEqual(err, 94)
         self.assertEqual(5, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 

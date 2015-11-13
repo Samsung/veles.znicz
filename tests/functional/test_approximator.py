@@ -68,7 +68,7 @@ class TestApproximator(StandardTest):
             "weights_decay": 0.00005,
             "layers": [810, 9]})
 
-    mse = (42.57185661, 40.7357486)
+    mse = (30.1587805, 23.7072162)
 
     @timeout(240)
     @multi_device()
