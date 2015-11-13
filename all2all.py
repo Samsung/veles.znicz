@@ -89,6 +89,8 @@ class All2All(FullyConnectedOutput, NNLayerBase):
 
     MAPPING = {"all2all"}
 
+    C = 10
+
     def __init__(self, workflow, **kwargs):
         super(All2All, self).__init__(workflow, **kwargs)
         self.activation_mode = "ACTIVATION_LINEAR"
@@ -107,8 +109,9 @@ class All2All(FullyConnectedOutput, NNLayerBase):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        vle = (1.0 / self.input.max_supposed /
-               numpy.sqrt(self.input.sample_size))
+        vle = numpy.sqrt(
+            self.C / (self.input.sample_size +
+                      numpy.prod(self.output_sample_shape)))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle
@@ -150,7 +153,7 @@ class All2All(FullyConnectedOutput, NNLayerBase):
         super(All2All, self).initialize(device=device, **kwargs)
 
         if self.weights_stddev is None:
-            self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
+            self.weights_stddev = min(self.get_weights_magnitude(), 0.5)
         if self.bias_stddev is None:
             self.bias_stddev = self.weights_stddev
 
@@ -344,11 +347,13 @@ class All2AllSigmoid(All2All):
 
     MAPPING = {"all2all_sigmoid"}
 
+    C = 1
+
     def initialize(self, device, **kwargs):
         self.activation_mode = "ACTIVATION_SIGMOID"
         retval = super(All2AllSigmoid, self).initialize(
             device=device, **kwargs)
-        self.output.supposed_max_value = 10
+        self.output.supposed_max_value = 1
         return retval
 
     def numpy_run(self):

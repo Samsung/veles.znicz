@@ -55,35 +55,34 @@ class TestLines(StandardTest):
         valid = os.path.join(root.common.dirs.datasets,
                              "Lines/lines_min/test")
 
-        root.lines.mcdnnic_parameters = {
-            "<-": {"learning_rate": 0.03}}
+        root.lines.mcdnnic_parameters = {"<-": {"learning_rate": 0.01}}
 
         root.lines.update({
             "loader_name": "full_batch_auto_label_file_image",
             "loss_function": "softmax",
             "downloader": {
                 "url":
-                "https://s3-eu-west-1.amazonaws.com/veles.forge/"
-                "Lines/lines_min.tar",
+                "https://s3-eu-west-1.amazonaws.com/veles.forge/Lines/"
+                "lines_min.tar",
                 "directory": root.common.dirs.datasets,
                 "files": ["lines_min"]},
             "mcdnnic_topology": "12x256x256-32C4-MP2-64C4-MP3-32N-4N",
             "decision": {"fail_iterations": 100,
                          "max_epochs": 3},
-            "snapshotter": {"prefix": "lines",
-                            "interval": 3, "time_interval": 0},
+            "snapshotter": {"prefix": "lines", "interval": 1,
+                            "time_interval": 0},
             "image_saver": {"out_dirs":
                             [os.path.join(root.common.dirs.cache, "tmp/test"),
                              os.path.join(root.common.dirs.cache,
                                           "tmp/validation"),
                              os.path.join(root.common.dirs.cache,
                                           "tmp/train")]},
-            "loader": {"minibatch_size": 12, "force_numpy": True,
+            "loader": {"minibatch_size": 12, "force_numpy": False,
                        "color_space": "RGB", "file_subtypes": ["jpeg"],
                        "normalization_type": "mean_disp",
                        "train_paths": [train],
                        "validation_paths": [valid]},
-            "weights_plotter": {"limit": 32}})
+            "weights_plotter": {"limit": 32, "split_channels": False}})
 
     def init_wf(self, workflow, snapshot):
         self.assertEqual(workflow.evaluator.labels,
@@ -120,7 +119,7 @@ class TestLines(StandardTest):
         # Test workflow
         self.init_wf(workflow, False)
         workflow.run()
-        self.check_write_error_rate(workflow, 47)
+        self.check_write_error_rate(workflow, 25)
 
         file_name = workflow.snapshotter.destination
         del workflow
@@ -140,7 +139,7 @@ class TestLines(StandardTest):
 
         self.init_wf(workflow_from_snapshot, True)
         workflow_from_snapshot.run()
-        self.check_write_error_rate(workflow_from_snapshot, 41)
+        self.check_write_error_rate(workflow_from_snapshot, 19)
 
         self.info("All Ok")
         if not PY3 and isinstance(self.device, CUDADevice):

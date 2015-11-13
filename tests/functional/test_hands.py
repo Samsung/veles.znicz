@@ -99,7 +99,7 @@ class TestHands(StandardTest):
         file_name = workflow.snapshotter.destination
 
         err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, 577)
+        self.assertEqual(err, 570)
         self.assertEqual(2, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
@@ -117,7 +117,7 @@ class TestHands(StandardTest):
         self.assertIsNone(workflow_from_snapshot.thread_pool.failure)
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
-        self.assertEqual(err, 593)
+        self.assertEqual(err, 506)
         self.assertEqual(9, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 

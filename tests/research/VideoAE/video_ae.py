@@ -89,7 +89,10 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
 
         # Add fwds units
         for i in range(len(layers)):
-            aa = all2all.All2AllTanh(self, output_sample_shape=layers[i])
+            aa = all2all.All2AllTanh(
+                self, output_sample_shape=layers[i],
+                weights_stddev=0.008333333333 if i == 0 else 0.05,
+                bias_stddev=0.008333333333 if i == 0 else 0.05)
             self.forwards.append(aa)
             if i:
                 self.forwards[i].link_from(self.forwards[i - 1])

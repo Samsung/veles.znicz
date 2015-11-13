@@ -80,9 +80,9 @@ class TestMnist7(StandardTest):
         file_name = workflow.snapshotter.destination
 
         err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, 8990)
+        self.assertEqual(err, 4396)
         avg_mse = workflow.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.821236, places=5)
+        self.assertAlmostEqual(avg_mse, 0.604954983, places=5)
         self.assertEqual(2, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
@@ -103,9 +103,9 @@ class TestMnist7(StandardTest):
         workflow_from_snapshot.run()
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
-        self.assertEqual(err, 8804)
+        self.assertEqual(err, 3203)
         avg_mse = workflow_from_snapshot.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.759152, places=4)
+        self.assertAlmostEqual(avg_mse, 0.518032589, places=4)
         self.assertEqual(5, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 

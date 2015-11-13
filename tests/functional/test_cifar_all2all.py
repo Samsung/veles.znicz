@@ -113,7 +113,7 @@ class TestCifarAll2All(StandardTest):
         file_name = workflow.snapshotter.destination
 
         err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, 7373)
+        self.assertEqual(err, 6841)
         self.assertEqual(2, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
@@ -133,7 +133,7 @@ class TestCifarAll2All(StandardTest):
         workflow_from_snapshot.run()
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
-        self.assertEqual(err, 7046)
+        self.assertEqual(err, 6291)
         self.assertEqual(5, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 

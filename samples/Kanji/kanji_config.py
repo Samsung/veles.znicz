@@ -35,7 +35,6 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 import os
 
 from veles.config import root
@@ -44,13 +43,12 @@ from veles.config import root
 train_path = os.path.join(root.common.dirs.datasets, "kanji/train")
 target_path = os.path.join(root.common.dirs.datasets, "kanji/target")
 
-
 root.kanji.update({
     "decision": {"fail_iterations": 1000,
                  "max_epochs": 10000},
     "downloader": {
         "url":
-        "https://s3-eu-west-1.amazonaws.com/veles.forge/Kanji/kanji.tar",
+            "https://s3-eu-west-1.amazonaws.com/veles.forge/Kanji/kanji.tar",
         "directory": root.common.dirs.datasets,
         "files": ["kanji"]},
     "loss_function": "mse",
@@ -76,13 +74,25 @@ root.kanji.update({
     "weights_plotter": {"limit": 16},
     "layers": [{"name": "fc_tanh1",
                 "type": "all2all_tanh",
-                "->": {"output_sample_shape": 250},
+                "->": {"output_sample_shape": 250,
+                       "weights_filling": "uniform",
+                       "weights_stddev": 0.03125,
+                       "bias_filling": "uniform",
+                       "bias_stddev": 0.03125},
                 "<-": {"learning_rate": 0.0001, "weights_decay": 0.00005}},
                {"name": "fc_tanh2",
                 "type": "all2all_tanh",
-                "->": {"output_sample_shape": 250},
+                "->": {"output_sample_shape": 250,
+                       "weights_filling": "uniform",
+                       "weights_stddev": 0.036858530918682665,
+                       "bias_filling": "uniform",
+                       "bias_stddev": 0.036858530918682665},
                 "<-": {"learning_rate": 0.0001, "weights_decay": 0.00005}},
                {"name": "fc_tanh3",
                 "type": "all2all_tanh",
-                "->": {"output_sample_shape": (24, 24)},
+                "->": {"output_sample_shape": (24, 24),
+                       "weights_filling": "uniform",
+                       "weights_stddev": 0.036858530918682665,
+                       "bias_filling": "uniform",
+                       "bias_stddev": 0.036858530918682665},
                 "<-": {"learning_rate": 0.0001, "weights_decay": 0.00005}}]})
