@@ -565,10 +565,12 @@ class DecisionGD(DecisionBase):
 
     def fill_snapshot_suffixes(self, ss):
         if self.minibatch_n_err is not None:
-            ss.append(
-                "%s_%s_%s_%s" %
-                (CLASS_NAME[VALID], pt_str(self.epoch_n_err_pt[VALID], False),
-                 CLASS_NAME[TRAIN], pt_str(self.epoch_n_err_pt[TRAIN], False)))
+            for set_samples in(TEST, VALID, TRAIN):
+                if self.epoch_n_err_pt[set_samples] is not None:
+                    ss.append(
+                        "%s_%s" % (
+                            CLASS_NAME[set_samples],
+                            pt_str(self.epoch_n_err_pt[set_samples], False)))
 
     def reset_statistics(self, minibatch_class):
         # Reset statistics per class
