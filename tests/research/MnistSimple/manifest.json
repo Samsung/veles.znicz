@@ -4,13 +4,13 @@
     "long_description": "Model created for digits recognition. Database - MNIST. Model - fully-connected Neural Network with SoftMax loss function.",
     "name": "MnistSimple",
     "requires": [
-        "veles >= 0.8.2",
-        "veles.znicz >= 0.7.1"
+        "veles >= 0.9.4",
+        "veles.znicz >= 0.9.4"
     ],
     "short_description": "Model created for digits recognition with MNIST database by simple fully-connected neural network.",
     "workflow": "mnist.py",
     "tags": ["mnist", "fully-connected", "softmax"],
     "image": "mnist.png",
     "files": ["loader_mnist.py", "__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/MnistSimple/mnist_1.55pt.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/MnistSimple/mnist_validation_1.48_train_0.00.4.pickle.gz"]
 }

@@ -4,13 +4,13 @@
     "long_description": "Model created for digits recognition. Database - MNIST. Model - autoencoder.",
     "name": "MnistAE",
     "requires": [
-        "veles >= 0.8.2",
-        "veles.znicz >= 0.7.1"
+        "veles >= 0.9.4",
+        "veles.znicz >= 0.9.4"
     ],
     "short_description": "Model created for digits recognition with MNIST Database by autoencoder.",
     "workflow": "mnist_ae.py",
     "image": "mnist.png",
     "tags": ["mnist", "autoencoder"],
     "files": ["loader_mnist.py", "__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/MnistAE/mnist_ae_0.547708.4.pickle"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/MnistAE/mnist_ae_0.5478_0.5482.4.pickle"]
 }

@@ -4,13 +4,13 @@
     "long_description": "Self-constructing Workflow (Fully-connected/Convolutional) for recognition of objects on base of STL-10 data.",
     "name": "Stl10",
     "requires": [
-        "veles >= 0.8.9",
-        "veles.znicz >= 0.7.2"
+        "veles >= 0.9.4",
+        "veles.znicz >= 0.9.4"
     ],
     "image": "stl10.png",
     "tags": ["stl", "softmax", "fully-connected", "convolutional", "image"],
     "short_description": "Model for object recognition with STL10 database.",
     "workflow": "stl10.py",
     "files": ["loader_stl.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Stl10/stl10_37.59pt.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Stl10/stl10_validation_35.10_train_0.12.4.pickle.gz"]
 }

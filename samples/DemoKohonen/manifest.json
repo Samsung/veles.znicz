@@ -4,8 +4,8 @@
     "long_description": "Kohonen map demo on a simple two dimension dataset. Package contains dataset.",
     "name": "DemoKohonen",
     "requires": [
-        "veles >= 0.8.2",
-        "veles.znicz >= 0.7.1"
+        "veles >= 0.9.4",
+        "veles.znicz >= 0.9.4"
     ],
     "short_description": "Kohonen map demo on a simple two dimension dataset.",
     "workflow": "kohonen.py",

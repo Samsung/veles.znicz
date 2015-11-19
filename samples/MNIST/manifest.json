@@ -4,8 +4,8 @@
     "long_description": "Model created for digits recognition. Database - MNIST. Self-constructing Model. It means that Model can change for any Model (Convolutional, Fully connected, different parameters) in configuration file. Package contains three configuration files: mnist_config for fully-connected Neural Network with parameters, which can be modified by Genetic algorithm, mnist_conv_config for convolutional Neural Network with parameters, which were modified by Genetic Algorithm, mnist_caffe_config for convolutional Neural Network with parameters just like in Caffe.",
     "name": "MNIST",
     "requires": [
-        "veles >= 0.8.2",
-        "veles.znicz >= 0.7.1"
+        "veles >= 0.9.4",
+        "veles.znicz >= 0.9.4"
     ],
     "short_description": "Model created for digits recognition with MNIST database.",
     "workflow": "mnist.py",
@@ -13,7 +13,7 @@
     "tags": ["mnist", "convolutional", "fully-connected", "softmax", "self-constructing", "caffe"],
     "files": ["mnist_config.py", "mnist_caffe_config.py", "loader_mnist.py", "__init__.py", "mnist_test.txt", "mnist_forward.py"], 
     "snapshots":
-    ["https://s3-eu-west-1.amazonaws.com/veles.forge/MNIST/mnist_validation_1.92_train_0.04.4.pickle.gz",
-        "https://s3-eu-west-1.amazonaws.com/veles.forge/MNIST/mnist_caffe_validation_0.86_train_0.23.4.pickle",
-        "https://s3-eu-west-1.amazonaws.com/veles.forge/MNIST/mnist_conv_validation_0.73_train_0.11.4.pickle"]
+    ["https://s3-eu-west-1.amazonaws.com/veles.forge/MNIST/mnist_caffe_validation_0.80_train_0.03.4.pickle",
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/MNIST/mnist_conv_validation_0.75_train_0.04.4.pickle",
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/MNIST/mnist_validation_1.92_train_0.04.4.pickle.gz"]
 }

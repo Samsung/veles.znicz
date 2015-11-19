@@ -4,13 +4,13 @@
     "long_description": "Model created for object recognition. Dataset - CIFAR10. Self-constructing Model. It means that Model can change for any Model (Convolutional, Fully connected, different parameters) in configuration file. Package contains two configuration files: cifar_caffe_config for Convolutional Neural Network with parameters just like in Caffe and cifar_config for Fully-connected Neural Network.",
     "name": "CIFAR10",
     "requires": [
-        "veles >= 0.8.2",
-        "veles.znicz >= 0.7.1"
+        "veles >= 0.9.4",
+        "veles.znicz >= 0.9.4"
     ],
     "short_description": "Model created for object recognition with CIFAR10 dataset.",
     "workflow": "cifar.py",
     "image": "cifar10.png",
     "tags": ["cifar", "self-constructing", "softmax", "convolutional", "fully-connected", "caffe"],
     "files": ["cifar_config.py", "__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/CIFAR10/cifar_44.05pt.4.pickle.gz", "https://s3-eu-west-1.amazonaws.com/veles.forge/CIFAR10/cifar_caffe_17.19pt.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/CIFAR10/cifar_validation_45.80_train_18.86.4.pickle.gz", "https://s3-eu-west-1.amazonaws.com/veles.forge/CIFAR10/cifar_caffe_validation_17.21_train_8.31.4.pickle.gz"]
 }

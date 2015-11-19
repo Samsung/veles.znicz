@@ -4,13 +4,13 @@
     "long_description": "Model created for human hands recognition. Dataset - Samsung Database with images of human hands. Model - fully-connected Neural Network with SoftMax loss function.",
     "name": "Hands",
     "requires": [
-        "veles >= 0.8.2",
-        "veles.znicz >= 0.7.1"
+        "veles >= 0.9.4",
+        "veles.znicz >= 0.9.4"
     ],
     "short_description": "Model created for human hands recognition.",
     "workflow": "hands.py",
     "image": "hands.jpeg",
     "tags": ["hands", "fully-connected", "softmax"],
     "files": ["__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Hands/hands_8.67pt.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Hands/hands_validation_8.18_train_0.00.4.pickle.gz"]
 }

@@ -4,13 +4,13 @@
     "long_description": "Model created for functions approximation. Dataset - matlab files with x and y points. Model - fully-connected Neural Network with MSE loss function.",
     "name": "Approximator",
     "requires": [
-        "veles >= 0.8.2",
-        "veles.znicz >= 0.7.1"
+        "veles >= 0.9.4",
+        "veles.znicz >= 0.9.4"
     ],
     "short_description": "Model created for functions approximation.",
     "workflow": "approximator.py",
     "image": "approximator.png",
     "tags": ["approximator", "mse", "fully-connected"],
     "files": ["__init__.py"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Approximator/approximator_0.051057.4.pickle.gz"]
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/Approximator/approximator_0.0000_12.8127.4.pickle.gz"]
 }
