@@ -154,8 +154,8 @@ class ImagenetLoaderBase(loader.Loader):
 
     def fill_data(self, index, index_sample, sample):
         self._file_samples_.readinto(self.minibatch_data.mem[index])
-        self.minibatch_labels.mem[index] = self._original_labels_[
-            int(index_sample)]
+        self.minibatch_labels.mem[index] = self.labels_mapping[
+            self._original_labels_[int(index_sample)]]
 
     def fill_indices(self, start_offset, count):
         self.minibatch_indices.map_invalidate()

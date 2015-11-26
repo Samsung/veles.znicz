@@ -11,6 +11,6 @@
     "workflow": "imagenet_workflow.py",
     "image": "imagenet.jpg",
     "tags": ["imagenet", "convolutional", "fully-connected", "softmax", "self-constructing", "alexnet", "caffe", "vgg"],
-    "files": ["preparation_imagenet.py", "imagenet_workflow_lmdb_config.py", "__init__.py",  "loader_lmdb.py", "imagenet_workflow_vgga_config.py"],
+    "files": ["preparation_imagenet.py", "imagenet_workflow_lmdb_config.py", "__init__.py",  "loader_lmdb.py", "imagenet_workflow_vgga_config.py", "ImagenetForward.ipynb"],
     "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/AlexNet/imagenet_52.64pt.4.pickle.gz"]
 }

@@ -181,8 +181,6 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
         self.colorspace = kwargs.get("colorspace", "RGB")
         self._include_derivative = kwargs.get("derivative", True)
         self._sobel_kernel_size = kwargs.get("sobel_kernel_size", 5)
-        self.path_to_labels_word = os.path.join(
-            root.prep_imagenet.root_path, "classes_200_2014_DET.json")
         self.threshold_val = 1
         self.threshold_train = 8
         self.path_to_categories = os.path.join(
@@ -248,9 +246,10 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
             head, image_tail = image_path.split(dir_images)
             xml_path = head + dir_bboxes + image_tail.replace(".JPEG", ".xml")
             if not os.access(xml_path, os.R_OK):
-                self.warning(
-                    "File %s does not exist or read permission is denied"
-                    % xml_path)
+                if xml_path.find("test") < 0:
+                    self.warning(
+                        "File %s does not exist or read permission is denied"
+                        % xml_path)
                 return
             with open(xml_path, "r") as fr:
                 tree = xmltodict.parse(fr.read())
@@ -410,6 +409,7 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
                 x = 0.5 * w + bbx_xmin
                 y = 0.5 * h + bbx_ymin
                 det_label = self.get_det_label_from_label(bbx_lbl)
+                self.get_labels_int_txt((det_label,))
                 dict_bbx = {"label": det_label,
                             "width": w,
                             "height": h,
@@ -538,14 +538,12 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
             y = bbx["y"]
             h_size = bbx["height"]
             w_size = bbx["width"]
-            label = bbx["label"]
+            txt_label = bbx["label"]
             if (h_size >= threshold and w_size >= threshold and
                     h_size * w_size >= threshold * threshold):
-                with open(self.path_to_labels_word, 'r') as fp:
-                    int_word_labels = json.load(fp)
-                for (int_label, word_label) in int_word_labels:
-                    if label == word_label:
-                        self.original_labels.append(int_label)
+                word_label = self.get_word_label_from_num(txt_label)
+                int_label = self.labels_int_txt[txt_label]
+                self.original_labels.append((word_label, int_label - 1))
                 sample = self.prep_and_save_sample(
                     image, x, y, h_size, w_size, mean)
                 sample.tofile(self.file_samples)
@@ -762,9 +760,6 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
         i = int(rand.rand() * len(fout_file))
         self.info("image number i %s" % i)
         label = fout_file[i]
-        path_to_ind_labels = os.path.join(
-            root.prep_imagenet.root_path, "text_to_int_labels_%s_%s.json"
-            % (root.prep_imagenet.root_name, root.prep_imagenet.series))
         self.info("label %s" % str(label))
         self.file_samples = open(path_data, "rb")
         if self.series == "DET":
@@ -821,15 +816,13 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
             self.init_files_img()
         else:
             self.error("Unknow series. Please choose DET or img")
-        if self.series == "img":
-            if len(self.labels_int_txt) != root.prep_imagenet.classes_count:
-                self.error(
-                    "Wrong number of classes - %s"
-                    % len(self.labels_int_txt))
-            else:
-                fnme = root.prep_imagenet.file_text_to_int_labels
-                with open(fnme, 'w') as fp:
-                    json.dump(self.labels_int_txt, fp)
+        if len(self.labels_int_txt) != root.prep_imagenet.classes_count:
+            self.warning(
+                "Wrong number of classes - %s" % len(self.labels_int_txt))
+        else:
+            fnme = root.prep_imagenet.file_text_to_int_labels
+            with open(fnme, 'w') as fp:
+                json.dump(self.labels_int_txt, fp)
 
     def run(self):
         self.initialize()
