@@ -115,6 +115,11 @@ class ImagenetAELoader(ImagenetLoaderBase):
                 " it with preparation_imagenet.py" % self.matrixes_filename)
         self.load_mean()
 
+    def create_minibatch_data(self):
+        sh = [self.max_minibatch_size]
+        sh.extend((self.final_sy, self.final_sx, self.channels))
+        self.minibatch_data.mem = numpy.zeros(sh, dtype=numpy.uint8)
+
 
 class ImagenetAEWorkflow(StandardWorkflow):
     """
@@ -189,6 +194,7 @@ class ImagenetAEWorkflow(StandardWorkflow):
         self.decision_name = "decision_mse"
         self.apply_config(decision_config=self.decision_mse_config)
         self.link_decision(self.evaluator)
+        self.decision.autoencoder = True
         self.link_snapshotter(self.decision)
         self.link_rollback(self.snapshotter)
 
