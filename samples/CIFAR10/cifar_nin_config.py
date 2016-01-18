@@ -13,8 +13,8 @@ Created on Mart 21, 2014
 Configuration file for cifar (Self-constructing Model).
 Model - Network in network. (http://arxiv.org/abs/1312.4400)
 
-Converged to 10.03% errors with some seed,
-and below 11% in most cases.
+Converged to 10.03% errors  without ortho-regularization ("factor_ortho": 0)
+and 9.09% errors with ortho-regularization. ("factor_ortho": 0.001)
 
 ███████████████████████████████████████████████████████████████████████████████
 
@@ -111,7 +111,7 @@ root.cifar.update({
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": weights_decay,
                        "weights_decay_bias": 0,
-                       # "factor_ortho": 0.001,
+                       "factor_ortho": 0.001,
                        "gradient_moment": momentum,
                        "gradient_moment_bias": momentum},
                 },
