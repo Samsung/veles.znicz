@@ -46,6 +46,7 @@ from veles.plumbing import FireStarter
 from veles.znicz import activation  # pylint: disable=W0611
 from veles.znicz.all2all import All2AllSoftmax
 from veles.znicz import dropout  # pylint: disable=W0611
+from veles.znicz.dropout import DropoutForward
 from veles.znicz import nn_units
 from veles.znicz import normalization  # pylint: disable=W0611
 from veles.znicz import weights_zerofilling
@@ -123,15 +124,6 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             raise TypeError("loader_factory must be callable")
         self.loader_name = None
         self._loader_factory = value
-
-    def fix_dropout(self):
-        # TODO: This is temporary fix. Need to remove it after fixing Dropout
-        # TODO: for real
-        followers = list(self.loader.links_to.keys())
-        self.loader.unlink_after()
-        self.dropout_fixer = dropout.DropoutFixer(self).link_from(self.loader)
-        for u in followers:
-            u().link_from(self.dropout_fixer)
 
     def reset_unit(fn):
         def wrapped(self, *args, **kwargs):
@@ -444,6 +436,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             prev_forward_unit = parents
 
         new_unit.link_from(*prev_forward_unit)
+        if isinstance(new_unit, DropoutForward):
+            new_unit.link_attrs(self.loader, "minibatch_class")
 
         self.forwards.append(new_unit)
 

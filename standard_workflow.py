@@ -180,8 +180,6 @@ class StandardWorkflow(StandardWorkflowBase):
         # Add forwards units
         self.link_forwards(("input", "minibatch_data"), self.loader)
 
-        self.fix_dropout()
-
         # Add evaluator unit
         self.link_evaluator(self.forwards[-1])
 
@@ -259,10 +257,11 @@ class StandardWorkflow(StandardWorkflowBase):
                     "Will set complete to epoch_ended")
                 wf.loader.complete = wf.loader.epoch_ended
             wf.end_point.link_from(wf.loader).gate_block = ~wf.loader.complete
+
         wf.link_forwards(("input", "minibatch_data"), wf.loader)
         if cyclic:
             wf.forwards[0].gate_block = wf.loader.complete
-        wf.fix_dropout()
+
         result_unit_config = self.config2kwargs(result_unit_config)
         if result_unit_factory is not None:
             wf.result_unit = result_unit_factory(wf, **result_unit_config) \
@@ -435,8 +434,11 @@ class StandardWorkflow(StandardWorkflowBase):
                         ("labels", "minibatch_labels"),
                         ("max_samples_per_epoch", "total_samples"),
                         "class_lengths", ("offset", "minibatch_offset"))
-        if self.testing:
-            self.evaluator.link_attrs(self.loader, "labels_mapping")
+        if hasattr(self.loader, "reversed_labels_mapping"):
+            self.evaluator.link_attrs(
+                self.loader, ("labels_mapping", "reversed_labels_mapping"))
+        if hasattr(self.loader, "class_keys"):
+            self.evaluator.link_attrs(self.loader, "class_keys")
         if self.evaluator_name == "evaluator_softmax":
             self.evaluator.link_attrs(self.forwards[-1], "max_idx")
         elif self.evaluator_name == "evaluator_mse":
