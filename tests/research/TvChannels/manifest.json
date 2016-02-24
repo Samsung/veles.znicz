@@ -11,6 +11,6 @@
     "workflow": "channels.py",
     "image": "channels.png",
     "tags": ["channels", "self-constructing", "softmax", "fully-connected", "automaticly", "generating_dataset"],
-    "files": ["__init__.py"],
+    "files": ["__init__.py", "channels_forward.py"],
     "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/TvChannels/channels_validation_0.74_train_0.13.4.pickle.gz"]
 }

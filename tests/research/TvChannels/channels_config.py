@@ -43,9 +43,10 @@ root.channels.update({
                  "max_epochs": numpy.iinfo(numpy.uint32).max},
     "downloader": {
         "url":
-        "https://s3-eu-west-1.amazonaws.com/veles.forge/TvChannels/train.tar",
+        "https://s3-eu-west-1.amazonaws.com/veles.forge/"
+        "TvChannels/channels_train.tar",
         "directory": root.common.dirs.datasets,
-        "files": ["train"]},
+        "files": ["channels_train"]},
     "snapshotter": {"prefix": "channels", "interval": 1, "time_interval": 0},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.dirs.cache, "tmp/test"),
@@ -57,7 +58,7 @@ root.channels.update({
                "shuffle_limit": numpy.iinfo(numpy.uint32).max,
                "normalization_type": "mean_disp",
                "add_sobel": True,
-               "file_subtypes": ["png"],
+               "file_subtypes": ["png", "jpeg"],
                "background_image":
                numpy.zeros([256, 256, 4], dtype=numpy.uint8),
                "mirror": False,
@@ -66,8 +67,9 @@ root.channels.update({
                "background_color": (0, 0, 0, 0),
                "scale_maintain_aspect_ratio": True,
                "train_paths":
-               [os.path.join(root.common.dirs.datasets, "train")]},
-    "loss_function": "softmax",
+               [os.path.join(root.common.dirs.datasets, "channels_train")]},
+    "decision_name": "decision_gd",
+    "evaluator_name": "evaluator_softmax_channels",
     "loader_name": "full_batch_auto_label_file_image",
     "layers": [{"name": "fc_tanh1",
                 "type": "all2all_tanh",
@@ -75,5 +77,5 @@ root.channels.update({
                 "->": {"output_sample_shape": 100}},
                {"name": "fc_softmax2",
                 "type": "softmax",
-                "->": {"output_sample_shape": 8},
+                "->": {"output_sample_shape": 9},
                 "<-": {"learning_rate": 0.01, "weights_decay": 0.00005}}]})
