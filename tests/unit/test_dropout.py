@@ -62,6 +62,8 @@ class TestDropout(AcceleratedTest):
         workflow = DummyWorkflow()
         fwd_dropout = DropoutForward(workflow, dropout_ratio=0.4)
         fwd_dropout.input = Array()
+
+        fwd_dropout.minibatch_class = 2
         sz = 100
         in_matrix = np.zeros(shape=(1, 1, sz, sz), dtype=np.float64)
 
