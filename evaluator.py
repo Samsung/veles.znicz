@@ -184,6 +184,7 @@ class EvaluatorSoftmax(EvaluatorBase):
         self.confusion_matrix = Array()
         self.n_err = Array()
         self.max_err_output_sum = Array()
+        self.class_keys = None
         self.demand("labels", "max_idx")
         if self.testing:
             self.demand("labels_mapping")

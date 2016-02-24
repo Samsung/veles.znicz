@@ -96,6 +96,7 @@ class DropoutForward(Forward, Dropout):
         self.mask = Array()  # dropout mask
         self.states = Array()
         self.rand = random_generator.get()
+        self.demand("minibatch_class")
 
     @Dropout.dropout_ratio.setter
     def dropout_ratio(self, value):
@@ -154,7 +155,7 @@ class DropoutForward(Forward, Dropout):
     def numpy_run(self):
         self.output.map_invalidate()
         self.input.map_read()
-        if not self.forward_mode:
+        if not self.forward_mode and self.minibatch_class == 2:
             self.mask.map_invalidate()
             self.calc_mask()
             numpy.multiply(self.input.mem.ravel(), self.mask.mem.ravel(),
@@ -164,7 +165,7 @@ class DropoutForward(Forward, Dropout):
 
     def _gpu_run(self):
         self.unmap_vectors(self.input, self.output)
-        if self.forward_mode:
+        if self.forward_mode or self.minibatch_class < 2:
             # Will copy input to output from outside (in cuda_run/ocl_run).
             return True
         self.unmap_vectors(self.states, self.mask)
