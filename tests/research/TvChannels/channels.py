@@ -36,10 +36,50 @@ under the License.
 
 ███████████████████████████████████████████████████████████████████████████████
 """
-
+from veles.loader import TEST
+from veles.znicz.evaluator import EvaluatorSoftmax
 
 from veles.config import root
 from veles.znicz.standard_workflow import StandardWorkflow
+
+
+class EvaluatorChannels(EvaluatorSoftmax):
+    MAPPING = "evaluator_softmax_channels"
+
+    def get_metric_values(self):
+        if self.testing:
+            output_labels = {}
+            for index, labels in enumerate(self.merged_output[:]):
+                max_value = 0
+                for label_index, value in enumerate(labels):
+                    if value >= max_value:
+                        max_value = value
+                        max_index = label_index
+                key = self.class_keys[TEST][index]
+                if key not in output_labels:
+                    output_labels[key] = [
+                        (self.labels_mapping[max_index], max_value)]
+                else:
+                    output_labels[key].append(
+                        (self.labels_mapping[max_index], max_value))
+            result = {}
+            for key, value in output_labels.items():
+                total_max_value = 0
+                index_bbox = - 1
+                got_smth = False
+                for label, max_val in value:
+                    index_bbox += 1
+                    if total_max_value < max_val and label != "None":
+                        total_max_value = max_val
+                        total_max_label = label
+                        total_max_bbox = index_bbox
+                        got_smth = True
+                if got_smth:
+                    result[key] = (total_max_label, total_max_bbox)
+                else:
+                    result[key] = ("no channel", None)
+            return {"Output": result}
+        return {}
 
 
 class ChannelsWorkflow(StandardWorkflow):
@@ -49,6 +89,23 @@ Dataset - Channels. Self-constructing Model. It means that Model can change for
 any Model (Convolutional, Fully connected, different parameters)
 in configuration file.
     """
+    def link_evaluator(self, *parents):
+        self.evaluator = EvaluatorChannels(self)
+        self.evaluator.link_from(*parents)\
+            .link_attrs(self.forwards[-1], "output") \
+            .link_attrs(self.loader,
+                        ("batch_size", "minibatch_size"),
+                        ("labels", "minibatch_labels"),
+                        ("max_samples_per_epoch", "total_samples"),
+                        "class_lengths", ("offset", "minibatch_offset"))
+        if hasattr(self.loader, "reversed_labels_mapping"):
+            self.evaluator.link_attrs(
+                self.loader, ("labels_mapping", "reversed_labels_mapping"))
+        if hasattr(self.loader, "class_keys"):
+            self.evaluator.link_attrs(self.loader, "class_keys")
+        self.evaluator.link_attrs(self.forwards[-1], "max_idx")
+        return self.evaluator
+
     def create_workflow(self):
         self.link_downloader(self.start_point)
         self.link_repeater(self.downloader)
@@ -59,8 +116,7 @@ in configuration file.
         end_units = [link(self.decision) for link in (
             self.link_snapshotter, self.link_error_plotter,
             self.link_conf_matrix_plotter)]
-        self.link_image_saver(*end_units)
-        last_gd = self.link_gds(self.image_saver)
+        last_gd = self.link_gds(*end_units)
         self.link_loop(last_gd)
         self.link_end_point(last_gd)
 
@@ -74,5 +130,6 @@ def run(load, main):
          downloader_config=root.channels.downloader,
          layers=root.channels.layers,
          loader_name=root.channels.loader_name,
-         loss_function=root.channels.loss_function)
+         evaluator_name=root.channels.evaluator_name,
+         decision_name=root.channels.decision_name)
     main()
