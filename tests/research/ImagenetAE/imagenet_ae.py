@@ -188,7 +188,6 @@ class ImagenetAEWorkflow(StandardWorkflow):
         ae_units, ae_layers, last_conv, _, prev = self._add_forwards(
             prev, self.layers, "set_pool")
         self._add_deconv_units(ae_units, ae_layers, prev)
-        self.fix_dropout()
         self.link_evaluator_mse(self.forwards[-1])
         self.loss_function = "mse"
         self.decision_name = "decision_mse"
@@ -280,7 +279,6 @@ class ImagenetAEWorkflow(StandardWorkflow):
             self.info("No more autoencoder levels, "
                       "will switch to the classification task")
             self.number_ae_blocks += 1
-            self.fix_dropout()
             self.link_image_saver(self.forwards[-1])
             self.evaluator_name = "evaluator_softmax"
             self.unlink_unit("evaluator")

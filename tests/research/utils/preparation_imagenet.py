@@ -186,6 +186,7 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
         self.path_to_categories = os.path.join(
             root.prep_imagenet.root_path, "indices_to_categories.txt")
         self.num_word = []
+        self.class_keys = {0: [], 1: [], 2: []}
 
     def initialize(self):
         self.map_items = root.prep_imagenet.MAPPING[
@@ -524,15 +525,17 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
                       self.s_max[dst_y_min:dst_y_max, dst_x_min:dst_x_max])
         return None
 
-    def get_dataset_img(self, set_type, image_name, image, mean, threshold):
+    def get_dataset_img(
+            self, set_type, image_name, image_path, image, mean, threshold):
         sample = self.transformation_image(image)
         self.get_original_labels_and_data(
             self.images[set_type][image_name]["label"],
-            sample, set_type)
+            sample, set_type, image_path)
         self.s_sum += sample
         self.s_count += 1.0
 
-    def get_dataset_DET(self, set_type, image_name, image, mean, threshold):
+    def get_dataset_DET(
+            self, set_type, image_name, image_path, image, mean, threshold):
         for bbx in self.images[set_type][image_name]["bbxs"]:
             x = bbx["x"]
             y = bbx["y"]
@@ -588,10 +591,13 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
         original_data_dir = root.prep_imagenet.file_original_data
         original_labels_dir = root.prep_imagenet.file_original_labels
         count_samples_dir = root.prep_imagenet.file_count_samples
+        matrix_file = root.prep_imagenet.file_matrix
+
         self.info(
-            "Will remove old files :\n %s\n %s\n %s\n in 15 seconds. "
+            "Will remove old files :\n %s\n %s\n %s\n %s\n in 15 seconds. "
             "Make sure you want to continue" %
-            (original_data_dir, original_labels_dir, count_samples_dir))
+            (original_data_dir, original_labels_dir, count_samples_dir,
+             matrix_file))
 
         time.sleep(15)
 
@@ -601,6 +607,8 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
             os.remove(original_labels_dir)
         if os.path.exists(count_samples_dir):
             os.remove(count_samples_dir)
+        if os.path.exists(matrix_file):
+            os.remove(matrix_file)
 
         diff_nums = []
         diff_words = []
@@ -662,7 +670,8 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
                 image_fnme = self.images[set_type][image_name]["path"]
                 image = self.decode_image(image_fnme)
                 getattr(self, "get_dataset_%s" % self.series)(
-                    set_type, image_name, image, mean, self.threshold_train)
+                    set_type, image_name, image_fnme, image, mean,
+                    self.threshold_train)
         with open(original_labels_dir, "wb") as fout:
             self.info("Saving labels of images to %s" %
                       original_labels_dir)
@@ -672,8 +681,13 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
                          % count_samples_dir)
             json.dump(self.count_samples, fout)
         mean, rdisp = self.transform_matrixes(self.s_sum, self.s_count)
-        self.save_matrixes(mean, rdisp)
-
+        self.save_matrixes(mean, rdisp, matrix_file)
+        class_keys_path = os.path.join(
+            self.root_path,
+            "class_keys_%s_%s.json" % (self.root_name, self.series))
+        self.info("Saving class_keys to %s" % class_keys_path)
+        with open(class_keys_path, 'w') as fp:
+            json.dump(self.class_keys, fp)
         self.file_samples.close()
 
     def get_word_label_from_num(self, label_num):
@@ -683,16 +697,22 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
                 label_word = word
         return label_word
 
-    def get_original_labels_and_data(self, txt_labels, sample, set_type):
+    def get_original_labels_and_data(self, txt_labels, sample, set_type, path):
         if self.series != "DET" and len(txt_labels) > 1:
             self.error("Too much labels for image")
         else:
-            for txt_label in txt_labels:
-                word_label = self.get_word_label_from_num(txt_label)
-                int_label = self.labels_int_txt[txt_label]
-                sample.tofile(self.file_samples)
-                self.original_labels.append((word_label, int_label - 1))
-                self.count_samples[set_type] += 1
+            if not ((txt_labels is None or len(txt_labels) == 0)
+                    and set_type == "test"):
+                for txt_label in txt_labels:
+                    word_label = self.get_word_label_from_num(txt_label)
+                    int_label = self.labels_int_txt[txt_label]
+                    self.original_labels.append((word_label, int_label - 1))
+            else:
+                self.original_labels.append((None, 0))
+            sets = {"test": 0, "val": 1, "train": 2}
+            self.class_keys[sets[set_type]].append(path)
+            sample.tofile(self.file_samples)
+            self.count_samples[set_type] += 1
 
     def transform_matrixes(self, s_sum, s_count):
         self.s_mean = s_sum / s_count
@@ -724,8 +744,7 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
         aa[:, :, 0:3] = array[:, :, 0:3]
         return aa
 
-    def save_matrixes(self, mean, rdisp):
-        matrix_file = root.prep_imagenet.file_matrix
+    def save_matrixes(self, mean, rdisp, matrix_file):
         out_path_mean = os.path.join(
             root.prep_imagenet.root_path, "mean_image.JPEG")
         scipy.misc.imsave(out_path_mean, self.s_mean)
@@ -802,6 +821,7 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
             image = self.decode_image(image_fnme)
             getattr(self, "get_dataset_%s" % self.series)(
                 set_type, image_name, image, mean, self.threshold_val)
+
         self.info("Saving images to %s" % original_data_dir)
         with open(original_labels_dir, "wb") as fout:
             self.info("Saving labels of images to %s" %
