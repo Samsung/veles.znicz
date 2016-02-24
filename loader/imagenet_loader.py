@@ -35,7 +35,7 @@ under the License.
 
 ███████████████████████████████████████████████████████████████████████████████
 """
-
+from collections import defaultdict
 
 import json
 import pickle
@@ -67,12 +67,22 @@ class ImagenetLoaderBase(loader.Loader):
         self.count_samples_filename = kwargs.get("count_samples_filename")
         self.matrixes_filename = kwargs.get("matrixes_filename")
         self.samples_filename = kwargs.get("samples_filename")
+        self.class_keys_path = kwargs.get("class_keys_path")
         self.final_sy = self.sy
         self.final_sx = self.sx
+        self._train_different_labels_ = defaultdict(int)
+        self.class_keys = None
+
+        if self.class_keys_path is not None:
+            with open(self.class_keys_path, "r") as fin:
+                self.class_keys = json.load(fin)
+            self.info("Class keys was loaded: len %s" % len(self.class_keys))
 
     def initialize(self, **kwargs):
         self._original_labels_ = []
+        self._train_different_labels_ = defaultdict(int)
         super(ImagenetLoaderBase, self).initialize(**kwargs)
+        self._unique_labels_count = len(self._train_different_labels_)
         self.minibatch_labels.reset(numpy.zeros(
             self.max_minibatch_size, dtype=numpy.int32))
 
@@ -103,9 +113,7 @@ class ImagenetLoaderBase(loader.Loader):
                 txt_lbl, int_lbl = lbls
                 self._original_labels_.append(txt_lbl)
                 self.labels_mapping[txt_lbl] = int(int_lbl)
-
-        for _ in range(len(self.labels_mapping)):
-            self.reversed_labels_mapping.append(None)
+                self.reversed_labels_mapping.append(None)
         for key, val in self.labels_mapping.items():
             self.reversed_labels_mapping[val] = key
 
@@ -114,6 +122,10 @@ class ImagenetLoaderBase(loader.Loader):
                 set_type = {"test": 0, "val": 1, "train": 2}
                 self.class_lengths[set_type[key]] = value
         self.info("Class Lengths: %s", str(self.class_lengths))
+
+        for lbl in self._original_labels_[
+                self.class_lengths[0]+self.class_lengths[1]:]:
+            self._train_different_labels_[lbl] += 1
 
         if self.total_samples != len(self._original_labels_):
             raise error.Bug(
@@ -158,6 +170,9 @@ class ImagenetLoaderBase(loader.Loader):
             self._original_labels_[int(index_sample)]]
 
     def fill_indices(self, start_offset, count):
+        if self.minibatch_class == 0 and not self.testing:
+            return True
+
         self.minibatch_indices.map_invalidate()
         idxs = self.minibatch_indices.mem
         self.shuffled_indices.map_read()

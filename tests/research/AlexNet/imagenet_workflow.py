@@ -109,7 +109,10 @@ class ImagenetLoader(ImagenetLoaderBase):
     def fill_data(self, index, index_sample, sample):
         self._file_samples_.readinto(sample)
         rand = prng.get()
-        self.do_mirror = self.mirror and bool(rand.randint((2)))
+        if self.minibatch_class == 2:
+            self.do_mirror = self.mirror and bool(rand.randint((2)))
+        else:
+            self.do_mirror = False
         image = self.transform_sample(sample)
         self.minibatch_data.mem[index] = image
         self.minibatch_labels.mem[
@@ -164,18 +167,17 @@ class ImagenetWorkflow(StandardWorkflow):
         self.link_repeater(self.start_point)
         self.link_loader(self.repeater)
         self.link_forwards(("input", "minibatch_data"), self.loader)
-        self.fix_dropout()
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
         self.link_snapshotter(self.decision)
         parallel_units = []
-        self.link_image_saver(self.snapshotter)
+        # self.link_image_saver(self.snapshotter)
         if root.imagenet.add_plotters:
-            parallel_units.extend(link(self.image_saver) for link in (
+            parallel_units.extend(link(self.snapshotter) for link in (
                 self.link_error_plotter,
                 self.link_err_y_plotter))
             parallel_units.append(self.link_weights_plotter(
-                "weights", self.decision))
+                "weights", self.snapshotter))
 
         last_gd = self.link_gds(*parallel_units)
         self.link_lr_adjuster(last_gd)
