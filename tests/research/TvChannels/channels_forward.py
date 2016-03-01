@@ -60,6 +60,7 @@ class LoaderChannelsTest(FullBatchImageLoader, FileListImageLoader):
         super(LoaderChannelsTest, self).__init__(workflow, **kwargs)
         self.path_to_bboxes = kwargs["path_to_bboxes"]
         self.new_class_keys = {0: []}
+        self.keys_bboxes = {0: {}}
         self.bboxes = {}
 
     def derive_from(self, loader):
@@ -86,6 +87,7 @@ class LoaderChannelsTest(FullBatchImageLoader, FileListImageLoader):
             pass
         with open(self.path_to_bboxes, "r") as fin:
             self.bboxes = json.load(fin)
+            intervals, bboxes_by_time = self.get_intervals(self.bboxes)
         if self.restored_from_snapshot and not self.testing:
             self.info("Scanning for changes...")
             progress = ProgressBar(maxval=self.total_samples, term_width=40)
@@ -105,7 +107,14 @@ class LoaderChannelsTest(FullBatchImageLoader, FileListImageLoader):
         for index, class_name in enumerate(CLASS_NAME):
             keys = set(self.get_keys(index))
             self.class_keys[index].extend(keys)
-            self.class_lengths[index] = len(keys) * len(self.bboxes)
+            len_bboxes = 0
+            for key in keys:
+                time_frame = self.get_time_by_key(key)
+                bboxes = self.get_bboxes_by_time_frame(
+                    bboxes_by_time, time_frame, intervals)
+                len_bboxes += len(bboxes)
+                self.keys_bboxes[index][key] = bboxes
+            self.class_lengths[index] = len_bboxes
             self.class_keys[index].sort()
 
         if self.uncropped_shape == tuple():
@@ -197,6 +206,28 @@ class LoaderChannelsTest(FullBatchImageLoader, FileListImageLoader):
             images.append(cropted_image)
         return images
 
+    def get_time_by_key(self, key):
+        file_name = os.path.basename(key).split(".png")[0]
+        time_frame = float(file_name.split("_")[-2])
+        return time_frame
+
+    def get_intervals(self, bboxes):
+        intervals = []
+        bboxes_by_time = {}
+        for value in bboxes:
+            time_frame = value[0]
+            bboxes = value[1]
+            # for time_frame, bboxes in value:
+            intervals.append(time_frame)
+            bboxes_by_time[time_frame] = bboxes
+        return intervals, bboxes_by_time
+
+    def get_bboxes_by_time_frame(self, bboxes_by_time, time_frame, intervals):
+        for max_time_frame in sorted(intervals):
+            if max_time_frame >= time_frame:
+                break
+        return bboxes_by_time[max_time_frame]
+
     def load_keys(self, keys, pbar, data, labels, label_values, crop=True):
         """Loads data from the specified keys.
         """
@@ -205,7 +236,7 @@ class LoaderChannelsTest(FullBatchImageLoader, FileListImageLoader):
         for key in keys:
             img, sz, clr = self._load_image(key)
             lbl, has_labels = self._load_label(key, has_labels)
-            images = self.get_images_from_bboxes(img, self.bboxes)
+            images = self.get_images_from_bboxes(img, self.keys_bboxes[0][key])
             for obj in images:
                 bbx = self.get_image_bbox(key, sz)
                 img, label_value, _ = self.preprocess_image(
@@ -279,8 +310,11 @@ if __name__ == "__main__":
         "channels_validation_0.40_train_0.07.4.pickle.gz",
         "stealth": True,
         "device": 0}
+
     path_to_model = "veles/znicz/tests/research/TvChannels/channels.py"
     data_path = os.path.join(root.common.dirs.datasets, "channels_test")
+    path_to_suspicious_logos = os.path.join(data_path, "is_it_a_logotype?")
+    path_to_labeled_frames = os.path.join(data_path, "out_frames")
 
     # Load workflow from snapshot
     launcher = veles(path_to_model, **parameters)  # pylint: disable=E1102
@@ -299,17 +333,20 @@ if __name__ == "__main__":
                    "scale": (256, 256),
                    "background_color": (0, 0, 0, 0),
                    "scale_maintain_aspect_ratio": True,
-                   "base_directory": os.path.join(data_path, "pictures"),
+                   "base_directory":
+                   os.path.join(data_path, "different_frames"),
                    "path_to_test_text_file":
                    [os.path.join(data_path, "channels_test.txt")],
                    "path_to_bboxes":
-                   os.path.join(data_path, "bboxes_auto.json"),
-
-                   }
+                   os.path.join(data_path, "bboxes.json")}
     create_forward(
         launcher.workflow, normalizer=launcher.workflow.loader.normalizer,
         labels_mapping=launcher.workflow.loader.reversed_labels_mapping,
         loader_config=loader_conf)
+
+    for path_to_folder in (path_to_suspicious_logos, path_to_labeled_frames):
+        if not os.path.exists(path_to_folder):
+            os.makedirs(path_to_folder)
 
     # Initialize and run new workflow:
     launcher.boot()
@@ -318,31 +355,49 @@ if __name__ == "__main__":
     results = launcher.workflow.gather_results()
 
     output = results["Output"]
-    base_path_to_labeled_pictures = os.path.join(data_path, "out_pictures")
 
     for path_to_original, value in output.items():
-        label, bbox_number = value
-        bbox = launcher.workflow.loader.bboxes[bbox_number]
-        bbox = numpy.array(bbox, numpy.int32)
-        y_min, y_max = bbox[:2]
-        x_min, x_max = bbox[2:]
-        name_image = os.path.basename(path_to_original)[:-4]
-        name_dir = os.path.dirname(path_to_original)
-        new_path = os.path.join(
-            os.path.dirname(name_dir), "out_pictures/" + name_image + ".png")
+        label, weight, bbox_number = value
+        bboxes = launcher.workflow.loader.keys_bboxes[0][path_to_original]
+
         image, size, color = launcher.workflow.loader._load_image(
             path_to_original)
 
-        cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 3)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(
-            image, label, (x_min - 50, y_min - 50), font, 2,
-            (255, 255, 255), 2, cv2.LINE_AA)
+        if label == "no channel":
+            video_name = os.path.basename(path_to_original)
+            for i, bbox in enumerate(bboxes):
+                bbox = numpy.array(bbox, numpy.int32)
+                y_min, y_max = bbox[:2]
+                x_min, x_max = bbox[2:]
+                sample = image[y_min:y_max, x_min:x_max]
+                out_path = os.path.join(
+                    path_to_suspicious_logos,
+                    "bbox_%s_%s_%s_%s_%s"
+                    % (y_min, x_min, y_max, x_max, video_name))
+                print("Saved image to %s" % out_path)
+                scipy.misc.imsave(out_path, sample)
+        else:
+            bbox = bboxes[bbox_number]
+            bbox = numpy.array(bbox, numpy.int32)
+            y_min, y_max = bbox[:2]
+            x_min, x_max = bbox[2:]
+            name_image = os.path.basename(path_to_original)[:-4]
+            name_dir = os.path.dirname(path_to_original)
+            new_path = os.path.join(
+                path_to_labeled_frames, name_image + ".png")
 
-        print("Saved image to %s" % new_path)
-        scipy.misc.imsave(new_path, image)
+            cv2.rectangle(
+                image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 3)
+            font = cv2.FONT_HERSHEY_DUPLEX
+            cv2.putText(
+                image, label + " %2.2f " % (weight * 100) + "%",
+                (int(image.shape[1]/2), int(image.shape[0]/2)), font, 2,
+                (255, 0, 0), 2, cv2.LINE_AA)
+
+            print("Saved image to %s" % new_path)
+            scipy.misc.imsave(new_path, image)
 
     out_file = os.path.join(data_path, "result.txt")
     with open(out_file, "w") as fout:
         json.dump(results, fout, sort_keys=True)
-    print("Successfully wrote %d results to %s", len(results), out_file)
+    print("Successfully wrote %d results to %s" % (len(results), out_file))

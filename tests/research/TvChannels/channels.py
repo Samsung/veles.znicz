@@ -36,7 +36,8 @@ under the License.
 
 ███████████████████████████████████████████████████████████████████████████████
 """
-from veles.loader import TEST
+from veles.znicz.image_saver import ImageSaver
+from veles.loader import TEST, ImageLoader
 from veles.znicz.evaluator import EvaluatorSoftmax
 
 from veles.config import root
@@ -45,6 +46,10 @@ from veles.znicz.standard_workflow import StandardWorkflow
 
 class EvaluatorChannels(EvaluatorSoftmax):
     MAPPING = "evaluator_softmax_channels"
+
+    def __init__(self, workflow, **kwargs):
+        super(EvaluatorChannels, self).__init__(workflow, **kwargs)
+        self.max_threshold = kwargs.get("max_threshold", 0.52)
 
     def get_metric_values(self):
         if self.testing:
@@ -69,15 +74,16 @@ class EvaluatorChannels(EvaluatorSoftmax):
                 got_smth = False
                 for label, max_val in value:
                     index_bbox += 1
-                    if total_max_value < max_val and label != "None":
+                    if total_max_value < max_val and label != "negative":
                         total_max_value = max_val
                         total_max_label = label
                         total_max_bbox = index_bbox
                         got_smth = True
-                if got_smth:
-                    result[key] = (total_max_label, total_max_bbox)
+                if got_smth and total_max_value >= self.max_threshold:
+                    result[key] = (
+                        total_max_label, total_max_value, total_max_bbox)
                 else:
-                    result[key] = ("no channel", None)
+                    result[key] = ("no channel", None, None)
             return {"Output": result}
         return {}
 
@@ -106,6 +112,25 @@ in configuration file.
         self.evaluator.link_attrs(self.forwards[-1], "max_idx")
         return self.evaluator
 
+    def link_image_saver(self, *parents):
+        self.image_saver = ImageSaver(self, **self.config.image_saver)\
+            .link_from(*parents)
+        self.image_saver.link_attrs(self.forwards[-1], "max_idx")
+        self.image_saver.link_attrs(self.forwards[-1], "output")
+        if isinstance(self.loader, ImageLoader):
+            self.image_saver.link_attrs(self.loader, "color_space")
+        if hasattr(self.loader, "reversed_labels_mapping"):
+            self.image_saver.link_attrs(self.loader, "reversed_labels_mapping")
+        self.image_saver.link_attrs(self.loader,
+                                    ("input", "minibatch_data"),
+                                    ("indices", "minibatch_indices"),
+                                    ("labels", "minibatch_labels"),
+                                    "minibatch_class", "minibatch_size")
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time")) \
+            .gate_skip = ~self.decision.improved
+        return self.image_saver
+
     def create_workflow(self):
         self.link_downloader(self.start_point)
         self.link_repeater(self.downloader)
@@ -116,7 +141,8 @@ in configuration file.
         end_units = [link(self.decision) for link in (
             self.link_snapshotter, self.link_error_plotter,
             self.link_conf_matrix_plotter)]
-        last_gd = self.link_gds(*end_units)
+        self.link_image_saver(*end_units)
+        last_gd = self.link_gds(self.image_saver)
         self.link_loop(last_gd)
         self.link_end_point(last_gd)
 
