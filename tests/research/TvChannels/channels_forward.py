@@ -217,12 +217,12 @@ class LoaderChannelsTest(FullBatchImageLoader, FileListImageLoader):
         for value in bboxes:
             time_frame = value[0]
             bboxes = value[1]
-            # for time_frame, bboxes in value:
             intervals.append(time_frame)
             bboxes_by_time[time_frame] = bboxes
         return intervals, bboxes_by_time
 
     def get_bboxes_by_time_frame(self, bboxes_by_time, time_frame, intervals):
+        max_time_frame = None
         for max_time_frame in sorted(intervals):
             if max_time_frame >= time_frame:
                 break
@@ -307,7 +307,7 @@ if __name__ == "__main__":
         "dry_run": "init",
         "snapshot":
         "https://s3-eu-west-1.amazonaws.com/veles.forge/TvChannels/"
-        "channels_validation_0.40_train_0.07.4.pickle.gz",
+        "channels_validation_0.76_train_0.27.4.pickle.gz",
         "stealth": True,
         "device": 0}
 
@@ -327,10 +327,10 @@ if __name__ == "__main__":
                    "add_sobel": True,
                    "file_subtypes": ["png"],
                    "background_image":
-                   numpy.zeros([256, 256, 4], dtype=numpy.uint8),
+                   numpy.zeros([224, 224, 4], dtype=numpy.uint8),
                    "mirror": False,
                    "color_space": "HSV",
-                   "scale": (256, 256),
+                   "scale": (224, 224),
                    "background_color": (0, 0, 0, 0),
                    "scale_maintain_aspect_ratio": True,
                    "base_directory":
@@ -344,40 +344,40 @@ if __name__ == "__main__":
         labels_mapping=launcher.workflow.loader.reversed_labels_mapping,
         loader_config=loader_conf)
 
+    # Initialize and run new workflow:
+    launcher.boot()
+
     for path_to_folder in (path_to_suspicious_logos, path_to_labeled_frames):
         if not os.path.exists(path_to_folder):
             os.makedirs(path_to_folder)
-
-    # Initialize and run new workflow:
-    launcher.boot()
 
     # Write results:
     results = launcher.workflow.gather_results()
 
     output = results["Output"]
 
-    for path_to_original, value in output.items():
-        label, weight, bbox_number = value
-        bboxes = launcher.workflow.loader.keys_bboxes[0][path_to_original]
+    for path_to_original, val in output.items():
+        label, weight, bbox_number = val
+        bboxes_ = launcher.workflow.loader.keys_bboxes[0][path_to_original]
 
         image, size, color = launcher.workflow.loader._load_image(
             path_to_original)
 
         if label == "no channel":
             video_name = os.path.basename(path_to_original)
-            for i, bbox in enumerate(bboxes):
+            for i, bbox in enumerate(bboxes_):
                 bbox = numpy.array(bbox, numpy.int32)
                 y_min, y_max = bbox[:2]
                 x_min, x_max = bbox[2:]
-                sample = image[y_min:y_max, x_min:x_max]
+                sample_img = image[y_min:y_max, x_min:x_max]
                 out_path = os.path.join(
                     path_to_suspicious_logos,
                     "bbox_%s_%s_%s_%s_%s"
                     % (y_min, x_min, y_max, x_max, video_name))
                 print("Saved image to %s" % out_path)
-                scipy.misc.imsave(out_path, sample)
+                scipy.misc.imsave(out_path, sample_img)
         else:
-            bbox = bboxes[bbox_number]
+            bbox = bboxes_[bbox_number]
             bbox = numpy.array(bbox, numpy.int32)
             y_min, y_max = bbox[:2]
             x_min, x_max = bbox[2:]
@@ -388,11 +388,11 @@ if __name__ == "__main__":
 
             cv2.rectangle(
                 image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 3)
-            font = cv2.FONT_HERSHEY_DUPLEX
+            font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(
-                image, label + " %2.2f " % (weight * 100) + "%",
-                (int(image.shape[1]/2), int(image.shape[0]/2)), font, 2,
-                (255, 0, 0), 2, cv2.LINE_AA)
+                image, label + " %2f " % (weight * 100) + "%",
+                (int(image.shape[1] / 2), int(image.shape[0] / 2)), font, 2,
+                (255, 255, 255), 2, cv2.LINE_AA)
 
             print("Saved image to %s" % new_path)
             scipy.misc.imsave(new_path, image)
@@ -400,4 +400,4 @@ if __name__ == "__main__":
     out_file = os.path.join(data_path, "result.txt")
     with open(out_file, "w") as fout:
         json.dump(results, fout, sort_keys=True)
-    print("Successfully wrote %d results to %s" % (len(results), out_file))
+    print("Successfully wrote %d results to %s", len(results), out_file)

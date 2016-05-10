@@ -32,7 +32,7 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-import argparse
+
 import json
 import cv2
 import pickle
@@ -47,8 +47,7 @@ from veles.loader import Loader
 from veles.loader.file_image import FileListImageLoader
 from veles.memory import Array
 import veles.opencl_types as opencl_types
-from veles.znicz.tests.research.AlexNet.imagenet_workflow import \
-    ImagenetPreprocessingBase
+from imagenet_workflow import ImagenetPreprocessingBase
 
 
 class ImagenetTestLoader(FileListImageLoader, ImagenetPreprocessingBase):
@@ -169,15 +168,14 @@ if __name__ == "__main__":
         "stealth": True,
         "device": 0}
 
-    path_to_model = "veles/znicz/tests/research/AlexNet/imagenet_workflow.py"
-    path_to_config = \
+    path_mod = "veles/znicz/tests/research/AlexNet/imagenet_workflow.py"
+    path_con = \
         "veles/znicz/tests/research/AlexNet/imagenet_workflow_nin_config.py"
     data_path = os.path.join(root.common.dirs.datasets, "imagenet_test")
     path_to_labeled_frames = os.path.join(data_path, "out_pictures")
 
     # Load workflow from snapshot
-    launcher = veles(
-        path_to_model, path_to_config, **parameters)  # pylint: disable=E1102
+    launcher = veles(path_mod, path_con, **parameters)  # pylint: disable=E1102
 
     # Swith to testing mode:
     launcher.testing = True
