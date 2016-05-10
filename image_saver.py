@@ -92,6 +92,7 @@ class ImageSaver(Unit, TriviallyDistributable):
         self.color_space = kwargs.get("color_space", "RGB")
         self.demand("input", "indices", "labels",
                     "minibatch_class", "minibatch_size")
+        self.reversed_labels_mapping = None
 
     @staticmethod
     def as_image(inp):
@@ -202,12 +203,20 @@ class ImageSaver(Unit, TriviallyDistributable):
         input_image = ImageSaver.as_image(self.input[image_index])
         true_label = self.labels[image_index]
         index = self.indices.mem[image_index]
+        if self.reversed_labels_mapping is not None:
+            true_label = self.reversed_labels_mapping[true_label]
         if self.max_idx is not None:
             prediction_label = self.max_idx[image_index]
             output_image = self.output[image_index]
             out_path_dir = self.out_dirs[self.minibatch_class]
-            tail_file_name = "%d_as_%d.%.0fpt.%d.png" % (
-                true_label, prediction_label,
+            if self.reversed_labels_mapping is not None:
+                text_prediction_label = self.reversed_labels_mapping[
+                    prediction_label]
+            else:
+                text_prediction_label = prediction_label
+            tail_file_name = "%s_as_%s.%.0fpt.%d.png" % (
+                true_label,
+                text_prediction_label,
                 output_image[prediction_label], index)
             target_image = None
         else:
@@ -230,7 +239,10 @@ class ImageSaver(Unit, TriviallyDistributable):
                 output_image = None
                 target_image = None
                 mse = None
-            tail_file_name = "%.6f_%d_%d.png" % (mse, true_label, index)
+            if mse is not None:
+                tail_file_name = "%.6f_%s_%d.png" % (mse, true_label, index)
+            else:
+                tail_file_name = "%s_%s_%d.png" % (mse, true_label, index)
 
         self.create_directory(out_path_dir)
 

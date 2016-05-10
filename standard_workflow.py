@@ -553,6 +553,8 @@ class StandardWorkflow(StandardWorkflowBase):
         self.image_saver.link_attrs(self.forwards[-1], "output")
         if isinstance(self.loader, ImageLoader):
             self.image_saver.link_attrs(self.loader, "color_space")
+        if hasattr(self.loader, "reversed_labels_mapping"):
+            self.image_saver.link_attrs(self.loader, "reversed_labels_mapping")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
                                     ("indices", "minibatch_indices"),
