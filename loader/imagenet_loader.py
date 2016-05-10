@@ -82,7 +82,8 @@ class ImagenetLoaderBase(loader.Loader):
         self._original_labels_ = []
         self._train_different_labels_ = defaultdict(int)
         super(ImagenetLoaderBase, self).initialize(**kwargs)
-        self._unique_labels_count = len(self._train_different_labels_)
+        if not self.testing:
+            self._unique_labels_count = len(self._train_different_labels_)
         self.minibatch_labels.reset(numpy.zeros(
             self.max_minibatch_size, dtype=numpy.int32))
 
@@ -113,7 +114,8 @@ class ImagenetLoaderBase(loader.Loader):
                 txt_lbl, int_lbl = lbls
                 self._original_labels_.append(txt_lbl)
                 self.labels_mapping[txt_lbl] = int(int_lbl)
-                self.reversed_labels_mapping.append(None)
+        for _ in range(len(self.labels_mapping)):
+            self.reversed_labels_mapping.append(None)
         for key, val in self.labels_mapping.items():
             self.reversed_labels_mapping[val] = key
 
