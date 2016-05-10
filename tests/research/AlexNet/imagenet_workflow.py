@@ -40,6 +40,7 @@ under the License.
 import cv2
 import numpy
 import os
+from veles.loader import Loader
 from veles.loader.interactive import InteractiveLoader
 
 from veles.config import root
@@ -53,24 +54,15 @@ from veles.znicz.loader import loader_lmdb  # pylint: disable=W0611
 root.common.ThreadPool.maxthreads = 3
 
 
-class ImagenetLoader(ImagenetLoaderBase):
+class ImagenetPreprocessingBase(Loader):
     MAPPING = "imagenet_pickle_loader"
 
     def __init__(self, workflow, **kwargs):
-        super(ImagenetLoader, self).__init__(workflow, **kwargs)
-        self.crop_size_sx = kwargs.get("crop_size_sx", 227)
-        self.crop_size_sy = kwargs.get("crop_size_sy", 227)
+        super(ImagenetPreprocessingBase, self).__init__(workflow, **kwargs)
+        self.crop_size_sx = kwargs.get("crop_size_sx", 224)
+        self.crop_size_sy = kwargs.get("crop_size_sy", 224)
         self.do_mirror = False
-        self.mirror = kwargs.get("mirror", False)
-        self.final_sy = self.crop_size_sy
-        self.final_sx = self.crop_size_sx
         self.has_mean_file = False
-
-    def load_data(self):
-        super(ImagenetLoader, self).load_data()
-        if self.matrixes_filename and os.path.exists(self.matrixes_filename):
-            self.load_mean()
-            self.has_mean_file = True
 
     def transform_sample(self, sample):
         if self.has_mean_file:
@@ -105,6 +97,22 @@ class ImagenetLoader(ImagenetLoaderBase):
             h_off:h_off + self.crop_size_sy,
             w_off:w_off + self.crop_size_sx, :self.channels]
         return sample
+
+
+class ImagenetLoader(ImagenetLoaderBase, ImagenetPreprocessingBase):
+    MAPPING = "imagenet_pickle_loader"
+
+    def __init__(self, workflow, **kwargs):
+        super(ImagenetLoader, self).__init__(workflow, **kwargs)
+        self.mirror = kwargs.get("mirror", False)
+        self.final_sy = self.crop_size_sy
+        self.final_sx = self.crop_size_sx
+
+    def load_data(self):
+        super(ImagenetLoader, self).load_data()
+        if self.matrixes_filename and os.path.exists(self.matrixes_filename):
+            self.load_mean()
+            self.has_mean_file = True
 
     def fill_data(self, index, index_sample, sample):
         self._file_samples_.readinto(sample)

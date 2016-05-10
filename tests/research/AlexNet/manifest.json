@@ -1,6 +1,6 @@
 {
     "author": "VELES team",
-    "configuration": "imagenet_workflow_config.py",
+    "configuration": "imagenet_workflow_nin_config.py",
     "long_description": "Model created for object recognition. Database - Imagenet (1000 classes). Self-constructing Model. It means that Model can change for any Model (Convolutional, Fully connected, different parameters) in configuration file.",
     "name": "AlexNet",
     "requires": [
@@ -11,6 +11,6 @@
     "workflow": "imagenet_workflow.py",
     "image": "imagenet.jpg",
     "tags": ["imagenet", "convolutional", "fully-connected", "softmax", "self-constructing", "alexnet", "caffe", "vgg"],
-    "files": ["preparation_imagenet.py", "imagenet_workflow_lmdb_config.py", "__init__.py",  "loader_lmdb.py", "imagenet_workflow_vgga_config.py", "ImagenetForward.ipynb"],
-    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/AlexNet/imagenet_52.64pt.4.pickle.gz"]
+    "files": ["preparation_imagenet.py", "imagenet_workflow_lmdb_config.py", "__init__.py",  "loader_lmdb.py", "imagenet_workflow_vgga_config.py", "imagenet_workflow_config.py", "imagenet_forward.py"],
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles.forge/AlexNet/imagenet_test_82.81_validation_40.68_train_32.10.4.pickle.gz"]
 }

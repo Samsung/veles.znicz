@@ -621,7 +621,7 @@ training Neural Network. And use it in ImagenetForward workflow, for example.
                 if word not in diff_words:
                     diff_words.append(word)
                 if len(diff_nums) - len(diff_words) == 1:
-                    word += num
+                    word += "_%s" % num
                     diff_words.append(word)
                 assert len(diff_nums) == len(diff_words)
                 self.num_word.append((num, word))
